@@ -1,25 +1,9 @@
-This is a Next.js project bootstrapped with [`create-plasmic-app`](https://www.npmjs.com/package/create-plasmic-app).
+# Angelfish Records
 
-## Getting Started
+This repository contains the official website for **Angelfish Records**, serving as the public-facing gateway for the label’s corporate identity, catalogue overview, and merchandise.
 
-First, run the development server:
+The site is intentionally minimal. Its purpose is to provide clear, durable access to label information, artist links, and commercial touchpoints, rather than to function as a community platform or primary listening destination. Deeper artist experiences, releases, and fan interactions live on dedicated artist sites.
 
-```bash
-npm run dev
-```
+This codebase prioritises clarity, longevity, and ease of maintenance, and is designed to remain stable as the label’s roster, catalogue, and commercial activity evolve.
 
-Open your browser to see the result.
-
-You can start editing your project in Plasmic Studio. The page auto-updates as you edit the project.
-
-## Learn More
-
-With Plasmic, you can enable non-developers on your team to publish pages and content into your website or app.
-
-To learn more about Plasmic, take a look at the following resources:
-
-- [Plasmic Website](https://www.plasmic.app/)
-- [Plasmic Documentation](https://docs.plasmic.app/learn/)
-- [Plasmic Community Forum](https://forum.plasmic.app/)
-
-You can check out [the Plasmic GitHub repository](https://github.com/plasmicapp/plasmic) - your feedback and contributions are welcome!
+© Angelfish Records. All rights reserved.
