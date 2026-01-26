@@ -47,7 +47,6 @@ function isoNow(): string {
 }
 
 function escapeAirtableString(s: string): string {
-  // Airtable filterByFormula string literal escaping
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
@@ -132,12 +131,6 @@ async function airtableCreateSuppression(args: {
 }) {
   const {token, baseId, suppressionsTable, contactId, reason, startDateIso, notes} = args
 
-  // Your schema: Suppressions fields are:
-  // - Contact (link)
-  // - Reason (single select)
-  // - Start date (date)
-  // - End date (date) [optional]
-  // - Notes (multiline)
   const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(suppressionsTable)}`
   const body = {
     records: [
@@ -145,7 +138,7 @@ async function airtableCreateSuppression(args: {
         fields: {
           Contact: [contactId],
           Reason: reason,
-          'Start date': startDateIso.slice(0, 10), // date field expects YYYY-MM-DD
+          'Start date': startDateIso.slice(0, 10),
           Notes: notes ?? '',
         },
       },
@@ -160,18 +153,74 @@ async function airtableCreateSuppression(args: {
   if (!res.ok) throw new Error(`Airtable suppression create failed: ${res.status} ${res.body}`)
 }
 
+/** NEW: map Resend event → Sends.Delivery status */
+function mapDeliveryStatus(type: string): string | null {
+  switch (type) {
+    case 'email.sent':
+      return 'Sent'
+    case 'email.delivered':
+      return 'Delivered'
+    case 'email.bounced':
+      return 'Bounced'
+    case 'email.complained':
+      return 'Complaint'
+    case 'email.failed':
+      return 'Failed'
+    default:
+      return null
+  }
+}
+
+async function airtableUpdateSendByResendMessageId(args: {
+  token: string
+  baseId: string
+  sendsTable: string
+  resendMessageId: string
+  deliveryStatus: string
+  lastEventAtIso: string
+}) {
+  const {token, baseId, sendsTable, resendMessageId, deliveryStatus, lastEventAtIso} = args
+
+  const filter = encodeURIComponent(
+    `{Resend message id} = "${escapeAirtableString(resendMessageId)}"`
+  )
+  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
+    sendsTable
+  )}?maxRecords=1&filterByFormula=${filter}`
+
+  const found = await airtableRequest<{records?: Array<{id: string}>}>(token, url)
+  if (!found.ok) throw new Error(`Airtable send lookup failed: ${found.status} ${found.body}`)
+  const sendId = found.json.records?.[0]?.id
+  if (!sendId) return // no matching Send — safe to ignore
+
+  const patchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
+    sendsTable
+  )}/${sendId}`
+
+  const res = await airtableRequest<unknown>(token, patchUrl, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      fields: {
+        'Delivery status': deliveryStatus,
+        'Last event at': lastEventAtIso,
+      },
+    }),
+  })
+  if (!res.ok) throw new Error(`Airtable send update failed: ${res.status} ${res.body}`)
+}
+
 export async function POST(req: NextRequest) {
   const webhookSecret = must(process.env.AFR_RESEND_WEBHOOK_SECRET, 'AFR_RESEND_WEBHOOK_SECRET')
 
   const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
   const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')
 
-  // Table names must match your base exactly
-  const resendEventsTable = must(process.env.AIRTABLE_RESEND_EVENTS_TABLE, 'AIRTABLE_RESEND_EVENTS_TABLE') // "Resend Events"
-  const pressContactsTable = must(process.env.AIRTABLE_PRESS_CONTACTS_TABLE, 'AIRTABLE_PRESS_CONTACTS_TABLE') // "Press Contacts"
-  const suppressionsTable = must(process.env.AIRTABLE_SUPPRESSIONS_TABLE, 'AIRTABLE_SUPPRESSIONS_TABLE') // "Suppressions"
+  const resendEventsTable = must(process.env.AIRTABLE_RESEND_EVENTS_TABLE, 'AIRTABLE_RESEND_EVENTS_TABLE')
+  const pressContactsTable = must(process.env.AIRTABLE_PRESS_CONTACTS_TABLE, 'AIRTABLE_PRESS_CONTACTS_TABLE')
+  const suppressionsTable = must(process.env.AIRTABLE_SUPPRESSIONS_TABLE, 'AIRTABLE_SUPPRESSIONS_TABLE')
+  const sendsTable = must(process.env.AIRTABLE_SENDS_TABLE, 'AIRTABLE_SENDS_TABLE')
 
-  // Raw payload is REQUIRED for signature verification
   const payload = await req.text()
 
   const svixId = req.headers.get('svix-id') ?? ''
@@ -199,7 +248,6 @@ export async function POST(req: NextRequest) {
     const data = event.data
     const isEmailData = looksLikeEmailEventData(data)
 
-    // Resend's message id is exposed as data.email_id for email.* events (string/uuid-ish)
     const resendMessageId =
       isEmailData && typeof data.email_id === 'string' ? data.email_id : ''
 
@@ -214,9 +262,7 @@ export async function POST(req: NextRequest) {
     const subject =
       isEmailData && typeof data.subject === 'string' ? data.subject : ''
 
-    // 1) Resend Events log (idempotent by svix_id)
-    // Airtable schema fields (exact):
-    // svix_id, event_type, event_created_at, resend_message_id, to_email, from, subject, raw_json, received_at
+    // 1) Immutable event log
     await airtableUpsertByUniqueField({
       baseId,
       table: resendEventsTable,
@@ -236,7 +282,20 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // 2) Suppressions: on bounce/complaint, create a Suppressions row linked to the Press Contact
+    // 2) Operational state: update Sends
+    const deliveryStatus = mapDeliveryStatus(type)
+    if (deliveryStatus && resendMessageId) {
+      await airtableUpdateSendByResendMessageId({
+        token: airtableToken,
+        baseId,
+        sendsTable,
+        resendMessageId,
+        deliveryStatus,
+        lastEventAtIso: eventCreatedAtIso,
+      })
+    }
+
+    // 3) Suppressions
     if (toEmail && (type === 'email.bounced' || type === 'email.complained')) {
       const contactId = await airtableFindPressContactIdByEmail({
         token: airtableToken,
@@ -245,10 +304,10 @@ export async function POST(req: NextRequest) {
         email: toEmail,
       })
 
-      // If the address isn't in your Press Contacts table yet, we still log the event,
-      // but we can't create a linked suppression. This is intentional.
       if (contactId) {
-        const reason: 'Bounced' | 'Complaint' = type === 'email.bounced' ? 'Bounced' : 'Complaint'
+        const reason: 'Bounced' | 'Complaint' =
+          type === 'email.bounced' ? 'Bounced' : 'Complaint'
+
         await airtableCreateSuppression({
           token: airtableToken,
           baseId,
@@ -261,7 +320,6 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch {
-    // Return non-200 so Resend retries on transient failures
     return new NextResponse('Webhook processing failed', {status: 500})
   }
 
