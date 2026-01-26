@@ -1,22 +1,15 @@
 // pages/api/webhooks/resend.ts
 import type {NextApiRequest, NextApiResponse} from 'next'
-import {Resend} from 'resend'
+import {Webhook} from 'svix'
 
-const resend = new Resend(process.env.AFR_RESEND_API_KEY ?? 're_dummy')
+export const config = {
+  api: {bodyParser: false},
+}
 
 function must(v: string | undefined, name: string) {
   if (!v) throw new Error(`Missing ${name}`)
   return v
 }
-
-// IMPORTANT: required so we can verify the Svix signature with the raw body.
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-}
-
-type SvixHeaders = {id: string; timestamp: string; signature: string}
 
 type ResendWebhookEnvelope = {
   type?: string
@@ -51,7 +44,6 @@ function isoNow(): string {
 }
 
 function escapeAirtableString(s: string): string {
-  // filterByFormula string literal escaping
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
@@ -152,7 +144,7 @@ async function airtableCreateSuppression(args: {
         fields: {
           Contact: [contactId],
           Reason: reason,
-          'Start date': startDateIso.slice(0, 10), // YYYY-MM-DD for date field
+          'Start date': startDateIso.slice(0, 10),
           Notes: notes ?? '',
         },
       },
@@ -231,7 +223,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
   const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')
 
-  // Table names (use env so you can rename later without code changes)
   const resendEventsTable = must(process.env.AIRTABLE_RESEND_EVENTS_TABLE, 'AIRTABLE_RESEND_EVENTS_TABLE')
   const pressContactsTable = must(process.env.AIRTABLE_PRESS_CONTACTS_TABLE, 'AIRTABLE_PRESS_CONTACTS_TABLE')
   const suppressionsTable = must(process.env.AIRTABLE_SUPPRESSIONS_TABLE, 'AIRTABLE_SUPPRESSIONS_TABLE')
@@ -246,14 +237,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const payload = await readRawBody(req)
-  const headers: SvixHeaders = {id: svixId, timestamp: svixTimestamp, signature: svixSignature}
 
-  let event: ResendWebhookEnvelope
+  // Verify signature via Svix (Resend webhooks are Svix-signed)
   try {
-    const verified = resend.webhooks.verify({payload, headers, webhookSecret})
-    event = verified as unknown as ResendWebhookEnvelope
+    const wh = new Webhook(webhookSecret)
+    wh.verify(payload, {
+      'svix-id': svixId,
+      'svix-timestamp': svixTimestamp,
+      'svix-signature': svixSignature,
+    })
   } catch {
     return res.status(400).send('Invalid webhook')
+  }
+
+  // Parse payload *after* verification
+  let event: ResendWebhookEnvelope
+  try {
+    event = JSON.parse(payload) as ResendWebhookEnvelope
+  } catch {
+    return res.status(400).send('Invalid JSON payload')
   }
 
   try {
@@ -311,7 +313,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    // 3) Suppressions: on bounce/complaint, create a linked suppression row
+    // 3) Suppressions
     if (toEmail && (type === 'email.bounced' || type === 'email.complained')) {
       const contactId = await airtableFindPressContactIdByEmail({
         token: airtableToken,
@@ -336,7 +338,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ok: true})
   } catch {
-    // Non-200 triggers Resend retry, which is what we want on transient Airtable/API failures
+    // Non-200 triggers retry
     return res.status(500).send('Webhook processing failed')
   }
 }
