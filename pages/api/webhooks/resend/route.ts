@@ -1,168 +1,269 @@
-import 'server-only'\
-import \{NextRequest, NextResponse\} from 'next/server'\
-import \{Resend\} from 'resend'\
-\
-export const runtime = 'nodejs'\
-\
-const resend = new Resend(process.env.AFR_RESEND_API_KEY ?? 're_dummy')\
-\
-function must(v: string | undefined, name: string) \{\
-  if (!v) throw new Error(`Missing $\{name\}`)\
-  return v\
-\}\
-\
-type SvixHeaders = \{id: string; timestamp: string; signature: string\}\
-\
-type ResendWebhookEnvelope = \{\
-  type?: string\
-  created_at?: string\
-  data?: unknown\
-\}\
-\
-type ResendEmailEventData = \{\
-  email_id?: string\
-  from?: string\
-  to?: string[]\
-  subject?: string\
-\}\
-\
-function isObj(x: unknown): x is Record<string, unknown> \{\
-  return !!x && typeof x === 'object'\
-\}\
-\
-function looksLikeEmailEventData(x: unknown): x is ResendEmailEventData \{\
-  if (!isObj(x)) return false\
-  if ('to' in x && x.to !== undefined && !Array.isArray(x.to)) return false\
-  return true\
-\}\
-\
-function lowerEmail(s: string): string \{\
-  return s.trim().toLowerCase()\
-\}\
-\
-async function airtableUpsertByUniqueField(args: \{\
-  baseId: string\
-  table: string\
-  token: string\
-  uniqueField: string\
-  uniqueValue: string\
-  fields: Record<string, unknown>\
-\}) \{\
-  const \{baseId, table, token, uniqueField, uniqueValue, fields\} = args\
-\
-  // 1) Find existing record by unique field\
-  const filter = encodeURIComponent(`\{$\{uniqueField\}\} = "$\{uniqueValue.replace(/"/g, '\\\\"')\}"`)\
-  const searchUrl = `https://api.airtable.com/v0/$\{baseId\}/$\{encodeURIComponent(table)\}?maxRecords=1&filterByFormula=$\{filter\}`\
-  const searchRes = await fetch(searchUrl, \{\
-    headers: \{Authorization: `Bearer $\{token\}`\},\
-  \})\
-  if (!searchRes.ok) throw new Error(`Airtable search failed: $\{searchRes.status\}`)\
-  const searchJson = (await searchRes.json()) as \{records?: Array<\{id: string\}>\}\
-  const existingId = searchJson.records?.[0]?.id\
-\
-  // 2) Create or update\
-  const url = existingId\
-    ? `https://api.airtable.com/v0/$\{baseId\}/$\{encodeURIComponent(table)\}/$\{existingId\}`\
-    : `https://api.airtable.com/v0/$\{baseId\}/$\{encodeURIComponent(table)\}`\
-  const method = existingId ? 'PATCH' : 'POST'\
-  const body = existingId ? \{fields\} : \{records: [\{fields\}]\}\
-\
-  const writeRes = await fetch(url, \{\
-    method,\
-    headers: \{\
-      Authorization: `Bearer $\{token\}`,\
-      'Content-Type': 'application/json',\
-    \},\
-    body: JSON.stringify(body),\
-  \})\
-  if (!writeRes.ok) throw new Error(`Airtable write failed: $\{writeRes.status\}`)\
-\}\
-\
-export async function POST(req: NextRequest) \{\
-  const webhookSecret = must(process.env.AFR_RESEND_WEBHOOK_SECRET, 'AFR_RESEND_WEBHOOK_SECRET')\
-  const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')\
-  const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')\
-  const eventsTable = must(process.env.AIRTABLE_EVENTS_TABLE, 'AIRTABLE_EVENTS_TABLE')\
-  const suppressionsTable = must(process.env.AIRTABLE_SUPPRESSIONS_TABLE, 'AIRTABLE_SUPPRESSIONS_TABLE')\
-\
-  const payload = await req.text()\
-\
-  const svixId = req.headers.get('svix-id') ?? ''\
-  const svixTimestamp = req.headers.get('svix-timestamp') ?? ''\
-  const svixSignature = req.headers.get('svix-signature') ?? ''\
-  if (!svixId || !svixTimestamp || !svixSignature) \{\
-    return new NextResponse('Missing webhook headers', \{status: 400\})\
-  \}\
-\
-  const headers: SvixHeaders = \{id: svixId, timestamp: svixTimestamp, signature: svixSignature\}\
-\
-  let event: ResendWebhookEnvelope\
-  try \{\
-    const verified = resend.webhooks.verify(\{payload, headers, webhookSecret\})\
-    event = verified as unknown as ResendWebhookEnvelope\
-  \} catch \{\
-    return new NextResponse('Invalid webhook', \{status: 400\})\
-  \}\
-\
-  try \{\
-    const type = typeof event.type === 'string' ? event.type : ''\
-    const createdAtIso = event.created_at ? new Date(event.created_at).toISOString() : new Date().toISOString()\
-    const receivedAtIso = new Date().toISOString()\
-\
-    const data = event.data\
-    const isEmailData = looksLikeEmailEventData(data)\
-\
-    const emailId = isEmailData && typeof data.email_id === 'string' ? data.email_id : ''\
-    const from = isEmailData && typeof data.from === 'string' ? data.from : ''\
-    const to0 =\
-      isEmailData && Array.isArray(data.to) && typeof data.to[0] === 'string'\
-        ? lowerEmail(data.to[0])\
-        : ''\
-    const subject = isEmailData && typeof data.subject === 'string' ? data.subject : ''\
-\
-    // 1) Event log (idempotent by svix_id)\
-    await airtableUpsertByUniqueField(\{\
-      baseId,\
-      table: eventsTable,\
-      token: airtableToken,\
-      uniqueField: 'svix_id',\
-      uniqueValue: svixId,\
-      fields: \{\
-        svix_id: svixId,\
-        event_type: type,\
-        created_at: createdAtIso,\
-        email_id: emailId || undefined,\
-        to: to0 || undefined,\
-        from: from || undefined,\
-        subject: subject || undefined,\
-        raw: payload,\
-        received_at: receivedAtIso,\
-      \},\
-    \})\
-\
-    // 2) Suppressions for bounce/complaint\
-    if (to0 && (type === 'email.bounced' || type === 'email.complained')) \{\
-      // first_seen_at should only be set on create; this upsert sets it always,\
-      // but Airtable will simply overwrite. If you care, we can two-step it.\
-      await airtableUpsertByUniqueField(\{\
-        baseId,\
-        table: suppressionsTable,\
-        token: airtableToken,\
-        uniqueField: 'email',\
-        uniqueValue: to0,\
-        fields: \{\
-          email: to0,\
-          reason: type,\
-          source: 'resend',\
-          first_seen_at: receivedAtIso,\
-          last_seen_at: receivedAtIso,\
-        \},\
-      \})\
-    \}\
-  \} catch (e) \{\
-    return new NextResponse('Webhook processing failed', \{status: 500\})\
-  \}\
-\
-  return NextResponse.json(\{ok: true\})\
-\}\
+// web/app/api/webhooks/resend-afr/route.ts
+import 'server-only'
+import {NextRequest, NextResponse} from 'next/server'
+import {Resend} from 'resend'
+
+export const runtime = 'nodejs'
+
+const resend = new Resend(process.env.AFR_RESEND_API_KEY ?? 're_dummy')
+
+function must(v: string | undefined, name: string) {
+  if (!v) throw new Error(`Missing ${name}`)
+  return v
+}
+
+type SvixHeaders = {id: string; timestamp: string; signature: string}
+
+type ResendWebhookEnvelope = {
+  type?: string
+  created_at?: string
+  data?: unknown
+}
+
+type ResendEmailEventData = {
+  email_id?: string
+  from?: string
+  to?: string[]
+  subject?: string
+}
+
+function isObj(x: unknown): x is Record<string, unknown> {
+  return !!x && typeof x === 'object'
+}
+
+function looksLikeEmailEventData(x: unknown): x is ResendEmailEventData {
+  if (!isObj(x)) return false
+  const o = x as Record<string, unknown>
+  if ('to' in o && o.to !== undefined && !Array.isArray(o.to)) return false
+  return true
+}
+
+function lowerEmail(s: string): string {
+  return s.trim().toLowerCase()
+}
+
+function isoNow(): string {
+  return new Date().toISOString()
+}
+
+function escapeAirtableString(s: string): string {
+  // Airtable filterByFormula string literal escaping
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+async function airtableRequest<T>(
+  token: string,
+  url: string,
+  init?: RequestInit
+): Promise<{ok: true; json: T} | {ok: false; status: number; body: string}> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    return {ok: false, status: res.status, body}
+  }
+  const json = (await res.json()) as T
+  return {ok: true, json}
+}
+
+async function airtableUpsertByUniqueField(args: {
+  baseId: string
+  table: string
+  token: string
+  uniqueField: string
+  uniqueValue: string
+  fields: Record<string, unknown>
+}) {
+  const {baseId, table, token, uniqueField, uniqueValue, fields} = args
+
+  const filter = encodeURIComponent(`{${uniqueField}} = "${escapeAirtableString(uniqueValue)}"`)
+  const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
+    table
+  )}?maxRecords=1&filterByFormula=${filter}`
+
+  const found = await airtableRequest<{records?: Array<{id: string}>}>(token, searchUrl)
+  if (!found.ok) throw new Error(`Airtable search failed: ${found.status} ${found.body}`)
+  const existingId = found.json.records?.[0]?.id
+
+  const url = existingId
+    ? `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${existingId}`
+    : `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`
+  const method = existingId ? 'PATCH' : 'POST'
+  const body = existingId ? {fields} : {records: [{fields}]}
+
+  const write = await airtableRequest<unknown>(token, url, {
+    method,
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  })
+  if (!write.ok) throw new Error(`Airtable write failed: ${write.status} ${write.body}`)
+}
+
+async function airtableFindPressContactIdByEmail(args: {
+  token: string
+  baseId: string
+  contactsTable: string
+  email: string
+}): Promise<string | null> {
+  const {token, baseId, contactsTable, email} = args
+  const filter = encodeURIComponent(`LOWER({Email}) = "${escapeAirtableString(email)}"`)
+  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
+    contactsTable
+  )}?maxRecords=1&filterByFormula=${filter}`
+
+  const res = await airtableRequest<{records?: Array<{id: string}>}>(token, url)
+  if (!res.ok) throw new Error(`Airtable contact lookup failed: ${res.status} ${res.body}`)
+  return res.json.records?.[0]?.id ?? null
+}
+
+async function airtableCreateSuppression(args: {
+  token: string
+  baseId: string
+  suppressionsTable: string
+  contactId: string
+  reason: 'Bounced' | 'Complaint'
+  startDateIso: string
+  notes?: string
+}) {
+  const {token, baseId, suppressionsTable, contactId, reason, startDateIso, notes} = args
+
+  // Your schema: Suppressions fields are:
+  // - Contact (link)
+  // - Reason (single select)
+  // - Start date (date)
+  // - End date (date) [optional]
+  // - Notes (multiline)
+  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(suppressionsTable)}`
+  const body = {
+    records: [
+      {
+        fields: {
+          Contact: [contactId],
+          Reason: reason,
+          'Start date': startDateIso.slice(0, 10), // date field expects YYYY-MM-DD
+          Notes: notes ?? '',
+        },
+      },
+    ],
+  }
+
+  const res = await airtableRequest<unknown>(token, url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Airtable suppression create failed: ${res.status} ${res.body}`)
+}
+
+export async function POST(req: NextRequest) {
+  const webhookSecret = must(process.env.AFR_RESEND_WEBHOOK_SECRET, 'AFR_RESEND_WEBHOOK_SECRET')
+
+  const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
+  const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')
+
+  // Table names must match your base exactly
+  const resendEventsTable = must(process.env.AIRTABLE_RESEND_EVENTS_TABLE, 'AIRTABLE_RESEND_EVENTS_TABLE') // "Resend Events"
+  const pressContactsTable = must(process.env.AIRTABLE_PRESS_CONTACTS_TABLE, 'AIRTABLE_PRESS_CONTACTS_TABLE') // "Press Contacts"
+  const suppressionsTable = must(process.env.AIRTABLE_SUPPRESSIONS_TABLE, 'AIRTABLE_SUPPRESSIONS_TABLE') // "Suppressions"
+
+  // Raw payload is REQUIRED for signature verification
+  const payload = await req.text()
+
+  const svixId = req.headers.get('svix-id') ?? ''
+  const svixTimestamp = req.headers.get('svix-timestamp') ?? ''
+  const svixSignature = req.headers.get('svix-signature') ?? ''
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return new NextResponse('Missing webhook headers', {status: 400})
+  }
+
+  const headers: SvixHeaders = {id: svixId, timestamp: svixTimestamp, signature: svixSignature}
+
+  let event: ResendWebhookEnvelope
+  try {
+    const verified = resend.webhooks.verify({payload, headers, webhookSecret})
+    event = verified as unknown as ResendWebhookEnvelope
+  } catch {
+    return new NextResponse('Invalid webhook', {status: 400})
+  }
+
+  try {
+    const type = typeof event.type === 'string' ? event.type : ''
+    const eventCreatedAtIso = event.created_at ? new Date(event.created_at).toISOString() : isoNow()
+    const receivedAtIso = isoNow()
+
+    const data = event.data
+    const isEmailData = looksLikeEmailEventData(data)
+
+    // Resend's message id is exposed as data.email_id for email.* events (string/uuid-ish)
+    const resendMessageId =
+      isEmailData && typeof data.email_id === 'string' ? data.email_id : ''
+
+    const from =
+      isEmailData && typeof data.from === 'string' ? data.from : ''
+
+    const toEmail =
+      isEmailData && Array.isArray(data.to) && typeof data.to[0] === 'string'
+        ? lowerEmail(data.to[0])
+        : ''
+
+    const subject =
+      isEmailData && typeof data.subject === 'string' ? data.subject : ''
+
+    // 1) Resend Events log (idempotent by svix_id)
+    // Airtable schema fields (exact):
+    // svix_id, event_type, event_created_at, resend_message_id, to_email, from, subject, raw_json, received_at
+    await airtableUpsertByUniqueField({
+      baseId,
+      table: resendEventsTable,
+      token: airtableToken,
+      uniqueField: 'svix_id',
+      uniqueValue: svixId,
+      fields: {
+        svix_id: svixId,
+        event_type: type,
+        event_created_at: eventCreatedAtIso,
+        resend_message_id: resendMessageId || undefined,
+        to_email: toEmail || undefined,
+        from: from || undefined,
+        subject: subject || undefined,
+        raw_json: payload,
+        received_at: receivedAtIso,
+      },
+    })
+
+    // 2) Suppressions: on bounce/complaint, create a Suppressions row linked to the Press Contact
+    if (toEmail && (type === 'email.bounced' || type === 'email.complained')) {
+      const contactId = await airtableFindPressContactIdByEmail({
+        token: airtableToken,
+        baseId,
+        contactsTable: pressContactsTable,
+        email: toEmail,
+      })
+
+      // If the address isn't in your Press Contacts table yet, we still log the event,
+      // but we can't create a linked suppression. This is intentional.
+      if (contactId) {
+        const reason: 'Bounced' | 'Complaint' = type === 'email.bounced' ? 'Bounced' : 'Complaint'
+        await airtableCreateSuppression({
+          token: airtableToken,
+          baseId,
+          suppressionsTable,
+          contactId,
+          reason,
+          startDateIso: receivedAtIso,
+          notes: `Auto-created from Resend webhook (${type}). Resend message id: ${resendMessageId || '(unknown)'}`,
+        })
+      }
+    }
+  } catch {
+    // Return non-200 so Resend retries on transient failures
+    return new NextResponse('Webhook processing failed', {status: 500})
+  }
+
+  return NextResponse.json({ok: true})
 }
