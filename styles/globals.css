@@ -95,3 +95,7 @@ a {
 .afr-mainlink:hover::after {
   transform: scaleX(1);
 }
+
+.afr-mainlink[aria-current="page"]::after {
+  transform: scaleX(1);
+}
