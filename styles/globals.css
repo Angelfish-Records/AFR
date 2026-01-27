@@ -68,13 +68,13 @@ a {
   }
 }
 
-.af-mainlink {
+.afr-mainlink {
   position: relative;
   text-decoration: none;
   color: inherit;
 }
 
-.af-mainlink::after {
+.afr-mainlink::after {
   content: "";
   position: absolute;
   left: 0;
@@ -92,6 +92,6 @@ a {
   transition: transform 220ms ease-out;
 }
 
-.af-mainlink:hover::after {
+.afr-mainlink:hover::after {
   transform: scaleX(1);
 }
