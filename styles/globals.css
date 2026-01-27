@@ -68,3 +68,30 @@ a {
   }
 }
 
+.af-mainlink {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+
+.af-mainlink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -0.15em;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    currentColor 50%,
+    transparent 100%
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 220ms ease-out;
+}
+
+.af-mainlink:hover::after {
+  transform: scaleX(1);
+}
