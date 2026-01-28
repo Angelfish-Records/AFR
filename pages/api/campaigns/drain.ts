@@ -14,7 +14,7 @@ type SendFields = {
   'Resend message id'?: string
   'Delivery status'?: string
   Notes?: string
-  Contact?: string[] // linked record ids
+  Contact?: string[]
 }
 
 type ContactFields = {
@@ -156,6 +156,10 @@ function sha256Hex(s: string): string {
   return crypto.createHash('sha256').update(s).digest('hex')
 }
 
+function normalizeEmail(s: string): string {
+  return s.trim().toLowerCase()
+}
+
 type Payload = {
   to: string
   from: string
@@ -164,10 +168,6 @@ type Payload = {
   text: string
   html: string
   personalisedSnapshot: string
-}
-
-function normalizeEmail(s: string): string {
-  return s.trim().toLowerCase()
 }
 
 async function countQueuedForCampaign(args: {
@@ -194,10 +194,18 @@ async function countQueuedForCampaign(args: {
     const j = (await r.json().catch(() => null)) as unknown
     if (!r.ok) throw new Error(`Airtable count failed: ${r.status} ${JSON.stringify(j)}`)
 
-    const records = isObj(j) && Array.isArray((j as {records?: unknown}).records) ? ((j as {records: unknown}).records as unknown[]) : []
+    const records =
+      isObj(j) && Array.isArray((j as {records?: unknown}).records)
+        ? ((j as {records: unknown}).records as unknown[])
+        : []
+
     count += records.length
 
-    const next = isObj(j) && typeof (j as {offset?: unknown}).offset === 'string' ? (j as {offset: string}).offset : undefined
+    const next =
+      isObj(j) && typeof (j as {offset?: unknown}).offset === 'string'
+        ? (j as {offset: string}).offset
+        : undefined
+
     if (!next) return count
     offset = next
   }
@@ -247,32 +255,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn('[campaigns/drain] campaign status patch failed (non-fatal)', e)
     }
 
-    // Pull queued sends for this campaign (no Resend message id yet)
-    const filter = `AND(
-      FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch})),
-      {Delivery status}="Queued",
-      OR({Resend message id}="", {Resend message id}=BLANK())
-    )`
+    // ✅ Robust selection: pull "Queued for this campaign" only.
+    // Then in JS enforce "Resend message id must be blank".
+    const filter = `AND(FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
 
-    const sends = await airtableList<SendFields>({
+    const queued = await airtableList<SendFields>({
       token: airtableToken,
       baseId,
       table: sendsTable,
       filterByFormula: filter,
       fields: ['Recipient', 'From address', 'Reply-to', 'Notes', 'Resend message id', 'Delivery status', 'Contact'],
-      maxRecords: batchLimit,
+      maxRecords: Math.max(1, Math.min(100, batchLimit * 2)), // overfetch a bit, then filter locally
     })
 
+    const sends = queued
+      .filter((s) => {
+        const mid = asString(s.fields['Resend message id']).trim()
+        return mid.length === 0
+      })
+      .slice(0, batchLimit)
+
     if (!sends.length) {
-      try {
-        await airtablePatchRecords({
-          token: airtableToken,
-          baseId,
-          table: campaignsTable,
-          records: [{id: campaignId, fields: {Status: 'Complete'}}],
-        })
-      } catch {}
-      return res.status(200).json({ok: true, sent: 0, remainingQueued: 0})
+      // Only complete if queued truly is 0 (avoid false "complete" states)
+      const remainingQueued = await countQueuedForCampaign({token: airtableToken, baseId, sendsTable, campaignId})
+      if (remainingQueued === 0) {
+        try {
+          await airtablePatchRecords({
+            token: airtableToken,
+            baseId,
+            table: campaignsTable,
+            records: [{id: campaignId, fields: {Status: 'Complete'}}],
+          })
+        } catch {}
+      }
+      return res.status(200).json({ok: true, sent: 0, remainingQueued})
     }
 
     // Campaign templates
@@ -289,7 +305,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const bodyTemplate = asString(campaignFields['Email body template']).trim()
     if (!subjectTemplate || !bodyTemplate) return jsonError(res, 400, 'Campaign is missing subject/body templates')
 
-    // Load contacts referenced by Send.Contact
+    // Contacts for merges (via Send.Contact)
     const contactIds = Array.from(
       new Set(
         sends
@@ -343,8 +359,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const subj = mergeTemplate(subjectTemplate, vars).trim()
       const bodyText = mergeTemplate(bodyTemplate, vars).trim()
 
-      // Resend types in your SDK want `text` always present.
-      const text = bodyText || ' ' // never empty/undefined
+      const text = bodyText || ' '
       const html = textToHtml(text)
       const personalisedSnapshot = [oneLineHook, customParagraph].filter(Boolean).join('\n\n').trim()
 
@@ -359,7 +374,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     })
 
-    // Idempotency key deterministic for this exact batch (send ids in order)
     const batchKeyRaw = `campaign:${campaignId}:send_ids:${sends.map((s) => s.id).join(',')}`
     const idempotencyKey = `af:${campaignId}:${sha256Hex(batchKeyRaw).slice(0, 48)}`
 
@@ -369,24 +383,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     while (attempt < 3) {
       attempt++
 
-      // Match SDK typings: resend.batch.send({ emails: [...] }, { idempotencyKey })
-            const emails = payloads.map((p) => ({
+      const emails = payloads.map((p) => ({
         from: p.from,
-        to: p.to, // string is accepted by your installed types
+        to: p.to,
         subject: p.subject,
-        text: p.text, // always a string
+        text: p.text,
         html: p.html,
         ...(p.replyTo ? {replyTo: p.replyTo} : {}),
         tags: [{name: 'campaign_id', value: campaignId}],
       }))
 
       const result = await resend.batch.send(emails, {idempotencyKey})
-
       const error = (result as {error?: unknown}).error
+
       if (!error) {
         const dataUnknown = (result as {data?: unknown}).data
 
-        // Accept either: data: [{id}], or data: { data: [{id}] }
         const idsArr: Array<{id: string}> | null =
           Array.isArray(dataUnknown)
             ? (dataUnknown as Array<{id: string}>)
@@ -414,12 +426,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           records: patches,
         })
 
-        const remainingQueued = await countQueuedForCampaign({
-          token: airtableToken,
-          baseId,
-          sendsTable,
-          campaignId,
-        })
+        const remainingQueued = await countQueuedForCampaign({token: airtableToken, baseId, sendsTable, campaignId})
 
         if (remainingQueued === 0) {
           try {
@@ -436,7 +443,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       lastError = error
-      const msg = typeof (error as {message?: unknown} | null)?.message === 'string' ? (error as {message: string}).message : stringifyError(error)
+      const msg =
+        typeof (error as {message?: unknown} | null)?.message === 'string'
+          ? (error as {message: string}).message
+          : stringifyError(error)
+
       const looksRateLimited = msg.includes('429') || msg.toLowerCase().includes('rate')
       if (!looksRateLimited) break
 
