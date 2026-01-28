@@ -1,3 +1,4 @@
+// pages/api/campaigns/enqueue.ts
 import type {NextApiRequest, NextApiResponse} from 'next'
 import crypto from 'crypto'
 
@@ -34,11 +35,46 @@ function escapeAirtableString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
+function isValidEmailLoose(s: string): boolean {
+  const x = s.trim()
+  if (x.length < 3 || x.length > 254) return false
+  const at = x.indexOf('@')
+  if (at <= 0 || at !== x.lastIndexOf('@')) return false
+  const dot = x.lastIndexOf('.')
+  return dot > at + 1 && dot < x.length - 1
+}
+
+function normalizeEmail(s: string): string {
+  return s.trim().toLowerCase()
+}
+
+// Accept either "Name <a@b>" or "a@b"
+function extractEmailFromFromAddress(s: string): string | null {
+  const trimmed = s.trim()
+  const m = trimmed.match(/<([^>]+)>/)
+  const candidate = (m?.[1] ?? trimmed).trim()
+  return isValidEmailLoose(candidate) ? candidate : null
+}
+
+function parseRetryAfterMs(headers: Headers): number | null {
+  const ra = headers.get('retry-after')
+  if (!ra) return null
+  const asInt = Number(ra)
+  if (Number.isFinite(asInt) && asInt >= 0) return Math.min(30_000, Math.floor(asInt * 1000))
+  const asDate = Date.parse(ra)
+  if (Number.isFinite(asDate)) return Math.min(30_000, Math.max(0, asDate - Date.now()))
+  return null
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms))
+}
+
 async function airtableRequest<T>(
   token: string,
   url: string,
   init?: RequestInit
-): Promise<{ok: true; json: T} | {ok: false; status: number; body: string}> {
+): Promise<{ok: true; json: T} | {ok: false; status: number; body: string; headers: Headers}> {
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -48,10 +84,35 @@ async function airtableRequest<T>(
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    return {ok: false, status: res.status, body}
+    return {ok: false, status: res.status, body, headers: res.headers}
   }
   const json = (await res.json()) as T
   return {ok: true, json}
+}
+
+async function airtableRequestWithRetry<T>(
+  token: string,
+  url: string,
+  init?: RequestInit
+): Promise<{ok: true; json: T} | {ok: false; status: number; body: string; headers: Headers}> {
+  let attempt = 0
+  let last: {ok: false; status: number; body: string; headers: Headers} | null = null
+
+  while (attempt < 4) {
+    attempt++
+    const resp = await airtableRequest<T>(token, url, init)
+    if (resp.ok) return resp
+
+    last = resp
+    const retryable = resp.status === 429 || resp.status === 502 || resp.status === 503 || resp.status === 504
+    if (!retryable) return resp
+
+    const raMs = parseRetryAfterMs(resp.headers)
+    const backoff = Math.min(8000, 400 * Math.pow(2, attempt - 1))
+    await sleep(raMs ?? backoff)
+  }
+
+  return last ?? {ok: false, status: 500, body: 'unknown', headers: new Headers()}
 }
 
 async function airtableListAll<TFields>(args: {
@@ -75,7 +136,7 @@ async function airtableListAll<TFields>(args: {
     if (offset) params.set('offset', offset)
 
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?${params.toString()}`
-    const resp = await airtableRequest<AirtableListResp<TFields>>(token, url)
+    const resp = await airtableRequestWithRetry<AirtableListResp<TFields>>(token, url)
     if (!resp.ok) throw new Error(`Airtable list failed: ${resp.status} ${resp.body}`)
 
     out.push(...resp.json.records)
@@ -98,7 +159,7 @@ async function airtableCreateRecords(args: {
   for (let i = 0; i < records.length; i += 10) {
     const chunk = records.slice(i, i + 10)
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`
-    const resp = await airtableRequest<{records: Array<{id: string}>}>(token, url, {
+    const resp = await airtableRequestWithRetry<{records: Array<{id: string}>}>(token, url, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({records: chunk}),
@@ -118,7 +179,7 @@ async function airtableCreateSingle(args: {
 }): Promise<string> {
   const {token, baseId, table, fields} = args
   const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`
-  const resp = await airtableRequest<{records: Array<{id: string}>}>(token, url, {
+  const resp = await airtableRequestWithRetry<{records: Array<{id: string}>}>(token, url, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({records: [{fields}]}),
@@ -130,17 +191,24 @@ async function airtableCreateSingle(args: {
 }
 
 type PressContactFields = {
+  Email?: string
+  Outlets?: string[]
   'Full name'?: string
   'First name'?: string
   'Last name'?: string
-  Email?: string
-  Outlets?: string[]
   'One-line hook'?: string
   'Custom paragraph'?: string
 }
 
 type OutletFields = {
   Outlet?: string
+}
+
+type SendFields = {
+  Recipient?: string
+  'Delivery status'?: string
+  Contact?: string[]
+  Pitch?: unknown
 }
 
 function normalizeAudienceKey(k: string | undefined): string {
@@ -200,7 +268,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Full count: scan IDs only (fine at your current scale)
       const all = await airtableListAll<Record<string, never>>({
         token: airtableToken,
         baseId,
@@ -249,6 +316,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return jsonError(res, 400, 'Missing required fields: fromAddress, subjectTemplate, bodyTemplate')
     }
 
+    const fromEmail = extractEmailFromFromAddress(fromAddress)
+    if (!fromEmail) return jsonError(res, 400, 'fromAddress must be like "Name <email@domain>" or "email@domain>"')
+    if (replyTo && !isValidEmailLoose(replyTo)) return jsonError(res, 400, 'replyTo must be a valid email address')
+
+    const runId = crypto.randomUUID()
+
     const campaignId =
       existingCampaignId && existingCampaignId.trim()
         ? existingCampaignId.trim()
@@ -257,13 +330,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             baseId,
             table: campaignsTable,
             fields: {
-              'Campaign/Pitch': (campaignName && campaignName.trim()) ? campaignName.trim() : subjectTemplate.trim().slice(0, 120),
+              'Campaign/Pitch': campaignName && campaignName.trim() ? campaignName.trim() : subjectTemplate.trim().slice(0, 120),
               'Email subject template': subjectTemplate,
               'Email body template': bodyTemplate,
               Status: 'Ready',
+              'Audience key': audienceKey,
             },
           })
 
+    // Pull mailable contacts (email + link id)
     const contacts = await airtableListAll<PressContactFields>({
       token: airtableToken,
       baseId,
@@ -273,10 +348,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
 
     const recipients = contacts
-      .map((c) => ({contactId: c.id, email: (c.fields.Email ?? '').toString().trim().toLowerCase()}))
-      .filter((x) => !!x.email)
+      .map((c) => ({contactId: c.id, email: normalizeEmail((c.fields.Email ?? '').toString())}))
+      .filter((x) => isValidEmailLoose(x.email))
 
-    const sendRecords = recipients.map((x) => ({
+    if (recipients.length === 0) {
+      return res.status(200).json({
+        ok: true,
+        audienceKey,
+        campaignId,
+        enqueued: 0,
+        skippedInvalid: contacts.length,
+        runId,
+        note: 'No valid emails found in Press Contacts (Is mailable).',
+      })
+    }
+
+    // Idempotency/dedupe: find existing sends for this campaign (by campaign record id in linked field)
+    const existing = await airtableListAll<SendFields>({
+      token: airtableToken,
+      baseId,
+      table: sendsTable,
+      filterByFormula: `FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch}))`,
+      fields: ['Recipient'],
+    })
+
+    const existingEmails = new Set(
+      existing.map((s) => normalizeEmail((s.fields.Recipient ?? '').toString())).filter((e) => isValidEmailLoose(e))
+    )
+
+    const toCreate = recipients.filter((r) => !existingEmails.has(r.email))
+
+    // Create sends queued (store contact link and runId in Notes for auditability without schema changes)
+    const sendRecords = toCreate.map((x) => ({
       fields: {
         Pitch: [campaignId],
         Recipient: x.email,
@@ -284,21 +387,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ...(replyTo && replyTo.trim() ? {'Reply-to': replyTo.trim()} : {}),
         'Delivery status': 'Queued',
         Contact: [x.contactId],
+        Notes: `enqueue_run_id=${runId}`,
       },
     }))
 
-    const created = await airtableCreateRecords({
-      token: airtableToken,
-      baseId,
-      table: sendsTable,
-      records: sendRecords,
-    })
+    const created = sendRecords.length
+      ? await airtableCreateRecords({
+          token: airtableToken,
+          baseId,
+          table: sendsTable,
+          records: sendRecords,
+        })
+      : []
 
     return res.status(200).json({
       ok: true,
       audienceKey,
       campaignId,
       enqueued: created.length,
+      dedupedExisting: recipients.length - toCreate.length,
+      runId,
     })
   } catch (err) {
     console.error('[campaigns/enqueue] failed', err)

@@ -43,6 +43,15 @@ type DrainResponse = {
   ok: true
   sent: number
   remainingQueued: number
+  nextPollMs?: number
+  runId?: string
+}
+
+type ApiErrorShape = {
+  error?: string
+  code?: string
+  message?: string
+  runId?: string
 }
 
 export default function CampaignComposerPage() {
@@ -102,6 +111,40 @@ Assets pack:
   const previewSubject = useMemo(() => mergeTemplate(subjectTemplate, previewVars), [subjectTemplate, previewVars])
   const previewBody = useMemo(() => mergeTemplate(bodyTemplate, previewVars), [bodyTemplate, previewVars])
 
+  const [sendStatus, setSendStatus] = useState<
+    | {state: 'idle'}
+    | {
+        state: 'sending'
+        campaignId: string
+        totalSent: number
+        lastSent: number
+        remainingQueued: number
+        loops: number
+        startedAtMs: number
+        runId?: string
+      }
+    | {state: 'done'; campaignId: string; totalSent: number; endedAtMs: number}
+    | {state: 'error'; message: string}
+    | {state: 'locked'; message: string}
+    | {state: 'cancelled'; campaignId: string; totalSent: number}
+  >({state: 'idle'})
+
+  // increment to cancel any in-flight send loop
+  const [cancelToken, setCancelToken] = useState(0)
+
+  function sleep(ms: number) {
+    return new Promise((r) => setTimeout(r, ms))
+  }
+
+  function pickErrMsg(j: unknown, fallback: string) {
+    const o = j as ApiErrorShape | null
+    return (typeof o?.error === 'string' && o.error) || (typeof o?.message === 'string' && o.message) || fallback
+  }
+
+  function cancelSending() {
+    setCancelToken((x) => x + 1)
+  }
+
   async function loadAudience() {
     setLoading(true)
     try {
@@ -110,7 +153,10 @@ Assets pack:
       })
       const j = (await res.json().catch(() => null)) as unknown
       if (!res.ok) {
-        const msg = typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Failed to load audience'
+        const msg =
+          typeof (j as {error?: unknown} | null)?.error === 'string'
+            ? (j as {error: string}).error
+            : 'Failed to load audience'
         throw new Error(msg)
       }
       const data = j as EnqueueGetResponse
@@ -149,7 +195,8 @@ Assets pack:
       })
       const j = (await res.json().catch(() => null)) as unknown
       if (!res.ok) {
-        const msg = typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Enqueue failed'
+        const msg =
+          typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Enqueue failed'
         throw new Error(msg)
       }
       const data = j as EnqueuePostResponse
@@ -176,13 +223,111 @@ Assets pack:
       })
       const j = (await res.json().catch(() => null)) as unknown
       if (!res.ok) {
-        const msg = typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Drain failed'
+        const msg = pickErrMsg(j, 'Drain failed')
         throw new Error(msg)
       }
       const data = j as DrainResponse
       alert(`Sent ${data.sent}.\nRemaining queued: ${data.remainingQueued}`)
     } catch (e: unknown) {
       alert(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function sendAutoDrain(opts?: {limit?: number; maxLoops?: number}) {
+    if (!campaignId) return alert('No campaignId yet — enqueue first.')
+
+    const limit = Math.max(1, Math.min(100, Math.floor(opts?.limit ?? 50)))
+    const maxLoops = Math.max(1, Math.min(50, Math.floor(opts?.maxLoops ?? 50)))
+    const startedAtMs = Date.now()
+
+    const myCancelToken = cancelToken
+
+    setSendStatus({
+      state: 'sending',
+      campaignId,
+      totalSent: 0,
+      lastSent: 0,
+      remainingQueued: Number.NaN,
+      loops: 0,
+      startedAtMs,
+    })
+
+    setLoading(true)
+    try {
+      let totalSent = 0
+      let loops = 0
+      let remainingQueued = Infinity
+      let lastRunId: string | undefined
+
+      while (loops < maxLoops && remainingQueued > 0) {
+        if (cancelToken !== myCancelToken) {
+          setSendStatus({state: 'cancelled', campaignId, totalSent})
+          return
+        }
+
+        loops++
+
+        const res = await fetch('/api/campaigns/drain', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
+          },
+          body: JSON.stringify({campaignId, limit}),
+        })
+
+        const j = (await res.json().catch(() => null)) as unknown
+
+        if (!res.ok) {
+          const code = (j as ApiErrorShape | null)?.code
+          const msg = pickErrMsg(j, 'Drain failed')
+
+          if (res.status === 409 || code === 'CAMPAIGN_LOCKED') {
+            setSendStatus({state: 'locked', message: msg})
+            return
+          }
+
+          throw new Error(msg)
+        }
+
+        const data = j as DrainResponse
+        const sentThis = typeof data.sent === 'number' ? data.sent : 0
+        remainingQueued = typeof data.remainingQueued === 'number' ? data.remainingQueued : remainingQueued
+        lastRunId = typeof data.runId === 'string' ? data.runId : lastRunId
+
+        totalSent += sentThis
+
+        setSendStatus({
+          state: 'sending',
+          campaignId,
+          totalSent,
+          lastSent: sentThis,
+          remainingQueued: Number.isFinite(remainingQueued) ? remainingQueued : 0,
+          loops,
+          startedAtMs,
+          runId: lastRunId,
+        })
+
+        if (remainingQueued <= 0) break
+
+        const nextPollMs =
+          typeof data.nextPollMs === 'number' && Number.isFinite(data.nextPollMs)
+            ? Math.max(0, Math.min(5000, Math.floor(data.nextPollMs)))
+            : 900
+
+        if (cancelToken !== myCancelToken) {
+          setSendStatus({state: 'cancelled', campaignId, totalSent})
+          return
+        }
+
+        await sleep(nextPollMs)
+      }
+
+      setSendStatus({state: 'done', campaignId, totalSent, endedAtMs: Date.now()})
+    } catch (e: unknown) {
+      setSendStatus({state: 'error', message: errorMessage(e)})
     } finally {
       setLoading(false)
     }
@@ -278,7 +423,7 @@ Assets pack:
           </label>
 
           <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
-            <button onClick={enqueue} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button onClick={enqueue} disabled={loading || sendStatus.state === 'sending'} style={{padding: '10px 14px', borderRadius: 10}}>
               Enqueue campaign
             </button>
 
@@ -288,7 +433,20 @@ Assets pack:
             </div>
           </div>
 
-          <div style={{marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap'}}>
+          {/* Manual drain buttons kept for debugging, plus the new auto-drain send */}
+          <div style={{marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center'}}>
+            <button
+              onClick={() => sendAutoDrain({limit: 50, maxLoops: 50})}
+              disabled={loading || !campaignId || sendStatus.state === 'sending'}
+              style={{padding: '10px 14px', borderRadius: 10}}
+            >
+              Send campaign (auto-drain)
+            </button>
+
+            <button onClick={cancelSending} disabled={sendStatus.state !== 'sending'} style={{padding: '10px 14px', borderRadius: 10}}>
+              Cancel
+            </button>
+
             <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
               Drain 25
             </button>
@@ -300,10 +458,55 @@ Assets pack:
             </button>
           </div>
 
+          <div style={{marginTop: 10, padding: 10, borderRadius: 12, border: '1px solid #eee', background: '#fafafa'}}>
+            {sendStatus.state === 'idle' && <div style={{fontSize: 13, opacity: 0.8}}>Ready.</div>}
+
+            {sendStatus.state === 'sending' && (
+              <div style={{fontSize: 13}}>
+                <div>
+                  <b>Sending…</b> Total sent: <b>{sendStatus.totalSent}</b> • Last batch: {sendStatus.lastSent} • Remaining queued:{' '}
+                  <b>{Number.isFinite(sendStatus.remainingQueued) ? sendStatus.remainingQueued : '—'}</b> • Batches: {sendStatus.loops}
+                </div>
+                {sendStatus.runId ? (
+                  <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>
+                    runId: <code style={{background: '#f2f2f2', padding: '1px 6px', borderRadius: 6}}>{sendStatus.runId}</code>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {sendStatus.state === 'done' && (
+              <div style={{fontSize: 13}}>
+                <b>Done.</b> Sent <b>{sendStatus.totalSent}</b> total.
+              </div>
+            )}
+
+            {sendStatus.state === 'cancelled' && (
+              <div style={{fontSize: 13}}>
+                <b>Cancelled.</b> Sent <b>{sendStatus.totalSent}</b> before stopping.
+              </div>
+            )}
+
+            {sendStatus.state === 'locked' && (
+              <div style={{fontSize: 13}}>
+                <b>Blocked:</b> {sendStatus.message}
+                <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>Another drain is likely running. Try again shortly.</div>
+              </div>
+            )}
+
+            {sendStatus.state === 'error' && (
+              <div style={{fontSize: 13, color: '#b00020'}}>
+                <b>Error:</b> {sendStatus.message}
+              </div>
+            )}
+          </div>
+
           <div style={{marginTop: 12, fontSize: 12, opacity: 0.7}}>
             Tokens supported:{' '}
             <code>
-              {'{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}} {{campaign_name}} {{key_links}} {{assets_pack_link}} {{default_cta}}'}
+              {
+                '{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}} {{campaign_name}} {{key_links}} {{assets_pack_link}} {{default_cta}}'
+              }
             </code>
           </div>
         </div>
@@ -333,7 +536,16 @@ Assets pack:
 
           <div>
             <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered body</div>
-            <pre style={{whiteSpace: 'pre-wrap', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid #eee', margin: 0}}>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                padding: 10,
+                borderRadius: 10,
+                background: '#fafafa',
+                border: '1px solid #eee',
+                margin: 0,
+              }}
+            >
               {previewBody}
             </pre>
           </div>

@@ -1,3 +1,4 @@
+// pages/api/campaigns/drain.ts
 import type {NextApiRequest, NextApiResponse} from 'next'
 import crypto from 'crypto'
 import {Resend} from 'resend'
@@ -35,6 +36,7 @@ type CampaignFields = {
   'Assets pack link'?: string
   'Campaign/Pitch'?: string
   Status?: string
+  'Sent at'?: string
 }
 
 function must(v: string | undefined, name: string): string {
@@ -81,11 +83,21 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, ms))
 }
 
+function parseRetryAfterMs(headers: Headers): number | null {
+  const ra = headers.get('retry-after')
+  if (!ra) return null
+  const asInt = Number(ra)
+  if (Number.isFinite(asInt) && asInt >= 0) return Math.min(30_000, Math.floor(asInt * 1000))
+  const asDate = Date.parse(ra)
+  if (Number.isFinite(asDate)) return Math.min(30_000, Math.max(0, asDate - Date.now()))
+  return null
+}
+
 async function airtableRequest<T>(
   token: string,
   url: string,
   init?: RequestInit
-): Promise<{ok: true; json: T} | {ok: false; status: number; body: string}> {
+): Promise<{ok: true; json: T} | {ok: false; status: number; body: string; headers: Headers}> {
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -95,10 +107,35 @@ async function airtableRequest<T>(
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    return {ok: false, status: res.status, body}
+    return {ok: false, status: res.status, body, headers: res.headers}
   }
   const json = (await res.json()) as T
   return {ok: true, json}
+}
+
+async function airtableRequestWithRetry<T>(
+  token: string,
+  url: string,
+  init?: RequestInit
+): Promise<{ok: true; json: T} | {ok: false; status: number; body: string; headers: Headers}> {
+  let attempt = 0
+  let last: {ok: false; status: number; body: string; headers: Headers} | null = null
+
+  while (attempt < 4) {
+    attempt++
+    const resp = await airtableRequest<T>(token, url, init)
+    if (resp.ok) return resp
+
+    last = resp
+    const retryable = resp.status === 429 || resp.status === 502 || resp.status === 503 || resp.status === 504
+    if (!retryable) return resp
+
+    const raMs = parseRetryAfterMs(resp.headers)
+    const backoff = Math.min(8000, 400 * Math.pow(2, attempt - 1))
+    await sleep(raMs ?? backoff)
+  }
+
+  return last ?? {ok: false, status: 500, body: 'unknown', headers: new Headers()}
 }
 
 async function airtableList<TFields>(args: {
@@ -118,7 +155,7 @@ async function airtableList<TFields>(args: {
   if (fields?.length) for (const f of fields) params.append('fields[]', f)
 
   const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?${params.toString()}`
-  const resp = await airtableRequest<AirtableListResp<TFields>>(token, url)
+  const resp = await airtableRequestWithRetry<AirtableListResp<TFields>>(token, url)
   if (!resp.ok) throw new Error(`Airtable list failed: ${resp.status} ${resp.body}`)
   return resp.json.records
 }
@@ -134,7 +171,7 @@ async function airtablePatchRecords(args: {
   for (let i = 0; i < records.length; i += 10) {
     const chunk = records.slice(i, i + 10)
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`
-    const resp = await airtableRequest<unknown>(token, url, {
+    const resp = await airtableRequestWithRetry<unknown>(token, url, {
       method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({records: chunk}),
@@ -161,16 +198,6 @@ function normalizeEmail(s: string): string {
   return s.trim().toLowerCase()
 }
 
-type Payload = {
-  to: string
-  from: string
-  replyTo: string
-  subject: string
-  text: string
-  html: string
-  personalisedSnapshot: string
-}
-
 function stringifyError(e: unknown): string {
   if (e instanceof Error) return e.message
   if (typeof e === 'string') return e
@@ -179,6 +206,17 @@ function stringifyError(e: unknown): string {
   } catch {
     return String(e)
   }
+}
+
+type Payload = {
+  to: string
+  from: string
+  replyTo: string
+  subject: string
+  text: string
+  html: string
+  personalisedSnapshot: string
+  sendId: string
 }
 
 async function countQueuedForPitch(args: {
@@ -213,16 +251,30 @@ async function countQueuedForPitch(args: {
     count += records.length
 
     const next =
-      isObj(j) && typeof (j as {offset?: unknown}).offset === 'string'
-        ? (j as {offset: string}).offset
-        : undefined
+      isObj(j) && typeof (j as {offset?: unknown}).offset === 'string' ? (j as {offset: string}).offset : undefined
 
     if (!next) return count
     offset = next
   }
 }
 
+function clampInt(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.floor(n)))
+}
+
+function computeNextPollMs(args: {sent: number; remainingQueued: number; batchLimit: number}): number {
+  const {sent, remainingQueued, batchLimit} = args
+  if (remainingQueued <= 0) return 0
+  // If we sent a full batch, we’re probably keeping up; small pause.
+  if (sent >= batchLimit) return 900
+  // If we sent a partial batch but still have queue, be a bit gentler.
+  return 1400
+}
+
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const runId = crypto.randomUUID()
+
   try {
     if (!allowInternal(req)) return jsonError(res, 401, 'Unauthorized')
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
@@ -238,30 +290,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = (req.body ?? {}) as Record<string, unknown>
     const campaignId = typeof body.campaignId === 'string' ? body.campaignId.trim() : ''
     const limitRaw = typeof body.limit === 'number' ? body.limit : undefined
+    const force = body.force === true
+
     if (!campaignId) return jsonError(res, 400, 'Missing campaignId')
 
     const batchLimit = Math.max(1, Math.min(100, typeof limitRaw === 'number' ? Math.floor(limitRaw) : 50))
     const resend = new Resend(resendKey)
     const nowIso = isoNow()
 
-    // Fetch campaign by RECORD_ID, then use its primary field value for all Send filters.
+    // Fetch campaign by RECORD_ID (one record)
     const camp = await airtableList<CampaignFields>({
       token: airtableToken,
       baseId,
       table: campaignsTable,
       filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
-      fields: ['Campaign/Pitch', 'Email subject template', 'Email body template', 'Default CTA', 'Key links', 'Assets pack link'],
+      fields: ['Campaign/Pitch', 'Email subject template', 'Email body template', 'Default CTA', 'Key links', 'Assets pack link', 'Status', 'Sent at'],
       maxRecords: 1,
     })
     const campaignFields = camp?.[0]?.fields ?? {}
     const campaignPitch = asString(campaignFields['Campaign/Pitch']).trim()
     if (!campaignPitch) return jsonError(res, 400, 'Campaign missing Campaign/Pitch (primary field)')
 
+    const status = asString(campaignFields.Status).trim()
+    if (!force && status === 'Sending') {
+      // Best-effort concurrency guard.
+      return res.status(409).json({
+        error: 'Campaign already in Sending state (likely another drain running).',
+        code: 'CAMPAIGN_LOCKED',
+        runId,
+        campaignId,
+        campaignPitch,
+      })
+    }
+
     const subjectTemplate = asString(campaignFields['Email subject template']).trim()
     const bodyTemplate = asString(campaignFields['Email body template']).trim()
     if (!subjectTemplate || !bodyTemplate) return jsonError(res, 400, 'Campaign is missing subject/body templates')
 
-    // Best-effort: set campaign to Sending
+    // Set to Sending as a coarse-grained lock (best-effort)
     try {
       await airtablePatchRecords({
         token: airtableToken,
@@ -271,7 +337,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     } catch {}
 
-    // ✅ Filter Sends via linked primary values (ARRAYJOIN({Pitch})) by campaignPitch
+    // Filter Sends via linked primary values (ARRAYJOIN({Pitch})) by campaignPitch
     const pitchEsc = escapeAirtableString(campaignPitch)
     const listFilter = `AND(FIND("${pitchEsc}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
 
@@ -284,6 +350,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       maxRecords: 100,
     })
 
+    // Don’t send if a Resend message id is already set (per-send idempotency)
     const sends = queued
       .filter((s) => asString(s.fields['Resend message id']).trim().length === 0)
       .slice(0, batchLimit)
@@ -293,7 +360,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       recipient: asString(s.fields.Recipient),
       resendMessageId: asString(s.fields['Resend message id']),
       deliveryStatus: asString(s.fields['Delivery status']),
-      pitchField: s.fields.Pitch,
       notes: asString(s.fields.Notes).slice(0, 160),
     }))
 
@@ -316,10 +382,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch {}
       }
 
+      const nextPollMs = clampInt(computeNextPollMs({sent: sends.length, remainingQueued, batchLimit}), 0, 5000)
+
       return res.status(200).json({
         ok: true,
-        sent: 0,
+        sent: sends.length,
         remainingQueued,
+        nextPollMs,
+        runId,
         diagnostics: {
           campaignId,
           campaignPitch,
@@ -329,6 +399,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           sample: diagSample,
         },
       })
+
     }
 
     // Contacts for merges (via Send.Contact)
@@ -397,11 +468,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         text,
         html,
         personalisedSnapshot,
+        sendId: s.id,
       }
     })
 
-    const batchKeyRaw = `campaign:${campaignId}:send_ids:${sends.map((s) => s.id).join(',')}`
+    // Batch idempotency: stable for this exact set/order of send ids
+    const batchKeyRaw = `campaign:${campaignId}:send_ids:${payloads.map((p) => p.sendId).join(',')}`
     const idempotencyKey = `af:${campaignId}:${sha256Hex(batchKeyRaw).slice(0, 48)}`
+
+    // Stamp a note onto sends with run+idempotency (best-effort, helps audits + retries)
+    try {
+      await airtablePatchRecords({
+        token: airtableToken,
+        baseId,
+        table: sendsTable,
+        records: sends.map((s) => ({
+          id: s.id,
+          fields: {
+            Notes: `${asString(s.fields.Notes)}\n\ndrain_run_id=${runId}\nidempotency_key=${idempotencyKey}`.trim().slice(0, 90000),
+          },
+        })),
+      })
+    } catch {}
 
     let attempt = 0
     let lastError: unknown = null
@@ -416,7 +504,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         text: p.text,
         html: p.html,
         ...(p.replyTo ? {replyTo: p.replyTo} : {}),
-        tags: [{name: 'campaign_id', value: campaignId}],
+        tags: [
+          {name: 'campaign_id', value: campaignId},
+          {name: 'send_id', value: p.sendId},
+          {name: 'run_id', value: runId},
+        ],
       }))
 
       const result = await resend.batch.send(emails, {idempotencyKey})
@@ -450,6 +542,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           })),
         })
 
+        // Set Campaigns.Sent at if it’s empty-ish (best-effort, no schema changes)
+        if (!asString(campaignFields['Sent at']).trim()) {
+          try {
+            await airtablePatchRecords({
+              token: airtableToken,
+              baseId,
+              table: campaignsTable,
+              records: [{id: campaignId, fields: {'Sent at': nowIso}}],
+            })
+          } catch {}
+        }
+
         const remainingQueued = await countQueuedForPitch({token: airtableToken, baseId, sendsTable, campaignPitch})
         if (remainingQueued === 0) {
           try {
@@ -462,26 +566,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } catch {}
         }
 
+        const nextPollMs = clampInt(computeNextPollMs({sent: 0, remainingQueued, batchLimit}), 0, 5000)
+
         return res.status(200).json({
           ok: true,
-          sent: sends.length,
+          sent: 0,
           remainingQueued,
+          nextPollMs,
+          runId,
           diagnostics: {
             campaignId,
             campaignPitch,
+            statusBefore: status,
             listFilter,
             queuedMatchedByPitch: queued.length,
             eligibleToSend: sends.length,
             sample: diagSample,
           },
         })
+
       }
 
       lastError = error
       const msg =
-        typeof (error as {message?: unknown} | null)?.message === 'string'
-          ? (error as {message: string}).message
-          : stringifyError(error)
+        typeof (error as {message?: unknown} | null)?.message === 'string' ? (error as {message: string}).message : stringifyError(error)
 
       const looksRateLimited = msg.includes('429') || msg.toLowerCase().includes('rate')
       if (!looksRateLimited) break
@@ -499,7 +607,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: s.id,
         fields: {
           'Delivery status': 'Failed',
-          Notes: `${asString(s.fields.Notes)}\n\nsend_failed=${errText}`.slice(0, 90000),
+          Notes: `${asString(s.fields.Notes)}\n\nsend_failed=${errText}\nrun_id=${runId}`.slice(0, 90000),
           'Last event at': nowIso,
         },
       })),
@@ -508,13 +616,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(502).json({
       error: 'Drain send failed',
       resend: errText,
-      diagnostics: {campaignId, campaignPitch, listFilter, queuedMatchedByPitch: queued.length, eligibleToSend: sends.length, sample: diagSample},
+      runId,
+      diagnostics: {
+        campaignId,
+        campaignPitch,
+        listFilter,
+        queuedMatchedByPitch: queued.length,
+        eligibleToSend: sends.length,
+        sample: diagSample,
+      },
     })
   } catch (err) {
-    console.error('[campaigns/drain] failed', err)
+    console.error('[campaigns/drain] failed', {runId, err})
     return res.status(500).json({
       error: 'Drain failed',
       message: err instanceof Error ? err.message : String(err),
+      runId,
     })
   }
 }
