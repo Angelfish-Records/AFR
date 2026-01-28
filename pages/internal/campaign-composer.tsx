@@ -419,7 +419,7 @@ Assets pack:
     >
       <h1 style={{marginTop: 0}}>Campaign Composer (Internal)</h1>
 
-      <div style={{padding: 12, border: '1px solid #ddd', borderRadius: 12, marginBottom: 16}}>
+      <div style={{padding: 12, borderRadius: 12, marginBottom: 16}}>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
           <label style={{display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260}}>
             <span style={{fontSize: 12, opacity: 0.7}}>Optional internal key (only needed if AFR_INTERNAL_KEY is set)</span>
@@ -455,7 +455,7 @@ Assets pack:
       </div>
 
       <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16}}>
-        <div style={{padding: 12, border: '1px solid #ddd', borderRadius: 12}}>
+        <div style={{padding: 12, borderRadius: 12}}>
           <h2 style={{marginTop: 0, fontSize: 18}}>Compose</h2>
 
           <label style={{display: 'block', marginBottom: 10}}>
@@ -606,7 +606,7 @@ Assets pack:
           </div>
         </div>
 
-        <div style={{padding: 12, border: '1px solid #ddd', borderRadius: 12}}>
+        <div style={{padding: 12, borderRadius: 12}}>
           <h2 style={{marginTop: 0, fontSize: 18}}>Preview</h2>
 
           <label style={{display: 'block', marginBottom: 10}}>
