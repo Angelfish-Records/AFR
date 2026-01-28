@@ -218,7 +218,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!allowInternal(req)) return jsonError(res, 401, 'Unauthorized')
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
 
-    const resendKey = must(process.env.RESEND_API_KEY, 'RESEND_API_KEY')
+    const resendKey = must(process.env.AFR_RESEND_API_KEY, 'AFR_RESEND_API_KEY')
     const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
     const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')
 
