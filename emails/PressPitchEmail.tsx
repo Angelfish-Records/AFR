@@ -144,8 +144,6 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
           {/* Footer OUTSIDE the card, in the box's tone */}
           <Text style={styles.footerOutside}>{brandName}</Text>
-          {/* optional muted line (remove if you want absolute purity) */}
-          <Text style={styles.footerOutsideMuted}>Press contact • Reply to reach me</Text>
         </Container>
       </Body>
     </Html>

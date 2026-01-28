@@ -487,6 +487,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       React.createElement(PressPitchEmail, {
         brandName: 'Angelfish Records',
         bodyMarkdown: bodyText,
+        logoUrl: 'https://www.angelfishrecords.com/brand/AFR_logo_small.png',
       }),
       {pretty: true}
     )
