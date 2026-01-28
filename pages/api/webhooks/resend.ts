@@ -250,6 +250,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).send('Invalid webhook')
   }
 
+  console.log('[resend-webhook] verified', {svixId})
+
   // Parse payload *after* verification
   let event: ResendWebhookEnvelope
   try {
@@ -337,8 +339,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(200).json({ok: true})
-  } catch {
-    // Non-200 triggers retry
-    return res.status(500).send('Webhook processing failed')
+    } catch (err) {
+    console.error('[resend-webhook] processing failed', err)
+    return res.status(500).send(
+      'Webhook processing failed: ' +
+        (err instanceof Error ? err.message : String(err))
+    )
   }
-}
+
