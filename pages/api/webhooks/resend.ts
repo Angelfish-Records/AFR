@@ -346,4 +346,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         (err instanceof Error ? err.message : String(err))
     )
   }
-
+}
