@@ -1,5 +1,6 @@
+// emails/PressPitchEmail.tsx
 import * as React from 'react'
-import {Html, Head, Preview, Body, Container, Section, Text, Link, Hr, Img} from '@react-email/components'
+import {Html, Head, Preview, Body, Container, Section, Img, Text} from '@react-email/components'
 import {Markdown} from '@react-email/markdown'
 
 export type PressPitchEmailProps = {
@@ -7,88 +8,108 @@ export type PressPitchEmailProps = {
   brandName?: string
   logoUrl?: string
   heroUrl?: string
-  subject?: string
 
-  recipientName?: string
-  campaignName?: string
-
-  // This is your merged long-form body, authored as Markdown
+  // EVERYTHING textual comes from the inline editor (merged markdown).
   bodyMarkdown: string
+}
 
-  // Optional footer bits (you already have these fields)
-  defaultCta?: string
-  keyLinks?: string
-  assetsPackLink?: string
+const styles = {
+  body: {
+    margin: 0,
+    padding: 0,
+    backgroundColor: '#0b0b0b',
+  },
+  outer: {
+    maxWidth: 720,
+    margin: '0 auto',
+    padding: '28px 14px',
+  },
+  card: {
+    backgroundColor: '#DDC18F',
+    borderRadius: 18,
+    overflow: 'hidden' as const,
+    border: '1px solid rgba(255,255,255,0.10)',
+  },
+  header: {
+    padding: 18,
+    paddingBottom: 12,
+  },
+  logo: {
+    display: 'block',
+    height: 28,
+    width: 'auto',
+  } as const,
+  hero: {
+    width: '100%',
+    display: 'block',
+  } as const,
+  content: {
+    padding: '18px 18px 22px',
+  },
+  proseWrap: {
+    fontSize: 16,
+    lineHeight: '1.65',
+    color: '#14110b',
+    fontFamily: '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",Times,serif',
+    letterSpacing: '0.1px',
+  } as const,
+  finePrint: {
+    margin: '18px 0 0',
+    fontSize: 12,
+    lineHeight: '1.5',
+    color: 'rgba(20,17,11,0.70)',
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+  } as const,
+}
+
+type MarkdownCustomStyles = React.ComponentProps<typeof Markdown>['markdownCustomStyles']
+
+const mdStyles: Record<string, React.CSSProperties> = {
+  p: {margin: '0 0 14px'},
+  a: {color: '#0b0b0b', textDecoration: 'underline', textUnderlineOffset: '3px'},
+  hr: {border: 0, borderTop: '1px solid rgba(20,17,11,0.18)', margin: '18px 0'},
+  h1: {fontSize: '22px', lineHeight: '1.25', margin: '0 0 14px'},
+  h2: {fontSize: '18px', lineHeight: '1.3', margin: '16px 0 10px'},
+  li: {margin: '0 0 6px'},
 }
 
 export default function PressPitchEmail(props: PressPitchEmailProps) {
-  const {
-    previewText,
-    brandName = 'Angelfish Records',
-    logoUrl,
-    heroUrl,
-    recipientName,
-    campaignName,
-    bodyMarkdown,
-    defaultCta,
-    keyLinks,
-    assetsPackLink,
-  } = props
-
-  const preview = previewText ?? `${brandName}${campaignName ? ` — ${campaignName}` : ''}`
+  const {previewText, brandName = 'Angelfish Records', logoUrl, heroUrl, bodyMarkdown} = props
+  const preview = previewText ?? brandName
 
   return (
     <Html>
       <Head />
       <Preview>{preview}</Preview>
-      <Body style={{margin: 0, padding: 0, backgroundColor: '#f6f6f6'}}>
-        <Container style={{maxWidth: 640, margin: '0 auto', padding: '24px 12px'}}>
-          <Section style={{backgroundColor: '#ffffff', borderRadius: 16, overflow: 'hidden', border: '1px solid #eee'}}>
-            {(logoUrl || heroUrl) && (
-              <Section style={{padding: 18}}>
-                {logoUrl ? <Img src={logoUrl} alt={brandName} height="28" /> : null}
+
+      <Body style={styles.body}>
+        <Container style={styles.outer}>
+          <Section style={styles.card}>
+            {logoUrl ? (
+              <Section style={styles.header}>
+                <Img src={logoUrl} alt={brandName} style={styles.logo} />
               </Section>
-            )}
+            ) : null}
 
-            {heroUrl ? <Img src={heroUrl} alt="" width="640" style={{width: '100%'}} /> : null}
+            {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
-            <Section style={{padding: '18px 18px 6px'}}>
-              {recipientName ? (
-                <Text style={{margin: 0, fontSize: 14, color: '#111'}}>Kia ora {recipientName},</Text>
-              ) : null}
-
-              <div style={{fontSize: 14, color: '#111', lineHeight: '1.55'}}>
-                <Markdown>{bodyMarkdown}</Markdown>
+            <Section style={styles.content}>
+              <div style={styles.proseWrap}>
+                <Markdown
+                  markdownContainerStyles={{
+                    fontFamily: styles.proseWrap.fontFamily,
+                    fontSize: styles.proseWrap.fontSize,
+                    lineHeight: styles.proseWrap.lineHeight,
+                    color: styles.proseWrap.color,
+                  }}
+                  markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
+                >
+                  {bodyMarkdown}
+                </Markdown>
               </div>
 
-              <Hr style={{border: 0, borderTop: '1px solid #eee', margin: '18px 0'}} />
-
-              {(defaultCta || keyLinks || assetsPackLink) && (
-                <Section style={{paddingBottom: 10}}>
-                  {defaultCta ? <Text style={{margin: '0 0 8px', fontSize: 13, color: '#111'}}>{defaultCta}</Text> : null}
-
-                  {keyLinks ? (
-                    <Text style={{margin: '0 0 6px', fontSize: 13, color: '#111'}}>
-                      <b>Key links:</b> {keyLinks}
-                    </Text>
-                  ) : null}
-
-                  {assetsPackLink ? (
-                    <Text style={{margin: 0, fontSize: 13, color: '#111'}}>
-                      <b>Assets pack:</b> <Link href={assetsPackLink}>{assetsPackLink}</Link>
-                    </Text>
-                  ) : null}
-                </Section>
-              )}
-
-              <Text style={{margin: '18px 0 0', fontSize: 13, color: '#444'}}>
-                — Brendan<br />
-                {brandName}
-              </Text>
-
-              <Text style={{margin: '10px 0 16px', fontSize: 11, color: '#888'}}>
-                If you’d prefer not to receive pitches, reply with “unsubscribe” and I’ll remove you.
-              </Text>
+              {/* remove if you want absolute purity */}
+              <Text style={styles.finePrint}>{brandName}</Text>
             </Section>
           </Section>
         </Container>

@@ -482,17 +482,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const bodyText = mergeTemplate(bodyTemplate, vars).trim()
 
       const text = bodyText || ' '
-      const recipientName = firstName || fullName || ''
 
       const html = await renderEmail(
       React.createElement(PressPitchEmail, {
         brandName: 'Angelfish Records',
-        recipientName,
-        campaignName: campaignPitch,
         bodyMarkdown: bodyText,
-        defaultCta: asString(campaignFields['Default CTA']),
-        keyLinks: asString(campaignFields['Key links']),
-        assetsPackLink: asString(campaignFields['Assets pack link']),
       }),
       {pretty: true}
     )

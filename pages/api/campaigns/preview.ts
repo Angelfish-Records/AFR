@@ -47,19 +47,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const campaignName = asString(body.campaignName).trim()
     const subject = asString(body.subject).trim()
     const bodyText = asString(body.bodyText) // allow newlines
-    const defaultCta = asString(body.defaultCta)
-    const keyLinks = asString(body.keyLinks)
-    const assetsPackLink = asString(body.assetsPackLink)
 
     // Render the exact same component drain.ts uses
     const element = React.createElement(PressPitchEmail, {
       brandName,
-      recipientName,
-      campaignName,
       bodyMarkdown: bodyText,
-      defaultCta,
-      keyLinks,
-      assetsPackLink,
     })
 
     // In some versions/types this can be Promise<string>, so await is safest.
