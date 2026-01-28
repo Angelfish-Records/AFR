@@ -1,4 +1,5 @@
-import React, {useEffect, useMemo, useState} from 'react'
+// pages/internal/campaign-composer.tsx
+import React, {useEffect, useMemo, useRef, useState} from 'react'
 
 type SampleContact = {
   id: string
@@ -54,6 +55,10 @@ type ApiErrorShape = {
   runId?: string
 }
 
+type PreviewResponse =
+  | {ok: true; subject: string; html: string}
+  | {ok?: false; error?: string; message?: string}
+
 export default function CampaignComposerPage() {
   const [internalKey, setInternalKey] = useState<string>('')
 
@@ -102,6 +107,7 @@ Assets pack:
       one_line_hook: c?.oneLineHook ?? '',
       custom_paragraph: c?.customParagraph ?? '',
       campaign_name: campaignName || '(campaign)',
+      // These are placeholders in the UI; your drain.ts pulls real values from Airtable Campaigns fields.
       key_links: '(set in Airtable Campaigns.Key links)',
       assets_pack_link: '(set in Airtable Campaigns.Assets pack link)',
       default_cta: '(set in Airtable Campaigns.Default CTA)',
@@ -111,6 +117,71 @@ Assets pack:
   const previewSubject = useMemo(() => mergeTemplate(subjectTemplate, previewVars), [subjectTemplate, previewVars])
   const previewBody = useMemo(() => mergeTemplate(bodyTemplate, previewVars), [bodyTemplate, previewVars])
 
+  // ---- Server-side HTML preview state ----
+  const [previewHtml, setPreviewHtml] = useState<string>('')
+  const [previewErr, setPreviewErr] = useState<string>('')
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const previewReqIdRef = useRef(0)
+
+  async function refreshPreviewHtml() {
+    const reqId = ++previewReqIdRef.current
+    setPreviewLoading(true)
+    setPreviewErr('')
+
+    try {
+      const recipientName = picked?.firstName || picked?.fullName || ''
+      const res = await fetch('/api/campaigns/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
+        },
+        body: JSON.stringify({
+          brandName: 'Angelfish Records',
+          recipientName,
+          campaignName: previewVars.campaign_name,
+          subject: previewSubject,
+          bodyText: previewBody,
+          defaultCta: previewVars.default_cta,
+          keyLinks: previewVars.key_links,
+          assetsPackLink: previewVars.assets_pack_link,
+        }),
+      })
+
+      const j = (await res.json().catch(() => null)) as PreviewResponse | null
+      if (reqId !== previewReqIdRef.current) return // drop stale responses
+
+      if (!res.ok || !j || (j as {ok?: unknown}).ok !== true) {
+        const msg =
+          (j && (typeof (j as {error?: unknown}).error === 'string' ? (j as {error: string}).error : '')) ||
+          (j && (typeof (j as {message?: unknown}).message === 'string' ? (j as {message: string}).message : '')) ||
+          'Preview failed'
+        throw new Error(msg)
+      }
+
+      setPreviewHtml((j as {ok: true; html: string}).html)
+    } catch (e) {
+      if (reqId !== previewReqIdRef.current) return
+      setPreviewErr(errorMessage(e))
+      setPreviewHtml('')
+    } finally {
+      if (reqId !== previewReqIdRef.current) return
+      setPreviewLoading(false)
+    }
+  }
+
+  // debounce preview refresh on inputs
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      // Only try to preview once we have at least one sample contact (so recipientName isn't empty)
+      if (!picked) return
+      refreshPreviewHtml()
+    }, 250)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [internalKey, picked?.id, previewSubject, previewBody])
+
+  // ---- sending state ----
   const [sendStatus, setSendStatus] = useState<
     | {state: 'idle'}
     | {
@@ -129,7 +200,6 @@ Assets pack:
     | {state: 'cancelled'; campaignId: string; totalSent: number}
   >({state: 'idle'})
 
-  // increment to cancel any in-flight send loop
   const [cancelToken, setCancelToken] = useState(0)
 
   function sleep(ms: number) {
@@ -241,7 +311,6 @@ Assets pack:
     const limit = Math.max(1, Math.min(100, Math.floor(opts?.limit ?? 50)))
     const maxLoops = Math.max(1, Math.min(50, Math.floor(opts?.maxLoops ?? 50)))
     const startedAtMs = Date.now()
-
     const myCancelToken = cancelToken
 
     setSendStatus({
@@ -333,10 +402,16 @@ Assets pack:
     }
   }
 
+  const iframeSrcDoc = useMemo(() => {
+    if (!previewHtml) return ''
+    // Wrap in a minimal doc so srcDoc behaves consistently.
+    return `<!doctype html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:0;">${previewHtml}</body></html>`
+  }, [previewHtml])
+
   return (
     <div
       style={{
-        maxWidth: 980,
+        maxWidth: 1100,
         margin: '24px auto',
         padding: 16,
         fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
@@ -360,8 +435,21 @@ Assets pack:
             Refresh audience
           </button>
 
+          <button
+            onClick={refreshPreviewHtml}
+            disabled={previewLoading || !picked}
+            style={{padding: '10px 14px', borderRadius: 10}}
+            title="Force refresh the server-rendered HTML preview"
+          >
+            Refresh preview
+          </button>
+
           <div style={{fontSize: 14, opacity: 0.85}}>
             Mailable contacts: <b>{audienceCount ?? '—'}</b>
+          </div>
+
+          <div style={{fontSize: 12, opacity: 0.7}}>
+            Preview: {previewLoading ? 'rendering…' : previewHtml ? 'ready' : previewErr ? 'error' : '—'}
           </div>
         </div>
       </div>
@@ -423,7 +511,11 @@ Assets pack:
           </label>
 
           <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
-            <button onClick={enqueue} disabled={loading || sendStatus.state === 'sending'} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button
+              onClick={enqueue}
+              disabled={loading || sendStatus.state === 'sending'}
+              style={{padding: '10px 14px', borderRadius: 10}}
+            >
               Enqueue campaign
             </button>
 
@@ -433,7 +525,6 @@ Assets pack:
             </div>
           </div>
 
-          {/* Manual drain buttons kept for debugging, plus the new auto-drain send */}
           <div style={{marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center'}}>
             <button
               onClick={() => sendAutoDrain({limit: 50, maxLoops: 50})}
@@ -443,7 +534,11 @@ Assets pack:
               Send campaign (auto-drain)
             </button>
 
-            <button onClick={cancelSending} disabled={sendStatus.state !== 'sending'} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button
+              onClick={cancelSending}
+              disabled={sendStatus.state !== 'sending'}
+              style={{padding: '10px 14px', borderRadius: 10}}
+            >
               Cancel
             </button>
 
@@ -534,8 +629,33 @@ Assets pack:
             <div style={{padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid #eee'}}>{previewSubject}</div>
           </div>
 
+          <div style={{marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>
+              HTML email preview (server-rendered){previewLoading ? ' — rendering…' : ''}
+            </div>
+
+            {previewErr ? (
+              <div style={{padding: 10, borderRadius: 10, background: '#fff5f5', border: '1px solid #ffd6d6', color: '#b00020'}}>
+                <b>Preview error:</b> {previewErr}
+              </div>
+            ) : (
+              <iframe
+                title="email-preview"
+                srcDoc={iframeSrcDoc}
+                style={{
+                  width: '100%',
+                  height: 520,
+                  border: '1px solid #eee',
+                  borderRadius: 10,
+                  background: '#fff',
+                }}
+                sandbox="allow-same-origin"
+              />
+            )}
+          </div>
+
           <div>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered body</div>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered plaintext (what you store in Campaign body)</div>
             <pre
               style={{
                 whiteSpace: 'pre-wrap',
@@ -544,6 +664,8 @@ Assets pack:
                 background: '#fafafa',
                 border: '1px solid #eee',
                 margin: 0,
+                maxHeight: 260,
+                overflow: 'auto',
               }}
             >
               {previewBody}

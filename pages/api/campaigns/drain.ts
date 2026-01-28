@@ -2,6 +2,9 @@
 import type {NextApiRequest, NextApiResponse} from 'next'
 import crypto from 'crypto'
 import {Resend} from 'resend'
+import {render as renderEmail} from '@react-email/render'
+import PressPitchEmail from '../../../emails/PressPitchEmail'
+import * as React from 'react'
 
 type AirtableListResp<TFields> = {
   records: Array<{id: string; fields: TFields}>
@@ -14,7 +17,10 @@ type SendFields = {
   'Reply-to'?: string
   'Resend message id'?: string
   'Delivery status'?: string
+  'Sent at'?: string
+  'Last event at'?: string
   Notes?: string
+  'Personalised paragraph used'?: string
   Contact?: string[]
   Pitch?: unknown
 }
@@ -184,18 +190,21 @@ function mergeTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, k: string) => vars[k] ?? '')
 }
 
-function textToHtml(text: string): string {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const html = text.split('\n').map((l) => esc(l)).join('<br/>')
-  return `<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.5">${html}</div>`
-}
-
 function sha256Hex(s: string): string {
   return crypto.createHash('sha256').update(s).digest('hex')
 }
 
 function normalizeEmail(s: string): string {
   return s.trim().toLowerCase()
+}
+
+function isValidEmailLoose(s: string): boolean {
+  const x = s.trim()
+  if (x.length < 3 || x.length > 254) return false
+  const at = x.indexOf('@')
+  if (at <= 0 || at !== x.lastIndexOf('@')) return false
+  const dot = x.lastIndexOf('.')
+  return dot > at + 1 && dot < x.length - 1
 }
 
 function stringifyError(e: unknown): string {
@@ -265,12 +274,9 @@ function clampInt(n: number, min: number, max: number): number {
 function computeNextPollMs(args: {sent: number; remainingQueued: number; batchLimit: number}): number {
   const {sent, remainingQueued, batchLimit} = args
   if (remainingQueued <= 0) return 0
-  // If we sent a full batch, we’re probably keeping up; small pause.
   if (sent >= batchLimit) return 900
-  // If we sent a partial batch but still have queue, be a bit gentler.
   return 1400
 }
-
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const runId = crypto.randomUUID()
@@ -304,16 +310,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       baseId,
       table: campaignsTable,
       filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
-      fields: ['Campaign/Pitch', 'Email subject template', 'Email body template', 'Default CTA', 'Key links', 'Assets pack link', 'Status', 'Sent at'],
+      fields: [
+        'Campaign/Pitch',
+        'Email subject template',
+        'Email body template',
+        'Default CTA',
+        'Key links',
+        'Assets pack link',
+        'Status',
+        'Sent at',
+      ],
       maxRecords: 1,
     })
+
     const campaignFields = camp?.[0]?.fields ?? {}
     const campaignPitch = asString(campaignFields['Campaign/Pitch']).trim()
     if (!campaignPitch) return jsonError(res, 400, 'Campaign missing Campaign/Pitch (primary field)')
 
     const status = asString(campaignFields.Status).trim()
     if (!force && status === 'Sending') {
-      // Best-effort concurrency guard.
       return res.status(409).json({
         error: 'Campaign already in Sending state (likely another drain running).',
         code: 'CAMPAIGN_LOCKED',
@@ -350,12 +365,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       maxRecords: 100,
     })
 
-    // Don’t send if a Resend message id is already set (per-send idempotency)
-    const sends = queued
+    // Eligible: queued with no resend id, then cap to batchLimit
+    const candidateSends = queued
       .filter((s) => asString(s.fields['Resend message id']).trim().length === 0)
       .slice(0, batchLimit)
 
-    const diagSample = sends.slice(0, 3).map((s) => ({
+    const diagSample = candidateSends.slice(0, 3).map((s) => ({
       id: s.id,
       recipient: asString(s.fields.Recipient),
       resendMessageId: asString(s.fields['Resend message id']),
@@ -363,13 +378,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       notes: asString(s.fields.Notes).slice(0, 160),
     }))
 
-    if (!sends.length) {
-      const remainingQueued = await countQueuedForPitch({
-        token: airtableToken,
-        baseId,
-        sendsTable,
-        campaignPitch,
-      })
+    if (!candidateSends.length) {
+      const remainingQueued = await countQueuedForPitch({token: airtableToken, baseId, sendsTable, campaignPitch})
 
       if (remainingQueued === 0) {
         try {
@@ -382,11 +392,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch {}
       }
 
-      const nextPollMs = clampInt(computeNextPollMs({sent: sends.length, remainingQueued, batchLimit}), 0, 5000)
+      const nextPollMs = clampInt(computeNextPollMs({sent: 0, remainingQueued, batchLimit}), 0, 5000)
 
       return res.status(200).json({
         ok: true,
-        sent: sends.length,
+        sent: 0,
         remainingQueued,
         nextPollMs,
         runId,
@@ -395,17 +405,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           campaignPitch,
           listFilter,
           queuedMatchedByPitch: queued.length,
-          eligibleToSend: sends.length,
+          eligibleToSend: 0,
           sample: diagSample,
         },
       })
-
     }
 
     // Contacts for merges (via Send.Contact)
     const contactIds = Array.from(
       new Set(
-        sends
+        candidateSends
           .flatMap((s) => (Array.isArray(s.fields.Contact) ? s.fields.Contact : []))
           .filter((x) => typeof x === 'string' && x.startsWith('rec'))
       )
@@ -425,10 +434,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       for (const c of contacts) contactById[c.id] = c.fields
     }
 
-    const payloads: Payload[] = sends.map((s) => {
+    const invalid: Array<{sendId: string; reason: string}> = []
+    const payloads: Payload[] = []
+
+    for (const s of candidateSends) {
       const to = normalizeEmail(asString(s.fields.Recipient))
       const from = asString(s.fields['From address']).trim()
       const replyTo = asString(s.fields['Reply-to']).trim()
+
+      if (!isValidEmailLoose(to)) {
+        invalid.push({sendId: s.id, reason: `Invalid recipient email: "${to}"`})
+        continue
+      }
+      if (!from) {
+        invalid.push({sendId: s.id, reason: `Missing From address`})
+        continue
+      }
+      if (replyTo && !isValidEmailLoose(replyTo)) {
+        invalid.push({sendId: s.id, reason: `Invalid Reply-to: "${replyTo}"`})
+        continue
+      }
 
       const contactId = Array.isArray(s.fields.Contact) && s.fields.Contact.length ? s.fields.Contact[0] : undefined
       const cf = contactId ? contactById[contactId] : undefined
@@ -457,10 +482,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const bodyText = mergeTemplate(bodyTemplate, vars).trim()
 
       const text = bodyText || ' '
-      const html = textToHtml(text)
+      const recipientName = firstName || fullName || ''
+
+      const html = await renderEmail(
+      React.createElement(PressPitchEmail, {
+        brandName: 'Angelfish Records',
+        recipientName,
+        campaignName: campaignPitch,
+        bodyMarkdown: bodyText,
+        defaultCta: asString(campaignFields['Default CTA']),
+        keyLinks: asString(campaignFields['Key links']),
+        assetsPackLink: asString(campaignFields['Assets pack link']),
+      }),
+      {pretty: true}
+    )
+
       const personalisedSnapshot = [oneLineHook, customParagraph].filter(Boolean).join('\n\n').trim()
 
-      return {
+      payloads.push({
         to,
         from,
         replyTo,
@@ -469,8 +508,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         html,
         personalisedSnapshot,
         sendId: s.id,
-      }
-    })
+      })
+    }
+
+    // Mark invalid rows as Failed (best-effort), but keep the batch moving.
+    if (invalid.length) {
+      try {
+        await airtablePatchRecords({
+          token: airtableToken,
+          baseId,
+          table: sendsTable,
+          records: invalid.map((x) => ({
+            id: x.sendId,
+            fields: {
+              'Delivery status': 'Failed',
+              'Last event at': nowIso,
+              Notes: `validation_failed=${x.reason}\nrun_id=${runId}`.slice(0, 90000),
+            },
+          })),
+        })
+      } catch {}
+    }
+
+    if (!payloads.length) {
+      const remainingQueued = await countQueuedForPitch({token: airtableToken, baseId, sendsTable, campaignPitch})
+      const nextPollMs = clampInt(computeNextPollMs({sent: 0, remainingQueued, batchLimit}), 0, 5000)
+
+      return res.status(200).json({
+        ok: true,
+        sent: 0,
+        remainingQueued,
+        nextPollMs,
+        runId,
+        diagnostics: {
+          campaignId,
+          campaignPitch,
+          listFilter,
+          queuedMatchedByPitch: queued.length,
+          eligibleToSend: 0,
+          invalidInBatch: invalid.length,
+          sample: diagSample,
+        },
+      })
+    }
 
     // Batch idempotency: stable for this exact set/order of send ids
     const batchKeyRaw = `campaign:${campaignId}:send_ids:${payloads.map((p) => p.sendId).join(',')}`
@@ -482,12 +562,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         token: airtableToken,
         baseId,
         table: sendsTable,
-        records: sends.map((s) => ({
-          id: s.id,
-          fields: {
-            Notes: `${asString(s.fields.Notes)}\n\ndrain_run_id=${runId}\nidempotency_key=${idempotencyKey}`.trim().slice(0, 90000),
-          },
-        })),
+        records: payloads.map((p) => {
+          const orig = candidateSends.find((s) => s.id === p.sendId)
+          return {
+            id: p.sendId,
+            fields: {
+              Notes: `${asString(orig?.fields.Notes)}\n\ndrain_run_id=${runId}\nidempotency_key=${idempotencyKey}`
+                .trim()
+                .slice(0, 90000),
+            },
+          }
+        }),
       })
     } catch {}
 
@@ -524,25 +609,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ? ((dataUnknown as {data: unknown}).data as Array<{id: string}>)
               : null
 
-        if (!idsArr || idsArr.length !== sends.length) throw new Error('Resend batch response missing ids (unexpected shape)')
+        if (!idsArr || idsArr.length !== payloads.length) {
+          throw new Error('Resend batch response missing ids (unexpected shape)')
+        }
 
         await airtablePatchRecords({
           token: airtableToken,
           baseId,
           table: sendsTable,
-          records: sends.map((s, i) => ({
-            id: s.id,
+          records: payloads.map((p, i) => ({
+            id: p.sendId,
             fields: {
               'Resend message id': idsArr[i]?.id ?? '',
               'Delivery status': 'Sent',
               'Sent at': nowIso,
               'Last event at': nowIso,
-              'Personalised paragraph used': payloads[i].personalisedSnapshot,
+              'Personalised paragraph used': p.personalisedSnapshot,
             },
           })),
         })
 
-        // Set Campaigns.Sent at if it’s empty-ish (best-effort, no schema changes)
+        // Set Campaigns.Sent at if it’s empty-ish (best-effort)
         if (!asString(campaignFields['Sent at']).trim()) {
           try {
             await airtablePatchRecords({
@@ -554,7 +641,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } catch {}
         }
 
+        const sentCount = payloads.length
         const remainingQueued = await countQueuedForPitch({token: airtableToken, baseId, sendsTable, campaignPitch})
+
         if (remainingQueued === 0) {
           try {
             await airtablePatchRecords({
@@ -566,11 +655,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } catch {}
         }
 
-        const nextPollMs = clampInt(computeNextPollMs({sent: 0, remainingQueued, batchLimit}), 0, 5000)
+        const nextPollMs = clampInt(computeNextPollMs({sent: sentCount, remainingQueued, batchLimit}), 0, 5000)
 
         return res.status(200).json({
           ok: true,
-          sent: 0,
+          sent: sentCount,
           remainingQueued,
           nextPollMs,
           runId,
@@ -580,16 +669,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             statusBefore: status,
             listFilter,
             queuedMatchedByPitch: queued.length,
-            eligibleToSend: sends.length,
+            eligibleToSend: candidateSends.length,
+            invalidInBatch: invalid.length,
+            sentThisBatch: sentCount,
             sample: diagSample,
           },
         })
-
       }
 
       lastError = error
       const msg =
-        typeof (error as {message?: unknown} | null)?.message === 'string' ? (error as {message: string}).message : stringifyError(error)
+        typeof (error as {message?: unknown} | null)?.message === 'string'
+          ? (error as {message: string}).message
+          : stringifyError(error)
 
       const looksRateLimited = msg.includes('429') || msg.toLowerCase().includes('rate')
       if (!looksRateLimited) break
@@ -603,11 +695,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       token: airtableToken,
       baseId,
       table: sendsTable,
-      records: sends.map((s) => ({
-        id: s.id,
+      records: payloads.map((p) => ({
+        id: p.sendId,
         fields: {
           'Delivery status': 'Failed',
-          Notes: `${asString(s.fields.Notes)}\n\nsend_failed=${errText}\nrun_id=${runId}`.slice(0, 90000),
+          Notes: `${errText ? `send_failed=${errText}\n` : ''}run_id=${runId}`.slice(0, 90000),
           'Last event at': nowIso,
         },
       })),
@@ -622,7 +714,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         campaignPitch,
         listFilter,
         queuedMatchedByPitch: queued.length,
-        eligibleToSend: sends.length,
+        eligibleToSend: candidateSends.length,
+        invalidInBatch: invalid.length,
+        sentThisBatch: 0,
         sample: diagSample,
       },
     })

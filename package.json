@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@plasmicapp/loader-nextjs": "^1.0.447",
+    "@react-email/components": "^1.0.6",
+    "@react-email/markdown": "^0.0.18",
+    "@react-email/render": "^2.0.4",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
-    "svix": "^1.40.0",
-    "resend": "^4.0.0"
+    "resend": "^4.0.0",
+    "svix": "^1.40.0"
   },
   "devDependencies": {
     "@types/node": "^20",
