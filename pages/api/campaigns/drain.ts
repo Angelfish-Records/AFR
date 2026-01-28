@@ -15,6 +15,7 @@ type SendFields = {
   'Delivery status'?: string
   Notes?: string
   Contact?: string[]
+  Pitch?: unknown
 }
 
 type ContactFields = {
@@ -170,23 +171,33 @@ type Payload = {
   personalisedSnapshot: string
 }
 
-async function countQueuedForCampaign(args: {
+function stringifyError(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'string') return e
+  try {
+    return JSON.stringify(e)
+  } catch {
+    return String(e)
+  }
+}
+
+async function countQueuedForPitch(args: {
   token: string
   baseId: string
   sendsTable: string
-  campaignId: string
+  campaignPitch: string
 }): Promise<number> {
-  const {token, baseId, sendsTable, campaignId} = args
+  const {token, baseId, sendsTable, campaignPitch} = args
   let offset: string | undefined
   let count = 0
+
+  const pitchEsc = escapeAirtableString(campaignPitch)
+  const filter = `AND(FIND("${pitchEsc}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
 
   while (true) {
     const params = new URLSearchParams()
     params.set('pageSize', '100')
-    params.set(
-      'filterByFormula',
-      `AND(FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
-    )
+    params.set('filterByFormula', filter)
     if (offset) params.set('offset', offset)
 
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sendsTable)}?${params.toString()}`
@@ -208,16 +219,6 @@ async function countQueuedForCampaign(args: {
 
     if (!next) return count
     offset = next
-  }
-}
-
-function stringifyError(e: unknown): string {
-  if (e instanceof Error) return e.message
-  if (typeof e === 'string') return e
-  try {
-    return JSON.stringify(e)
-  } catch {
-    return String(e)
   }
 }
 
@@ -243,6 +244,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const resend = new Resend(resendKey)
     const nowIso = isoNow()
 
+    // Fetch campaign by RECORD_ID, then use its primary field value for all Send filters.
+    const camp = await airtableList<CampaignFields>({
+      token: airtableToken,
+      baseId,
+      table: campaignsTable,
+      filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
+      fields: ['Campaign/Pitch', 'Email subject template', 'Email body template', 'Default CTA', 'Key links', 'Assets pack link'],
+      maxRecords: 1,
+    })
+    const campaignFields = camp?.[0]?.fields ?? {}
+    const campaignPitch = asString(campaignFields['Campaign/Pitch']).trim()
+    if (!campaignPitch) return jsonError(res, 400, 'Campaign missing Campaign/Pitch (primary field)')
+
+    const subjectTemplate = asString(campaignFields['Email subject template']).trim()
+    const bodyTemplate = asString(campaignFields['Email body template']).trim()
+    if (!subjectTemplate || !bodyTemplate) return jsonError(res, 400, 'Campaign is missing subject/body templates')
+
     // Best-effort: set campaign to Sending
     try {
       await airtablePatchRecords({
@@ -251,33 +269,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         table: campaignsTable,
         records: [{id: campaignId, fields: {Status: 'Sending'}}],
       })
-    } catch (e) {
-      console.warn('[campaigns/drain] campaign status patch failed (non-fatal)', e)
-    }
+    } catch {}
 
-    // ✅ Robust selection: pull "Queued for this campaign" only.
-    // Then in JS enforce "Resend message id must be blank".
-    const filter = `AND(FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
+    // ✅ Filter Sends via linked primary values (ARRAYJOIN({Pitch})) by campaignPitch
+    const pitchEsc = escapeAirtableString(campaignPitch)
+    const listFilter = `AND(FIND("${pitchEsc}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
 
     const queued = await airtableList<SendFields>({
       token: airtableToken,
       baseId,
       table: sendsTable,
-      filterByFormula: filter,
-      fields: ['Recipient', 'From address', 'Reply-to', 'Notes', 'Resend message id', 'Delivery status', 'Contact'],
-      maxRecords: Math.max(1, Math.min(100, batchLimit * 2)), // overfetch a bit, then filter locally
+      filterByFormula: listFilter,
+      fields: ['Recipient', 'From address', 'Reply-to', 'Notes', 'Resend message id', 'Delivery status', 'Contact', 'Pitch'],
+      maxRecords: 100,
     })
 
     const sends = queued
-      .filter((s) => {
-        const mid = asString(s.fields['Resend message id']).trim()
-        return mid.length === 0
-      })
+      .filter((s) => asString(s.fields['Resend message id']).trim().length === 0)
       .slice(0, batchLimit)
 
+    const diagSample = sends.slice(0, 3).map((s) => ({
+      id: s.id,
+      recipient: asString(s.fields.Recipient),
+      resendMessageId: asString(s.fields['Resend message id']),
+      deliveryStatus: asString(s.fields['Delivery status']),
+      pitchField: s.fields.Pitch,
+      notes: asString(s.fields.Notes).slice(0, 160),
+    }))
+
     if (!sends.length) {
-      // Only complete if queued truly is 0 (avoid false "complete" states)
-      const remainingQueued = await countQueuedForCampaign({token: airtableToken, baseId, sendsTable, campaignId})
+      const remainingQueued = await countQueuedForPitch({
+        token: airtableToken,
+        baseId,
+        sendsTable,
+        campaignPitch,
+      })
+
       if (remainingQueued === 0) {
         try {
           await airtablePatchRecords({
@@ -288,22 +315,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           })
         } catch {}
       }
-      return res.status(200).json({ok: true, sent: 0, remainingQueued})
-    }
 
-    // Campaign templates
-    const camp = await airtableList<CampaignFields>({
-      token: airtableToken,
-      baseId,
-      table: campaignsTable,
-      filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
-      fields: ['Email subject template', 'Email body template', 'Default CTA', 'Key links', 'Assets pack link', 'Campaign/Pitch'],
-      maxRecords: 1,
-    })
-    const campaignFields = camp?.[0]?.fields ?? {}
-    const subjectTemplate = asString(campaignFields['Email subject template']).trim()
-    const bodyTemplate = asString(campaignFields['Email body template']).trim()
-    if (!subjectTemplate || !bodyTemplate) return jsonError(res, 400, 'Campaign is missing subject/body templates')
+      return res.status(200).json({
+        ok: true,
+        sent: 0,
+        remainingQueued,
+        diagnostics: {
+          campaignId,
+          campaignPitch,
+          listFilter,
+          queuedMatchedByPitch: queued.length,
+          eligibleToSend: sends.length,
+          sample: diagSample,
+        },
+      })
+    }
 
     // Contacts for merges (via Send.Contact)
     const contactIds = Array.from(
@@ -350,7 +376,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         outlet: '',
         one_line_hook: oneLineHook,
         custom_paragraph: customParagraph,
-        campaign_name: asString(campaignFields['Campaign/Pitch']),
+        campaign_name: campaignPitch,
         key_links: asString(campaignFields['Key links']),
         assets_pack_link: asString(campaignFields['Assets pack link']),
         default_cta: asString(campaignFields['Default CTA']),
@@ -408,26 +434,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!idsArr || idsArr.length !== sends.length) throw new Error('Resend batch response missing ids (unexpected shape)')
 
-        const patches = sends.map((s, i) => ({
-          id: s.id,
-          fields: {
-            'Resend message id': idsArr[i]?.id ?? '',
-            'Delivery status': 'Sent',
-            'Sent at': nowIso,
-            'Last event at': nowIso,
-            'Personalised paragraph used': payloads[i].personalisedSnapshot,
-          },
-        }))
-
         await airtablePatchRecords({
           token: airtableToken,
           baseId,
           table: sendsTable,
-          records: patches,
+          records: sends.map((s, i) => ({
+            id: s.id,
+            fields: {
+              'Resend message id': idsArr[i]?.id ?? '',
+              'Delivery status': 'Sent',
+              'Sent at': nowIso,
+              'Last event at': nowIso,
+              'Personalised paragraph used': payloads[i].personalisedSnapshot,
+            },
+          })),
         })
 
-        const remainingQueued = await countQueuedForCampaign({token: airtableToken, baseId, sendsTable, campaignId})
-
+        const remainingQueued = await countQueuedForPitch({token: airtableToken, baseId, sendsTable, campaignPitch})
         if (remainingQueued === 0) {
           try {
             await airtablePatchRecords({
@@ -439,7 +462,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           } catch {}
         }
 
-        return res.status(200).json({ok: true, sent: sends.length, remainingQueued})
+        return res.status(200).json({
+          ok: true,
+          sent: sends.length,
+          remainingQueued,
+          diagnostics: {
+            campaignId,
+            campaignPitch,
+            listFilter,
+            queuedMatchedByPitch: queued.length,
+            eligibleToSend: sends.length,
+            sample: diagSample,
+          },
+        })
       }
 
       lastError = error
@@ -451,8 +486,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const looksRateLimited = msg.includes('429') || msg.toLowerCase().includes('rate')
       if (!looksRateLimited) break
 
-      const backoffMs = Math.min(8000, 500 * Math.pow(2, attempt - 1))
-      await sleep(backoffMs)
+      await sleep(Math.min(8000, 500 * Math.pow(2, attempt - 1)))
     }
 
     const errText = stringifyError(lastError)
@@ -471,7 +505,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })),
     })
 
-    return res.status(502).json({error: 'Drain send failed', resend: errText})
+    return res.status(502).json({
+      error: 'Drain send failed',
+      resend: errText,
+      diagnostics: {campaignId, campaignPitch, listFilter, queuedMatchedByPitch: queued.length, eligibleToSend: sends.length, sample: diagSample},
+    })
   } catch (err) {
     console.error('[campaigns/drain] failed', err)
     return res.status(500).json({
