@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const resend = new Resend(resendApiKey)
 
   const sendResult = await resend.emails.send({
-  from: 'Angelfish Records <press@send.press.angelfishrecords.com>',
+  from: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
   to,
   subject,
   text,
