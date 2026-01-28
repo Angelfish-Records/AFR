@@ -8,69 +8,97 @@ export type PressPitchEmailProps = {
   brandName?: string
   logoUrl?: string
   heroUrl?: string
-
-  // EVERYTHING textual comes from the inline editor (merged markdown).
   bodyMarkdown: string
 }
+
+const BOX_BG = '#DDC18F'
+const PAGE_BG = '#0b0b0b'
+const TEXT = '#14110b'
+const MUTED = 'rgba(20,17,11,0.72)'
 
 const styles = {
   body: {
     margin: 0,
     padding: 0,
-    backgroundColor: '#0b0b0b',
+    backgroundColor: PAGE_BG,
   },
   outer: {
     maxWidth: 720,
     margin: '0 auto',
-    padding: '28px 14px',
+    padding: '36px 18px', // more breathing room
   },
+  // Centered logo area ABOVE the box
+  topLogoWrap: {
+    textAlign: 'center' as const,
+    paddingBottom: 18,
+  },
+  logoImg: {
+    display: 'inline-block',
+    height: 34,
+    width: 'auto',
+  } as const,
+  logoPlaceholder: {
+    display: 'inline-block',
+    width: 140,
+    height: 34,
+    lineHeight: '34px',
+    borderRadius: 10,
+    border: `1px dashed rgba(221,193,143,0.75)`,
+    color: `rgba(221,193,143,0.95)`,
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+    fontSize: 12,
+    letterSpacing: '0.2px',
+  } as const,
+
   card: {
-    backgroundColor: '#DDC18F',
-    borderRadius: 18,
+    backgroundColor: BOX_BG,
+    borderRadius: 22,
     overflow: 'hidden' as const,
     border: '1px solid rgba(255,255,255,0.10)',
   },
-  header: {
-    padding: 18,
-    paddingBottom: 12,
-  },
-  logo: {
-    display: 'block',
-    height: 28,
-    width: 'auto',
-  } as const,
   hero: {
     width: '100%',
     display: 'block',
   } as const,
   content: {
-    padding: '18px 18px 22px',
+    padding: '22px 22px 24px', // more padding
   },
+
   proseWrap: {
-    fontSize: 16,
+    fontSize: 14, // more “polished corporate” than 16
     lineHeight: '1.65',
-    color: '#14110b',
-    fontFamily: '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",Times,serif',
-    letterSpacing: '0.1px',
+    color: TEXT,
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+    letterSpacing: '0px',
   } as const,
-  finePrint: {
-    margin: '18px 0 0',
+
+  // Footer OUTSIDE the box, in the same tone as the box
+  footerOutside: {
+    textAlign: 'center' as const,
+    marginTop: 16,
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
     fontSize: 12,
-    lineHeight: '1.5',
-    color: 'rgba(20,17,11,0.70)',
-    fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+    lineHeight: '1.4',
+    color: `rgba(221,193,143,0.95)`,
+  } as const,
+  footerOutsideMuted: {
+    marginTop: 6,
+    fontSize: 11,
+    color: `rgba(221,193,143,0.70)`,
   } as const,
 }
 
 type MarkdownCustomStyles = React.ComponentProps<typeof Markdown>['markdownCustomStyles']
 
 const mdStyles: Record<string, React.CSSProperties> = {
-  p: {margin: '0 0 14px'},
-  a: {color: '#0b0b0b', textDecoration: 'underline', textUnderlineOffset: '3px'},
-  hr: {border: 0, borderTop: '1px solid rgba(20,17,11,0.18)', margin: '18px 0'},
-  h1: {fontSize: '22px', lineHeight: '1.25', margin: '0 0 14px'},
-  h2: {fontSize: '18px', lineHeight: '1.3', margin: '16px 0 10px'},
+  p: {margin: '0 0 12px'},
+  a: {color: TEXT, textDecoration: 'underline', textUnderlineOffset: '3px'},
+  hr: {border: 0, borderTop: '1px solid rgba(20,17,11,0.16)', margin: '16px 0'},
+  h1: {fontSize: '18px', lineHeight: '1.25', margin: '0 0 12px'},
+  h2: {fontSize: '15px', lineHeight: '1.3', margin: '14px 0 8px', color: TEXT},
   li: {margin: '0 0 6px'},
+  strong: {color: TEXT},
+  em: {color: MUTED},
 }
 
 export default function PressPitchEmail(props: PressPitchEmailProps) {
@@ -84,13 +112,17 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
       <Body style={styles.body}>
         <Container style={styles.outer}>
-          <Section style={styles.card}>
+          {/* Logo placeholder / logo URL (centered, above the card) */}
+          <Section style={styles.topLogoWrap}>
             {logoUrl ? (
-              <Section style={styles.header}>
-                <Img src={logoUrl} alt={brandName} style={styles.logo} />
-              </Section>
-            ) : null}
+              <Img src={logoUrl} alt={brandName} style={styles.logoImg} />
+            ) : (
+              <div style={styles.logoPlaceholder}>LOGO</div>
+            )}
+          </Section>
 
+          {/* Main content box */}
+          <Section style={styles.card}>
             {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
             <Section style={styles.content}>
@@ -107,11 +139,13 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
                   {bodyMarkdown}
                 </Markdown>
               </div>
-
-              {/* remove if you want absolute purity */}
-              <Text style={styles.finePrint}>{brandName}</Text>
             </Section>
           </Section>
+
+          {/* Footer OUTSIDE the card, in the box's tone */}
+          <Text style={styles.footerOutside}>{brandName}</Text>
+          {/* optional muted line (remove if you want absolute purity) */}
+          <Text style={styles.footerOutsideMuted}>Press contact • Reply to reach me</Text>
         </Container>
       </Body>
     </Html>
