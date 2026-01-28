@@ -23,15 +23,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const resend = new Resend(resendApiKey)
 
   const sendResult = await resend.emails.send({
-    from: 'Angelfish Records <press@send.press.angelfishrecords.com>',
-    to,
-    subject,
-    text,
-  })
+  from: 'Angelfish Records <press@send.press.angelfishrecords.com>',
+  to,
+  subject,
+  text,
+})
 
-  if (!sendResult.data?.id) {
-    return res.status(500).json({error: 'Resend send failed'})
-  }
+if (sendResult.error) {
+  console.error('Resend error:', sendResult.error)
+  return res.status(500).json({
+    error: 'Resend send failed',
+    resend: sendResult.error,
+  })
+}
+
 
   const resendMessageId = sendResult.data.id
 
