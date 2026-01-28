@@ -1,0 +1,471 @@
+import type {NextApiRequest, NextApiResponse} from 'next'
+import crypto from 'crypto'
+import {Resend} from 'resend'
+
+type AirtableListResp<TFields> = {
+  records: Array<{id: string; fields: TFields}>
+  offset?: string
+}
+
+type SendFields = {
+  Recipient?: string
+  'From address'?: string
+  'Reply-to'?: string
+  'Resend message id'?: string
+  'Delivery status'?: string
+  Notes?: string
+  Contact?: string[] // linked record ids
+}
+
+type ContactFields = {
+  'Full name'?: string
+  'First name'?: string
+  'Last name'?: string
+  Email?: string
+  'One-line hook'?: string
+  'Custom paragraph'?: string
+}
+
+type CampaignFields = {
+  'Email subject template'?: string
+  'Email body template'?: string
+  'Default CTA'?: string
+  'Key links'?: string
+  'Assets pack link'?: string
+  'Campaign/Pitch'?: string
+  Status?: string
+}
+
+function must(v: string | undefined, name: string): string {
+  if (!v) throw new Error(`Missing ${name}`)
+  return v
+}
+
+function jsonError(res: NextApiResponse, status: number, msg: string, extra?: unknown) {
+  return res.status(status).json({error: msg, ...(extra ? {extra} : {})})
+}
+
+function isObj(x: unknown): x is Record<string, unknown> {
+  return !!x && typeof x === 'object'
+}
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function isoNow(): string {
+  return new Date().toISOString()
+}
+
+function escapeAirtableString(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a)
+  const bb = Buffer.from(b)
+  if (ab.length !== bb.length) return false
+  return crypto.timingSafeEqual(ab, bb)
+}
+
+function allowInternal(req: NextApiRequest): boolean {
+  const key = process.env.AFR_INTERNAL_KEY
+  if (!key) return true
+  const got = typeof req.headers['x-afr-internal-key'] === 'string' ? req.headers['x-afr-internal-key'] : ''
+  if (!got) return false
+  return safeEqual(got, key)
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms))
+}
+
+async function airtableRequest<T>(
+  token: string,
+  url: string,
+  init?: RequestInit
+): Promise<{ok: true; json: T} | {ok: false; status: number; body: string}> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    return {ok: false, status: res.status, body}
+  }
+  const json = (await res.json()) as T
+  return {ok: true, json}
+}
+
+async function airtableList<TFields>(args: {
+  token: string
+  baseId: string
+  table: string
+  filterByFormula?: string
+  fields?: string[]
+  maxRecords?: number
+  pageSize?: number
+}): Promise<Array<{id: string; fields: TFields}>> {
+  const {token, baseId, table, filterByFormula, fields, maxRecords = 100, pageSize = 100} = args
+  const params = new URLSearchParams()
+  params.set('pageSize', String(Math.min(100, pageSize)))
+  params.set('maxRecords', String(Math.min(100, maxRecords)))
+  if (filterByFormula) params.set('filterByFormula', filterByFormula)
+  if (fields?.length) for (const f of fields) params.append('fields[]', f)
+
+  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?${params.toString()}`
+  const resp = await airtableRequest<AirtableListResp<TFields>>(token, url)
+  if (!resp.ok) throw new Error(`Airtable list failed: ${resp.status} ${resp.body}`)
+  return resp.json.records
+}
+
+async function airtablePatchRecords(args: {
+  token: string
+  baseId: string
+  table: string
+  records: Array<{id: string; fields: Record<string, unknown>}>
+}): Promise<void> {
+  const {token, baseId, table, records} = args
+
+  for (let i = 0; i < records.length; i += 10) {
+    const chunk = records.slice(i, i + 10)
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`
+    const resp = await airtableRequest<unknown>(token, url, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({records: chunk}),
+    })
+    if (!resp.ok) throw new Error(`Airtable patch failed: ${resp.status} ${resp.body}`)
+  }
+}
+
+function mergeTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, k: string) => vars[k] ?? '')
+}
+
+function textToHtml(text: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const html = text.split('\n').map((l) => esc(l)).join('<br/>')
+  return `<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;line-height:1.5">${html}</div>`
+}
+
+function sha256Hex(s: string): string {
+  return crypto.createHash('sha256').update(s).digest('hex')
+}
+
+type Payload = {
+  to: string
+  from: string
+  replyTo: string
+  subject: string
+  text: string
+  html: string
+  personalisedSnapshot: string
+}
+
+function normalizeEmail(s: string): string {
+  return s.trim().toLowerCase()
+}
+
+async function countQueuedForCampaign(args: {
+  token: string
+  baseId: string
+  sendsTable: string
+  campaignId: string
+}): Promise<number> {
+  const {token, baseId, sendsTable, campaignId} = args
+  let offset: string | undefined
+  let count = 0
+
+  while (true) {
+    const params = new URLSearchParams()
+    params.set('pageSize', '100')
+    params.set(
+      'filterByFormula',
+      `AND(FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`
+    )
+    if (offset) params.set('offset', offset)
+
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sendsTable)}?${params.toString()}`
+    const r = await fetch(url, {headers: {Authorization: `Bearer ${token}`}})
+    const j = (await r.json().catch(() => null)) as unknown
+    if (!r.ok) throw new Error(`Airtable count failed: ${r.status} ${JSON.stringify(j)}`)
+
+    const records = isObj(j) && Array.isArray((j as {records?: unknown}).records) ? ((j as {records: unknown}).records as unknown[]) : []
+    count += records.length
+
+    const next = isObj(j) && typeof (j as {offset?: unknown}).offset === 'string' ? (j as {offset: string}).offset : undefined
+    if (!next) return count
+    offset = next
+  }
+}
+
+function stringifyError(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'string') return e
+  try {
+    return JSON.stringify(e)
+  } catch {
+    return String(e)
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    if (!allowInternal(req)) return jsonError(res, 401, 'Unauthorized')
+    if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
+
+    const resendKey = must(process.env.RESEND_API_KEY, 'RESEND_API_KEY')
+    const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
+    const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')
+
+    const contactsTable = must(process.env.AIRTABLE_PRESS_CONTACTS_TABLE, 'AIRTABLE_PRESS_CONTACTS_TABLE')
+    const campaignsTable = must(process.env.AIRTABLE_CAMPAIGNS_TABLE, 'AIRTABLE_CAMPAIGNS_TABLE')
+    const sendsTable = must(process.env.AIRTABLE_SENDS_TABLE, 'AIRTABLE_SENDS_TABLE')
+
+    const body = (req.body ?? {}) as Record<string, unknown>
+    const campaignId = typeof body.campaignId === 'string' ? body.campaignId.trim() : ''
+    const limitRaw = typeof body.limit === 'number' ? body.limit : undefined
+    if (!campaignId) return jsonError(res, 400, 'Missing campaignId')
+
+    const batchLimit = Math.max(1, Math.min(100, typeof limitRaw === 'number' ? Math.floor(limitRaw) : 50))
+    const resend = new Resend(resendKey)
+    const nowIso = isoNow()
+
+    // Best-effort: set campaign to Sending
+    try {
+      await airtablePatchRecords({
+        token: airtableToken,
+        baseId,
+        table: campaignsTable,
+        records: [{id: campaignId, fields: {Status: 'Sending'}}],
+      })
+    } catch (e) {
+      console.warn('[campaigns/drain] campaign status patch failed (non-fatal)', e)
+    }
+
+    // Pull queued sends for this campaign (no Resend message id yet)
+    const filter = `AND(
+      FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch})),
+      {Delivery status}="Queued",
+      OR({Resend message id}="", {Resend message id}=BLANK())
+    )`
+
+    const sends = await airtableList<SendFields>({
+      token: airtableToken,
+      baseId,
+      table: sendsTable,
+      filterByFormula: filter,
+      fields: ['Recipient', 'From address', 'Reply-to', 'Notes', 'Resend message id', 'Delivery status', 'Contact'],
+      maxRecords: batchLimit,
+    })
+
+    if (!sends.length) {
+      try {
+        await airtablePatchRecords({
+          token: airtableToken,
+          baseId,
+          table: campaignsTable,
+          records: [{id: campaignId, fields: {Status: 'Complete'}}],
+        })
+      } catch {}
+      return res.status(200).json({ok: true, sent: 0, remainingQueued: 0})
+    }
+
+    // Campaign templates
+    const camp = await airtableList<CampaignFields>({
+      token: airtableToken,
+      baseId,
+      table: campaignsTable,
+      filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
+      fields: ['Email subject template', 'Email body template', 'Default CTA', 'Key links', 'Assets pack link', 'Campaign/Pitch'],
+      maxRecords: 1,
+    })
+    const campaignFields = camp?.[0]?.fields ?? {}
+    const subjectTemplate = asString(campaignFields['Email subject template']).trim()
+    const bodyTemplate = asString(campaignFields['Email body template']).trim()
+    if (!subjectTemplate || !bodyTemplate) return jsonError(res, 400, 'Campaign is missing subject/body templates')
+
+    // Load contacts referenced by Send.Contact
+    const contactIds = Array.from(
+      new Set(
+        sends
+          .flatMap((s) => (Array.isArray(s.fields.Contact) ? s.fields.Contact : []))
+          .filter((x) => typeof x === 'string' && x.startsWith('rec'))
+      )
+    )
+
+    const contactById: Record<string, ContactFields> = {}
+    if (contactIds.length) {
+      const or = contactIds.map((id) => `RECORD_ID()="${escapeAirtableString(id)}"`).join(',')
+      const contacts = await airtableList<ContactFields>({
+        token: airtableToken,
+        baseId,
+        table: contactsTable,
+        filterByFormula: `OR(${or})`,
+        fields: ['Full name', 'First name', 'Last name', 'Email', 'One-line hook', 'Custom paragraph'],
+        maxRecords: Math.min(100, contactIds.length),
+      })
+      for (const c of contacts) contactById[c.id] = c.fields
+    }
+
+    const payloads: Payload[] = sends.map((s) => {
+      const to = normalizeEmail(asString(s.fields.Recipient))
+      const from = asString(s.fields['From address']).trim()
+      const replyTo = asString(s.fields['Reply-to']).trim()
+
+      const contactId = Array.isArray(s.fields.Contact) && s.fields.Contact.length ? s.fields.Contact[0] : undefined
+      const cf = contactId ? contactById[contactId] : undefined
+
+      const firstName = asString(cf?.['First name'])
+      const lastName = asString(cf?.['Last name'])
+      const fullName = asString(cf?.['Full name']) || [firstName, lastName].filter(Boolean).join(' ').trim()
+      const oneLineHook = asString(cf?.['One-line hook'])
+      const customParagraph = asString(cf?.['Custom paragraph'])
+
+      const vars: Record<string, string> = {
+        first_name: firstName,
+        last_name: lastName,
+        full_name: fullName,
+        email: to,
+        outlet: '',
+        one_line_hook: oneLineHook,
+        custom_paragraph: customParagraph,
+        campaign_name: asString(campaignFields['Campaign/Pitch']),
+        key_links: asString(campaignFields['Key links']),
+        assets_pack_link: asString(campaignFields['Assets pack link']),
+        default_cta: asString(campaignFields['Default CTA']),
+      }
+
+      const subj = mergeTemplate(subjectTemplate, vars).trim()
+      const bodyText = mergeTemplate(bodyTemplate, vars).trim()
+
+      // Resend types in your SDK want `text` always present.
+      const text = bodyText || ' ' // never empty/undefined
+      const html = textToHtml(text)
+      const personalisedSnapshot = [oneLineHook, customParagraph].filter(Boolean).join('\n\n').trim()
+
+      return {
+        to,
+        from,
+        replyTo,
+        subject: subj || '(no subject)',
+        text,
+        html,
+        personalisedSnapshot,
+      }
+    })
+
+    // Idempotency key deterministic for this exact batch (send ids in order)
+    const batchKeyRaw = `campaign:${campaignId}:send_ids:${sends.map((s) => s.id).join(',')}`
+    const idempotencyKey = `af:${campaignId}:${sha256Hex(batchKeyRaw).slice(0, 48)}`
+
+    let attempt = 0
+    let lastError: unknown = null
+
+    while (attempt < 3) {
+      attempt++
+
+      // Match SDK typings: resend.batch.send({ emails: [...] }, { idempotencyKey })
+            const emails = payloads.map((p) => ({
+        from: p.from,
+        to: p.to, // string is accepted by your installed types
+        subject: p.subject,
+        text: p.text, // always a string
+        html: p.html,
+        ...(p.replyTo ? {replyTo: p.replyTo} : {}),
+        tags: [{name: 'campaign_id', value: campaignId}],
+      }))
+
+      const result = await resend.batch.send(emails, {idempotencyKey})
+
+      const error = (result as {error?: unknown}).error
+      if (!error) {
+        const dataUnknown = (result as {data?: unknown}).data
+
+        // Accept either: data: [{id}], or data: { data: [{id}] }
+        const idsArr: Array<{id: string}> | null =
+          Array.isArray(dataUnknown)
+            ? (dataUnknown as Array<{id: string}>)
+            : isObj(dataUnknown) && Array.isArray((dataUnknown as {data?: unknown}).data)
+              ? ((dataUnknown as {data: unknown}).data as Array<{id: string}>)
+              : null
+
+        if (!idsArr || idsArr.length !== sends.length) throw new Error('Resend batch response missing ids (unexpected shape)')
+
+        const patches = sends.map((s, i) => ({
+          id: s.id,
+          fields: {
+            'Resend message id': idsArr[i]?.id ?? '',
+            'Delivery status': 'Sent',
+            'Sent at': nowIso,
+            'Last event at': nowIso,
+            'Personalised paragraph used': payloads[i].personalisedSnapshot,
+          },
+        }))
+
+        await airtablePatchRecords({
+          token: airtableToken,
+          baseId,
+          table: sendsTable,
+          records: patches,
+        })
+
+        const remainingQueued = await countQueuedForCampaign({
+          token: airtableToken,
+          baseId,
+          sendsTable,
+          campaignId,
+        })
+
+        if (remainingQueued === 0) {
+          try {
+            await airtablePatchRecords({
+              token: airtableToken,
+              baseId,
+              table: campaignsTable,
+              records: [{id: campaignId, fields: {Status: 'Complete'}}],
+            })
+          } catch {}
+        }
+
+        return res.status(200).json({ok: true, sent: sends.length, remainingQueued})
+      }
+
+      lastError = error
+      const msg = typeof (error as {message?: unknown} | null)?.message === 'string' ? (error as {message: string}).message : stringifyError(error)
+      const looksRateLimited = msg.includes('429') || msg.toLowerCase().includes('rate')
+      if (!looksRateLimited) break
+
+      const backoffMs = Math.min(8000, 500 * Math.pow(2, attempt - 1))
+      await sleep(backoffMs)
+    }
+
+    const errText = stringifyError(lastError)
+
+    await airtablePatchRecords({
+      token: airtableToken,
+      baseId,
+      table: sendsTable,
+      records: sends.map((s) => ({
+        id: s.id,
+        fields: {
+          'Delivery status': 'Failed',
+          Notes: `${asString(s.fields.Notes)}\n\nsend_failed=${errText}`.slice(0, 90000),
+          'Last event at': nowIso,
+        },
+      })),
+    })
+
+    return res.status(502).json({error: 'Drain send failed', resend: errText})
+  } catch (err) {
+    console.error('[campaigns/drain] failed', err)
+    return res.status(500).json({
+      error: 'Drain failed',
+      message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}

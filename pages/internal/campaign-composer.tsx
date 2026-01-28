@@ -1,270 +1,344 @@
 import React, {useEffect, useMemo, useState} from 'react'
 
-type AudienceKey = 'press_mailable_v1'
+type SampleContact = {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  fullName: string
+  outlet: string
+  oneLineHook: string
+  customParagraph: string
+}
 
-type PreviewResult = {
-  subject: string
-  text: string
-  sample: {
-    email: string
-    first_name?: string
-    last_name?: string
-    outlet?: string
+function mergeTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, k: string) => vars[k] ?? '')
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
   }
 }
 
-type EnqueueResult = {
-  campaignId: string
-  queuedCount: number
+type EnqueueGetResponse = {
+  ok: true
+  audienceKey: string
+  mailableCount: number
+  sampleContacts: SampleContact[]
 }
 
-type ProcessResult = {
+type EnqueuePostResponse = {
+  ok: true
+  audienceKey: string
   campaignId: string
-  processed: number
-  sentNow: number
-  skippedAlreadySent: number
-  failedNow: number
-  remainingQueuedEstimate: number | null
+  enqueued: number
+}
+
+type DrainResponse = {
+  ok: true
+  sent: number
+  remainingQueued: number
 }
 
 export default function CampaignComposerPage() {
-  const audienceKey: AudienceKey = 'press_mailable_v1'
+  const [internalKey, setInternalKey] = useState<string>('')
 
-  const [recipientCount, setRecipientCount] = useState<number | null>(null)
-  const [loadingAudience, setLoadingAudience] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [audienceCount, setAudienceCount] = useState<number | null>(null)
+  const [sampleContacts, setSampleContacts] = useState<SampleContact[]>([])
+  const [samplePick, setSamplePick] = useState<string>('')
 
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [fromAddress, setFromAddress] = useState('Brendan at Angelfish Records <brendan@press.angelfishrecords.com>')
+  const [replyTo, setReplyTo] = useState('brendan@press.angelfishrecords.com')
+  const [campaignName, setCampaignName] = useState('')
 
-  const [sampleContactId, setSampleContactId] = useState<string>('')
-  const [preview, setPreview] = useState<PreviewResult | null>(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [subjectTemplate, setSubjectTemplate] = useState('Angelfish Records: {{campaign_name}}')
+  const [bodyTemplate, setBodyTemplate] = useState(
+    `Kia ora {{first_name}},
 
-  const [campaignId, setCampaignId] = useState<string | null>(null)
-  const [enqueueing, setEnqueueing] = useState(false)
-  const [processing, setProcessing] = useState(false)
-  const [lastProcess, setLastProcess] = useState<ProcessResult | null>(null)
+{{one_line_hook}}
 
-  const [error, setError] = useState<string | null>(null)
+{{custom_paragraph}}
 
-  const canPreview = useMemo(() => {
-    return subject.trim().length > 0 && body.trim().length > 0 && sampleContactId.trim().length > 0
-  }, [subject, body, sampleContactId])
+Key links:
+{{key_links}}
 
-  const canEnqueue = useMemo(() => {
-    return subject.trim().length > 0 && body.trim().length > 0 && (recipientCount ?? 0) > 0 && !enqueueing
-  }, [subject, body, recipientCount, enqueueing])
+Assets pack:
+{{assets_pack_link}}
 
-  const canProcess = useMemo(() => {
-    return !!campaignId && !processing
-  }, [campaignId, processing])
+— Brendan
+`
+  )
 
-  // Load audience count
-  useEffect(() => {
-    async function load() {
-      setLoadingAudience(true)
-      setError(null)
-      try {
-        const r = await fetch(`/api/campaigns/audience-count?audienceKey=${audienceKey}`)
-        const j = await r.json()
-        if (!r.ok) throw new Error(j?.error ?? 'Failed to load audience')
-        setRecipientCount(j.count)
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      } finally {
-        setLoadingAudience(false)
+  const [campaignId, setCampaignId] = useState<string>('')
+
+  const picked = useMemo(() => {
+    const c = sampleContacts.find((x) => x.id === samplePick) ?? sampleContacts[0]
+    return c ?? null
+  }, [sampleContacts, samplePick])
+
+  const previewVars = useMemo(() => {
+    const c = picked
+    return {
+      first_name: c?.firstName ?? '',
+      last_name: c?.lastName ?? '',
+      full_name: c?.fullName ?? '',
+      email: c?.email ?? '',
+      outlet: c?.outlet ?? '',
+      one_line_hook: c?.oneLineHook ?? '',
+      custom_paragraph: c?.customParagraph ?? '',
+      campaign_name: campaignName || '(campaign)',
+      key_links: '(set in Airtable Campaigns.Key links)',
+      assets_pack_link: '(set in Airtable Campaigns.Assets pack link)',
+      default_cta: '(set in Airtable Campaigns.Default CTA)',
+    }
+  }, [picked, campaignName])
+
+  const previewSubject = useMemo(() => mergeTemplate(subjectTemplate, previewVars), [subjectTemplate, previewVars])
+  const previewBody = useMemo(() => mergeTemplate(bodyTemplate, previewVars), [bodyTemplate, previewVars])
+
+  async function loadAudience() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/campaigns/enqueue?audienceKey=press_mailable_v1', {
+        headers: internalKey ? {'x-afr-internal-key': internalKey} : {},
+      })
+      const j = (await res.json().catch(() => null)) as unknown
+      if (!res.ok) {
+        const msg = typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Failed to load audience'
+        throw new Error(msg)
       }
-    }
-    load()
-  }, [audienceKey])
-
-  async function doPreview() {
-    if (!canPreview) return
-    setLoadingPreview(true)
-    setError(null)
-    try {
-      const r = await fetch('/api/campaigns/preview', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({audienceKey, subject, body, sampleContactId}),
-      })
-      const j = await r.json()
-      if (!r.ok) throw new Error(j?.error ?? 'Preview failed')
-      setPreview(j)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const data = j as EnqueueGetResponse
+      setAudienceCount(typeof data.mailableCount === 'number' ? data.mailableCount : null)
+      setSampleContacts(Array.isArray(data.sampleContacts) ? data.sampleContacts : [])
+      if (data.sampleContacts?.[0]?.id) setSamplePick(data.sampleContacts[0].id)
+    } catch (e: unknown) {
+      alert(errorMessage(e))
     } finally {
-      setLoadingPreview(false)
+      setLoading(false)
     }
   }
 
-  async function doEnqueue() {
-    if (!canEnqueue) return
-    setEnqueueing(true)
-    setError(null)
-    setLastProcess(null)
+  useEffect(() => {
+    loadAudience()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    // Deterministic client key to make enqueue idempotent if user double-clicks.
-    const campaignKey =
-      'cmp_' +
-      Math.random().toString(36).slice(2) +
-      '_' +
-      Date.now().toString(36)
-
+  async function enqueue() {
+    setLoading(true)
     try {
-      const r = await fetch('/api/campaigns/enqueue', {
+      const res = await fetch('/api/campaigns/enqueue', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({audienceKey, subject, body, campaignKey}),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
+        },
+        body: JSON.stringify({
+          audienceKey: 'press_mailable_v1',
+          campaignName: campaignName || undefined,
+          fromAddress,
+          replyTo,
+          subjectTemplate,
+          bodyTemplate,
+        }),
       })
-      const j: EnqueueResult & {error?: string} = await r.json()
-      if (!r.ok) throw new Error(j?.error ?? 'Enqueue failed')
-      setCampaignId(j.campaignId)
-      alert(`Queued ${j.queuedCount} sends.\nCampaign: ${j.campaignId}`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const j = (await res.json().catch(() => null)) as unknown
+      if (!res.ok) {
+        const msg = typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Enqueue failed'
+        throw new Error(msg)
+      }
+      const data = j as EnqueuePostResponse
+      setCampaignId(data.campaignId)
+      alert(`Enqueued ${data.enqueued} sends.\nCampaign: ${data.campaignId}`)
+    } catch (e: unknown) {
+      alert(errorMessage(e))
     } finally {
-      setEnqueueing(false)
+      setLoading(false)
     }
   }
 
-  async function doProcessOnce() {
-    if (!campaignId) return
-    setProcessing(true)
-    setError(null)
+  async function drainOnce(limit: number) {
+    if (!campaignId) return alert('No campaignId yet — enqueue first.')
+    setLoading(true)
     try {
-      const r = await fetch('/api/campaigns/process', {
+      const res = await fetch('/api/campaigns/drain', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({campaignId, maxToProcess: 25}),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
+        },
+        body: JSON.stringify({campaignId, limit}),
       })
-      const j: ProcessResult & {error?: string} = await r.json()
-      if (!r.ok) throw new Error(j?.error ?? 'Process failed')
-      setLastProcess(j)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      const j = (await res.json().catch(() => null)) as unknown
+      if (!res.ok) {
+        const msg = typeof (j as {error?: unknown} | null)?.error === 'string' ? (j as {error: string}).error : 'Drain failed'
+        throw new Error(msg)
+      }
+      const data = j as DrainResponse
+      alert(`Sent ${data.sent}.\nRemaining queued: ${data.remainingQueued}`)
+    } catch (e: unknown) {
+      alert(errorMessage(e))
     } finally {
-      setProcessing(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div style={{maxWidth: 860, margin: '40px auto', padding: 24, fontFamily: 'system-ui, sans-serif'}}>
-      <h1 style={{marginBottom: 6}}>Campaign Composer</h1>
-      <div style={{opacity: 0.7, marginBottom: 22}}>
-        Audience → Message → Preview → Enqueue → Drain
+    <div
+      style={{
+        maxWidth: 980,
+        margin: '24px auto',
+        padding: 16,
+        fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+      }}
+    >
+      <h1 style={{marginTop: 0}}>Campaign Composer (Internal)</h1>
+
+      <div style={{padding: 12, border: '1px solid #ddd', borderRadius: 12, marginBottom: 16}}>
+        <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
+          <label style={{display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260}}>
+            <span style={{fontSize: 12, opacity: 0.7}}>Optional internal key (only needed if AFR_INTERNAL_KEY is set)</span>
+            <input
+              value={internalKey}
+              onChange={(e) => setInternalKey(e.target.value)}
+              placeholder="x-afr-internal-key"
+              style={{padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+            />
+          </label>
+
+          <button onClick={loadAudience} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
+            Refresh audience
+          </button>
+
+          <div style={{fontSize: 14, opacity: 0.85}}>
+            Mailable contacts: <b>{audienceCount ?? '—'}</b>
+          </div>
+        </div>
       </div>
 
-      <section style={{border: '1px solid #ddd', borderRadius: 12, padding: 16, marginBottom: 16}}>
-        <h2 style={{marginTop: 0}}>Audience</h2>
-        <div><strong>Press contacts</strong> where <code>{`{Is mailable} = 1`}</code></div>
-        <div style={{marginTop: 8}}>
-          {loadingAudience ? 'Loading…' : recipientCount !== null ? `${recipientCount} mailable recipients` : '—'}
-        </div>
-      </section>
+      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16}}>
+        <div style={{padding: 12, border: '1px solid #ddd', borderRadius: 12}}>
+          <h2 style={{marginTop: 0, fontSize: 18}}>Compose</h2>
 
-      <section style={{border: '1px solid #ddd', borderRadius: 12, padding: 16, marginBottom: 16}}>
-        <h2 style={{marginTop: 0}}>Message</h2>
+          <label style={{display: 'block', marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Campaign name (optional)</div>
+            <input
+              value={campaignName}
+              onChange={(e) => setCampaignName(e.target.value)}
+              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+            />
+          </label>
 
-        <label style={{display: 'block', marginBottom: 6}}>Subject</label>
-        <input
-          style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc', marginBottom: 12}}
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Subject (supports {{first_name}}, {{outlet}} etc.)"
-          maxLength={140}
-        />
+          <label style={{display: 'block', marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>From</div>
+            <input
+              value={fromAddress}
+              onChange={(e) => setFromAddress(e.target.value)}
+              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+            />
+          </label>
 
-        <label style={{display: 'block', marginBottom: 6}}>Body</label>
-        <textarea
-          style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc', minHeight: 220}}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Plain text body (recommended first). Merge vars like {{first_name}}, {{outlet}}"
-        />
+          <label style={{display: 'block', marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Reply-To</div>
+            <input
+              value={replyTo}
+              onChange={(e) => setReplyTo(e.target.value)}
+              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+            />
+          </label>
 
-        <div style={{marginTop: 10, opacity: 0.75}}>
-          Merge vars: <code>{'{{first_name}}'}</code> <code>{'{{last_name}}'}</code> <code>{'{{outlet}}'}</code> <code>{'{{email}}'}</code>
-        </div>
-      </section>
+          <label style={{display: 'block', marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Subject template</div>
+            <input
+              value={subjectTemplate}
+              onChange={(e) => setSubjectTemplate(e.target.value)}
+              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+            />
+          </label>
 
-      <section style={{border: '1px solid #ddd', borderRadius: 12, padding: 16, marginBottom: 16}}>
-        <h2 style={{marginTop: 0}}>Preview</h2>
-        <div style={{display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10}}>
-          <input
-            style={{flex: 1, padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            value={sampleContactId}
-            onChange={(e) => setSampleContactId(e.target.value)}
-            placeholder="Paste a Press Contacts record id (rec...) for sample rendering"
-          />
-          <button
-            onClick={doPreview}
-            disabled={!canPreview || loadingPreview}
-            style={{padding: '10px 14px', borderRadius: 10}}
-          >
-            {loadingPreview ? 'Rendering…' : 'Render'}
-          </button>
-        </div>
+          <label style={{display: 'block', marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Body template</div>
+            <textarea
+              value={bodyTemplate}
+              onChange={(e) => setBodyTemplate(e.target.value)}
+              rows={14}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 10,
+                border: '1px solid #ccc',
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              }}
+            />
+          </label>
 
-        {preview && (
-          <div style={{border: '1px solid #eee', borderRadius: 10, padding: 12}}>
-            <div style={{fontWeight: 700, marginBottom: 8}}>{preview.subject}</div>
-            <pre style={{whiteSpace: 'pre-wrap', margin: 0}}>{preview.text}</pre>
-            <div style={{marginTop: 10, opacity: 0.7, fontSize: 13}}>
-              Sample: {preview.sample.email}{preview.sample.outlet ? ` • ${preview.sample.outlet}` : ''}
+          <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
+            <button onClick={enqueue} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
+              Enqueue campaign
+            </button>
+
+            <div style={{fontSize: 13, opacity: 0.85}}>
+              Campaign ID:{' '}
+              <code style={{background: '#f6f6f6', padding: '2px 6px', borderRadius: 6}}>{campaignId || '—'}</code>
             </div>
           </div>
-        )}
-      </section>
 
-      <section style={{border: '1px solid #ddd', borderRadius: 12, padding: 16, marginBottom: 16}}>
-        <h2 style={{marginTop: 0}}>Enqueue</h2>
-        <div style={{opacity: 0.75, marginBottom: 10}}>
-          This creates the Campaign row and one queued Send row per eligible contact. No emails are sent yet.
-        </div>
-        <button
-          onClick={doEnqueue}
-          disabled={!canEnqueue}
-          style={{padding: '10px 14px', borderRadius: 10}}
-        >
-          {enqueueing ? 'Queuing…' : 'Queue campaign'}
-        </button>
-        {campaignId && (
-          <div style={{marginTop: 10}}>
-            Campaign ID: <code>{campaignId}</code>
+          <div style={{marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap'}}>
+            <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+              Drain 25
+            </button>
+            <button onClick={() => drainOnce(50)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+              Drain 50
+            </button>
+            <button onClick={() => drainOnce(100)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+              Drain 100
+            </button>
           </div>
-        )}
-      </section>
 
-      <section style={{border: '1px solid #ddd', borderRadius: 12, padding: 16}}>
-        <h2 style={{marginTop: 0}}>Drain</h2>
-        <div style={{opacity: 0.75, marginBottom: 10}}>
-          Processes queued sends in small batches, throttled to avoid Resend 429s and serverless timeouts.
-        </div>
-        <button
-          onClick={doProcessOnce}
-          disabled={!canProcess}
-          style={{padding: '10px 14px', borderRadius: 10}}
-        >
-          {processing ? 'Processing…' : 'Process next batch'}
-        </button>
-
-        {lastProcess && (
-          <div style={{marginTop: 12, borderTop: '1px solid #eee', paddingTop: 12}}>
-            <div>Processed: <strong>{lastProcess.processed}</strong></div>
-            <div>Sent now: <strong>{lastProcess.sentNow}</strong></div>
-            <div>Skipped (already sent): <strong>{lastProcess.skippedAlreadySent}</strong></div>
-            <div>Failed now: <strong>{lastProcess.failedNow}</strong></div>
-            <div>Remaining queued (estimate): <strong>{lastProcess.remainingQueuedEstimate ?? '—'}</strong></div>
+          <div style={{marginTop: 12, fontSize: 12, opacity: 0.7}}>
+            Tokens supported:{' '}
+            <code>
+              {'{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}} {{campaign_name}} {{key_links}} {{assets_pack_link}} {{default_cta}}'}
+            </code>
           </div>
-        )}
-      </section>
-
-      {error && (
-        <div style={{marginTop: 16, color: '#b00020'}}>
-          {error}
         </div>
-      )}
+
+        <div style={{padding: 12, border: '1px solid #ddd', borderRadius: 12}}>
+          <h2 style={{marginTop: 0, fontSize: 18}}>Preview</h2>
+
+          <label style={{display: 'block', marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Sample recipient</div>
+            <select
+              value={samplePick}
+              onChange={(e) => setSamplePick(e.target.value)}
+              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+            >
+              {sampleContacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.fullName || c.email} — {c.email}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div style={{marginBottom: 10}}>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered subject</div>
+            <div style={{padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid #eee'}}>{previewSubject}</div>
+          </div>
+
+          <div>
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered body</div>
+            <pre style={{whiteSpace: 'pre-wrap', padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid #eee', margin: 0}}>
+              {previewBody}
+            </pre>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

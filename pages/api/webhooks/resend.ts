@@ -1,4 +1,3 @@
-// pages/api/webhooks/resend.ts
 import type {NextApiRequest, NextApiResponse} from 'next'
 import {Webhook} from 'svix'
 
@@ -6,7 +5,7 @@ export const config = {
   api: {bodyParser: false},
 }
 
-function must(v: string | undefined, name: string) {
+function must(v: string | undefined, name: string): string {
   if (!v) throw new Error(`Missing ${name}`)
   return v
 }
@@ -83,13 +82,11 @@ async function airtableUpsertByUniqueField(args: {
   uniqueField: string
   uniqueValue: string
   fields: Record<string, unknown>
-}) {
+}): Promise<void> {
   const {baseId, table, token, uniqueField, uniqueValue, fields} = args
 
   const filter = encodeURIComponent(`{${uniqueField}} = "${escapeAirtableString(uniqueValue)}"`)
-  const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
-    table
-  )}?maxRecords=1&filterByFormula=${filter}`
+  const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?maxRecords=1&filterByFormula=${filter}`
 
   const found = await airtableRequest<{records?: Array<{id: string}>}>(token, searchUrl)
   if (!found.ok) throw new Error(`Airtable search failed: ${found.status} ${found.body}`)
@@ -117,9 +114,7 @@ async function airtableFindPressContactIdByEmail(args: {
 }): Promise<string | null> {
   const {token, baseId, contactsTable, email} = args
   const filter = encodeURIComponent(`LOWER({Email}) = "${escapeAirtableString(email)}"`)
-  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
-    contactsTable
-  )}?maxRecords=1&filterByFormula=${filter}`
+  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(contactsTable)}?maxRecords=1&filterByFormula=${filter}`
 
   const res = await airtableRequest<{records?: Array<{id: string}>}>(token, url)
   if (!res.ok) throw new Error(`Airtable contact lookup failed: ${res.status} ${res.body}`)
@@ -134,7 +129,7 @@ async function airtableCreateSuppression(args: {
   reason: 'Bounced' | 'Complaint'
   startDateIso: string
   notes?: string
-}) {
+}): Promise<void> {
   const {token, baseId, suppressionsTable, contactId, reason, startDateIso, notes} = args
 
   const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(suppressionsTable)}`
@@ -159,7 +154,7 @@ async function airtableCreateSuppression(args: {
   if (!res.ok) throw new Error(`Airtable suppression create failed: ${res.status} ${res.body}`)
 }
 
-function mapDeliveryStatus(type: string): string | null {
+function mapDeliveryStatus(type: string): 'Sent' | 'Delivered' | 'Bounced' | 'Complained' | 'Failed' | null {
   switch (type) {
     case 'email.sent':
       return 'Sent'
@@ -168,7 +163,7 @@ function mapDeliveryStatus(type: string): string | null {
     case 'email.bounced':
       return 'Bounced'
     case 'email.complained':
-      return 'Complaint'
+      return 'Complained'
     case 'email.failed':
       return 'Failed'
     default:
@@ -181,27 +176,20 @@ async function airtableUpdateSendByResendMessageId(args: {
   baseId: string
   sendsTable: string
   resendMessageId: string
-  deliveryStatus: string
+  deliveryStatus: 'Sent' | 'Delivered' | 'Bounced' | 'Complained' | 'Failed'
   lastEventAtIso: string
-}) {
+}): Promise<void> {
   const {token, baseId, sendsTable, resendMessageId, deliveryStatus, lastEventAtIso} = args
 
-  const filter = encodeURIComponent(
-    `{Resend message id} = "${escapeAirtableString(resendMessageId)}"`
-  )
-  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
-    sendsTable
-  )}?maxRecords=1&filterByFormula=${filter}`
+  const filter = encodeURIComponent(`{Resend message id} = "${escapeAirtableString(resendMessageId)}"`)
+  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sendsTable)}?maxRecords=1&filterByFormula=${filter}`
 
   const found = await airtableRequest<{records?: Array<{id: string}>}>(token, url)
   if (!found.ok) throw new Error(`Airtable send lookup failed: ${found.status} ${found.body}`)
   const sendId = found.json.records?.[0]?.id
   if (!sendId) return
 
-  const patchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(
-    sendsTable
-  )}/${sendId}`
-
+  const patchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sendsTable)}/${sendId}`
   const res = await airtableRequest<unknown>(token, patchUrl, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
@@ -232,13 +220,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const svixTimestamp = (req.headers['svix-timestamp'] as string | undefined) ?? ''
   const svixSignature = (req.headers['svix-signature'] as string | undefined) ?? ''
 
-  if (!svixId || !svixTimestamp || !svixSignature) {
-    return res.status(400).send('Missing webhook headers')
-  }
+  if (!svixId || !svixTimestamp || !svixSignature) return res.status(400).send('Missing webhook headers')
 
   const payload = await readRawBody(req)
 
-  // Verify signature via Svix (Resend webhooks are Svix-signed)
   try {
     const wh = new Webhook(webhookSecret)
     wh.verify(payload, {
@@ -252,7 +237,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   console.log('[resend-webhook] verified', {svixId})
 
-  // Parse payload *after* verification
   let event: ResendWebhookEnvelope
   try {
     event = JSON.parse(payload) as ResendWebhookEnvelope
@@ -268,21 +252,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data = event.data
     const isEmailData = looksLikeEmailEventData(data)
 
-    const resendMessageId =
-      isEmailData && typeof data.email_id === 'string' ? data.email_id : ''
-
-    const from =
-      isEmailData && typeof data.from === 'string' ? data.from : ''
-
+    const resendMessageId = isEmailData && typeof data.email_id === 'string' ? data.email_id : ''
+    const from = isEmailData && typeof data.from === 'string' ? data.from : ''
     const toEmail =
-      isEmailData && Array.isArray(data.to) && typeof data.to[0] === 'string'
-        ? lowerEmail(data.to[0])
-        : ''
+      isEmailData && Array.isArray(data.to) && typeof data.to[0] === 'string' ? lowerEmail(data.to[0]) : ''
+    const subject = isEmailData && typeof data.subject === 'string' ? data.subject : ''
 
-    const subject =
-      isEmailData && typeof data.subject === 'string' ? data.subject : ''
-
-    // 1) Immutable event log (idempotent by svix_id)
     await airtableUpsertByUniqueField({
       baseId,
       table: resendEventsTable,
@@ -302,7 +277,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     })
 
-    // 2) Operational state: update Sends
     const deliveryStatus = mapDeliveryStatus(type)
     if (deliveryStatus && resendMessageId) {
       await airtableUpdateSendByResendMessageId({
@@ -315,7 +289,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    // 3) Suppressions
     if (toEmail && (type === 'email.bounced' || type === 'email.complained')) {
       const contactId = await airtableFindPressContactIdByEmail({
         token: airtableToken,
@@ -339,11 +312,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(200).json({ok: true})
-    } catch (err) {
+  } catch (err) {
     console.error('[resend-webhook] processing failed', err)
-    return res.status(500).send(
-      'Webhook processing failed: ' +
-        (err instanceof Error ? err.message : String(err))
-    )
+    return res.status(500).send('Webhook processing failed: ' + (err instanceof Error ? err.message : String(err)))
   }
 }
