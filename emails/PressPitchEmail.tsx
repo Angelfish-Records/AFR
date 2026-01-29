@@ -72,7 +72,6 @@ const styles = {
     letterSpacing: '0px',
   } as const,
 
-  // Footer OUTSIDE the box
   footerOutside: {
     textAlign: 'center' as const,
     marginTop: 16,
@@ -82,7 +81,7 @@ const styles = {
     color: FOOTER_TONE,
   } as const,
 
-  // NEW: micro unsubscribe line, same colour as footerOutside but smaller + slightly softer.
+  // Unsubscribe line: same tone as footer, smaller
   unsubscribeOutside: {
     textAlign: 'center' as const,
     marginTop: 8,
@@ -107,9 +106,9 @@ const mdStyles: Record<string, React.CSSProperties> = {
 }
 
 function extractUnsubscribeUrl(markdown: string): string | null {
-  // Looks for: [unsubscribe here](https://...)
-  // (We generate this exact shape in drain.ts; keep it conservative.)
-  const m = markdown.match(/\[unsubscribe here\]\((https?:\/\/[^)\s]+)\)/i)
+  // Expecting drain.ts to append exactly: [unsubscribe](https://...)
+  // Keep this conservative and stable.
+  const m = markdown.match(/\[unsubscribe\]\((https?:\/\/[^)\s]+)\)/i)
   return m?.[1] ?? null
 }
 
@@ -127,11 +126,8 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
         <style>{`
           :root { color-scheme: light; supported-color-schemes: light; }
           body { -webkit-text-size-adjust: 100%; }
-
-          /* Stop “smart invert” / dark-mode image filtering where supported */
           img { filter: none !important; -webkit-filter: none !important; }
 
-          /* If a client forces dark mode anyway, force your intended colours back */
           @media (prefers-color-scheme: dark) {
             body, .bg-page { background: ${PAGE_BG} !important; }
             .card { background: ${BOX_BG} !important; }
@@ -144,12 +140,10 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
       <Body style={styles.body} className="bg-page">
         <Container style={styles.outer}>
-          {/* Logo placeholder / logo URL (centered, above the card) */}
           <Section style={styles.topLogoWrap}>
             {logoUrl ? <Img src={logoUrl} alt={brandName} style={styles.logoImg} /> : <Text style={styles.logoPlaceholder}>LOGO</Text>}
           </Section>
 
-          {/* Main content box */}
           <Section style={styles.card} className="card">
             {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
@@ -170,21 +164,17 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
             </Section>
           </Section>
 
-          {/* Footer OUTSIDE the card */}
           <Text style={styles.footerOutside}>{brandName}</Text>
 
-          {/* NEW: unsubscribe microcopy (same tone, smaller) */}
           {unsubUrl ? (
             <Text style={styles.unsubscribeOutside}>
-              Prefer not to receive future press emails?{' '}
+              Don’t want to hear from us again?{' '}
               <a href={unsubUrl} style={{color: FOOTER_TONE, textDecoration: 'underline', textUnderlineOffset: '2px'}}>
-                Unsubscribe
+                Click here to opt out of future communications.
               </a>
               .
             </Text>
-          ) : (
-            <Text style={styles.unsubscribeOutside}>Prefer not to receive future press emails? Reply with “unsubscribe”.</Text>
-          )}
+          ) : null}
         </Container>
       </Body>
     </Html>
