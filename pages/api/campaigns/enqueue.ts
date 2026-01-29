@@ -216,16 +216,16 @@ type SendFields = {
   Pitch?: unknown
 }
 
-type SenderKey = 'brendan' | 'angus'
+type SenderKey = 'angus' | 'brendan'
 
 const SENDERS: Record<SenderKey, {fromAddress: string; replyTo: string}> = {
-  brendan: {
-    fromAddress: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
-    replyTo: 'brendan@press.angelfishrecords.com',
-  },
   angus: {
     fromAddress: 'Angus at Angelfish Records <angus@press.angelfishrecords.com>',
     replyTo: 'angus@press.angelfishrecords.com',
+  },
+  brendan: {
+    fromAddress: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
+    replyTo: 'brendan@press.angelfishrecords.com',
   },
 }
 
@@ -235,7 +235,7 @@ function asString(v: unknown): string {
 
 function parseSenderKey(v: unknown): SenderKey | null {
   const s = asString(v).trim()
-  if (s === 'brendan' || s === 'angus') return s
+  if (s === 'angus' || s === 'brendan') return s
   return null
 }
 
