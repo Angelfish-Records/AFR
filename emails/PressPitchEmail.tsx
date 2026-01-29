@@ -126,20 +126,20 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
             {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
             <Section style={styles.content}>
-            <Text style={styles.proseWrap as React.CSSProperties}>
-                <Markdown
-                markdownContainerStyles={{
-                    fontFamily: styles.proseWrap.fontFamily,
-                    fontSize: styles.proseWrap.fontSize,
-                    lineHeight: styles.proseWrap.lineHeight,
-                    color: styles.proseWrap.color,
-                }}
-                markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
-                >
-                {bodyMarkdown}
-                </Markdown>
-            </Text>
-            </Section>
+                <Section style={styles.proseWrap}>
+                    <Markdown
+                    markdownContainerStyles={{
+                        fontFamily: styles.proseWrap.fontFamily,
+                        fontSize: styles.proseWrap.fontSize,
+                        lineHeight: styles.proseWrap.lineHeight,
+                        color: styles.proseWrap.color,
+                    }}
+                    markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
+                    >
+                    {bodyMarkdown}
+                    </Markdown>
+                </Section>
+                </Section>
           </Section>
 
           {/* Footer OUTSIDE the card, in the box's tone */}
