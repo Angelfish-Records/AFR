@@ -107,10 +107,28 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
   return (
     <Html>
-      <Head />
+      <Head>
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light only" />
+  <style>{`
+    :root { color-scheme: light; supported-color-schemes: light; }
+    body { -webkit-text-size-adjust: 100%; }
+
+    /* Stop “smart invert” / dark-mode image filtering where supported */
+    img { filter: none !important; -webkit-filter: none !important; }
+
+    /* If a client forces dark mode anyway, force your intended colours back */
+    @media (prefers-color-scheme: dark) {
+      body, .bg-page { background: ${PAGE_BG} !important; }
+      .card { background: ${BOX_BG} !important; }
+      .prose, .prose * { color: ${TEXT} !important; }
+    }
+  `}</style>
+</Head>
+
       <Preview>{preview}</Preview>
 
-      <Body style={styles.body}>
+      <Body style={styles.body} className="bg-page">
         <Container style={styles.outer}>
           {/* Logo placeholder / logo URL (centered, above the card) */}
         <Section style={styles.topLogoWrap}>
@@ -122,11 +140,11 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
         </Section>
 
           {/* Main content box */}
-          <Section style={styles.card}>
+          <Section style={styles.card} className="card">
             {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
             <Section style={styles.content}>
-                <Section style={styles.proseWrap}>
+                <Section style={styles.proseWrap} className="prose">
                     <Markdown
                     markdownContainerStyles={{
                         fontFamily: styles.proseWrap.fontFamily,
