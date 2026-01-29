@@ -686,8 +686,8 @@ function IconBullets(props: {size?: number}) {
               onChange={(e) => setSenderKey(e.target.value as SenderKey)}
               style={inputStyle}
             >
-              <option value="brendan">{SENDERS.brendan.from}</option>
               <option value="angus">{SENDERS.angus.from}</option>
+              <option value="brendan">{SENDERS.brendan.from}</option>
             </select>
 
             <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>
@@ -826,7 +826,7 @@ function IconBullets(props: {size?: number}) {
       value={bodyTemplate}
       onChange={(e) => setBodyTemplate(e.target.value)}
       onKeyDown={(e) => {handleUndoRedoKeydown(e)}}
-      rows={24}
+      rows={18}
       style={{
         width: '100%',
         padding: 12,
@@ -859,14 +859,14 @@ function IconBullets(props: {size?: number}) {
             <div style={{padding: 12}}>
               <div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
                 <div style={{fontSize: 12, fontWeight: 700, letterSpacing: 0.6, opacity: 0.92}}>
-                  SEND ZONE
+                  SEND CONTROLS
                   <span style={{marginLeft: 10, fontWeight: 500, opacity: 0.7}}>
-                    This triggers real email activity.
+                    Triggers real email activity.
                   </span>
                 </div>
 
                 <div style={{fontSize: 11, opacity: 0.75}}>
-                  Double-check filters • sender • templates • campaign ID
+                  Double-check filters / sender / links / copy
                 </div>
               </div>
 
