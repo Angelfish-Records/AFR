@@ -319,6 +319,20 @@ function IconBullets(props: {size?: number}) {
   const labelTitleStyleLeft: React.CSSProperties = {fontSize: 10, opacity: 0.7, marginBottom: 6}
   const labelTitleStyleRight: React.CSSProperties = {fontSize: 12, opacity: 0.7, marginBottom: 6}
 
+    const [isNarrow, setIsNarrow] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 860px)')
+    const onChange = () => setIsNarrow(mq.matches)
+    onChange()
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange)
+    else mq.addListener(onChange)
+    return () => {
+      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange)
+      else mq.removeListener(onChange)
+    }
+  }, [])
+
   async function refreshPreviewHtml() {
     const reqId = ++previewReqIdRef.current
     setPreviewLoading(true)
@@ -679,8 +693,15 @@ function IconBullets(props: {size?: number}) {
 
       </div>
 
-      {/* 1/3 + 2/3 layout */}
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16}}>
+            {/* responsive layout: stack on narrow screens */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isNarrow ? '1fr' : '1fr 2fr',
+          gap: 16,
+          alignItems: 'start',
+        }}
+      >
         {/* LEFT: slightly smaller typography */}
         <div style={{padding: 12, borderRadius: 12, fontSize: 14}}>
           <h2 style={{marginTop: 0, marginBottom: 5, fontSize: 18}}>Compose</h2>
