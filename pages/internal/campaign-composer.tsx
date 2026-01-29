@@ -76,8 +76,6 @@ const SENDERS: Record<SenderKey, {from: string; replyTo: string}> = {
 }
 
 export default function CampaignComposerPage() {
-  const [internalKey, setInternalKey] = useState<string>('')
-
   const [loading, setLoading] = useState(false)
   const [audienceCount, setAudienceCount] = useState<number | null>(null)
   const [sampleContacts, setSampleContacts] = useState<SampleContact[]>([])
@@ -148,6 +146,20 @@ Assets pack:
   const [previewLoading, setPreviewLoading] = useState(false)
   const previewReqIdRef = useRef(0)
 
+  // --- styling helpers (match the existing dark UI, avoid forced white surfaces) ---
+  const surfaceBg = 'rgba(255,255,255,0.06)'
+  const surfaceBorder = 'rgba(255,255,255,0.14)'
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: 10,
+    borderRadius: 10,
+    border: `1px solid ${surfaceBorder}`,
+    background: surfaceBg,
+    color: 'inherit',
+  }
+  const labelTitleStyleLeft: React.CSSProperties = {fontSize: 10, opacity: 0.7, marginBottom: 6}
+  const labelTitleStyleRight: React.CSSProperties = {fontSize: 12, opacity: 0.7, marginBottom: 6}
+
   async function refreshPreviewHtml() {
     const reqId = ++previewReqIdRef.current
     setPreviewLoading(true)
@@ -157,10 +169,7 @@ Assets pack:
       const recipientName = picked?.firstName || picked?.fullName || ''
       const res = await fetch('/api/campaigns/preview', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
-        },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           brandName: 'Angelfish Records',
           logoUrl: 'https://www.angelfishrecords.com/brand/AFR_logo_circle_light_mini.png',
@@ -199,13 +208,12 @@ Assets pack:
   // debounce preview refresh on inputs
   useEffect(() => {
     const t = window.setTimeout(() => {
-      // Only try to preview once we have at least one sample contact (so recipientName isn't empty)
       if (!picked) return
       refreshPreviewHtml()
     }, 250)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalKey, picked?.id, previewSubject, previewBody, outletType, outletRegion])
+  }, [picked?.id, previewSubject, previewBody, outletType, outletRegion])
 
   // ---- sending state ----
   const [sendStatus, setSendStatus] = useState<
@@ -249,11 +257,9 @@ Assets pack:
       if (outletType) params.set('outletType', outletType)
       if (outletRegion) params.set('outletRegion', outletRegion)
 
-      const res = await fetch(`/api/campaigns/enqueue?${params.toString()}`, {
-        headers: internalKey ? {'x-afr-internal-key': internalKey} : {},
-      })
-
+      const res = await fetch(`/api/campaigns/enqueue?${params.toString()}`)
       const j = (await res.json().catch(() => null)) as unknown
+
       if (!res.ok) {
         const msg =
           typeof (j as {error?: unknown} | null)?.error === 'string'
@@ -287,10 +293,7 @@ Assets pack:
     try {
       const res = await fetch('/api/campaigns/enqueue', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
-        },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           audienceKey: 'press_mailable_v1',
           campaignName: campaignName || undefined,
@@ -323,10 +326,7 @@ Assets pack:
     try {
       const res = await fetch('/api/campaigns/drain', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
-        },
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({campaignId, limit}),
       })
       const j = (await res.json().catch(() => null)) as unknown
@@ -378,10 +378,7 @@ Assets pack:
 
         const res = await fetch('/api/campaigns/drain', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
-          },
+          headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({campaignId, limit}),
         })
 
@@ -442,7 +439,6 @@ Assets pack:
 
   const iframeSrcDoc = useMemo(() => {
     if (!previewHtml) return ''
-    // Wrap in a minimal doc so srcDoc behaves consistently.
     return `<!doctype html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:0;">${previewHtml}</body></html>`
   }, [previewHtml])
 
@@ -459,16 +455,6 @@ Assets pack:
 
       <div style={{padding: 12, borderRadius: 12, marginBottom: 16}}>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
-          <label style={{display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260}}>
-            <span style={{fontSize: 12, opacity: 0.7}}>Optional internal key (only needed if AFR_INTERNAL_KEY is set)</span>
-            <input
-              value={internalKey}
-              onChange={(e) => setInternalKey(e.target.value)}
-              placeholder="x-afr-internal-key"
-              style={{padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            />
-          </label>
-
           <button onClick={loadAudience} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
             Refresh audience
           </button>
@@ -492,43 +478,37 @@ Assets pack:
         </div>
       </div>
 
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16}}>
-        <div style={{padding: 12, borderRadius: 12}}>
+      {/* 1/3 + 2/3 layout */}
+      <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16}}>
+        {/* LEFT: slightly smaller typography */}
+        <div style={{padding: 12, borderRadius: 12, fontSize: 14}}>
           <h2 style={{marginTop: 0, fontSize: 18}}>Compose</h2>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Campaign name (optional)</div>
-            <input
-              value={campaignName}
-              onChange={(e) => setCampaignName(e.target.value)}
-              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            />
+            <div style={labelTitleStyleLeft}>Campaign name (optional)</div>
+            <input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} style={inputStyle} />
           </label>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Sender (From + Reply-To)</div>
+            <div style={labelTitleStyleLeft}>Sender (From + Reply-To)</div>
             <select
               value={senderKey}
               onChange={(e) => setSenderKey(e.target.value as SenderKey)}
-              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+              style={inputStyle}
             >
               <option value="brendan">{SENDERS.brendan.from}</option>
               <option value="angus">{SENDERS.angus.from}</option>
             </select>
 
-            <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>
+            <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>
               Reply-To: <code>{replyTo}</code>
             </div>
           </label>
 
           <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10}}>
             <label style={{display: 'block'}}>
-              <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Outlet Type (audience filter)</div>
-              <select
-                value={outletType}
-                onChange={(e) => setOutletType(e.target.value)}
-                style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-              >
+              <div style={labelTitleStyleLeft}>Outlet Type (audience filter)</div>
+              <select value={outletType} onChange={(e) => setOutletType(e.target.value)} style={inputStyle}>
                 <option value="">All types</option>
                 {outletTypeOptions.map((t) => (
                   <option key={t} value={t}>
@@ -539,12 +519,8 @@ Assets pack:
             </label>
 
             <label style={{display: 'block'}}>
-              <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Outlet Region (audience filter)</div>
-              <select
-                value={outletRegion}
-                onChange={(e) => setOutletRegion(e.target.value)}
-                style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-              >
+              <div style={labelTitleStyleLeft}>Outlet Region (audience filter)</div>
+              <select value={outletRegion} onChange={(e) => setOutletRegion(e.target.value)} style={inputStyle}>
                 <option value="">All regions</option>
                 {outletRegionOptions.map((r) => (
                   <option key={r} value={r}>
@@ -556,25 +532,18 @@ Assets pack:
           </div>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Subject template</div>
-            <input
-              value={subjectTemplate}
-              onChange={(e) => setSubjectTemplate(e.target.value)}
-              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            />
+            <div style={labelTitleStyleLeft}>Subject template</div>
+            <input value={subjectTemplate} onChange={(e) => setSubjectTemplate(e.target.value)} style={inputStyle} />
           </label>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Body template</div>
+            <div style={labelTitleStyleLeft}>Body template</div>
             <textarea
               value={bodyTemplate}
               onChange={(e) => setBodyTemplate(e.target.value)}
               rows={14}
               style={{
-                width: '100%',
-                padding: 10,
-                borderRadius: 10,
-                border: '1px solid #ccc',
+                ...inputStyle,
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
               }}
             />
@@ -589,9 +558,18 @@ Assets pack:
               Enqueue campaign
             </button>
 
-            <div style={{fontSize: 13, opacity: 0.85}}>
+            <div style={{fontSize: 12, opacity: 0.85}}>
               Campaign ID:{' '}
-              <code style={{background: '#f6f6f6', padding: '2px 6px', borderRadius: 6}}>{campaignId || '—'}</code>
+              <code
+                style={{
+                  background: surfaceBg,
+                  border: `1px solid ${surfaceBorder}`,
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                }}
+              >
+                {campaignId || '—'}
+              </code>
             </div>
           </div>
 
@@ -612,75 +590,80 @@ Assets pack:
               Cancel
             </button>
 
-            <button
-              onClick={() => drainOnce(25)}
-              disabled={loading || !campaignId}
-              style={{padding: '10px 14px', borderRadius: 10}}
-            >
+            <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
               Drain 25
             </button>
-            <button
-              onClick={() => drainOnce(50)}
-              disabled={loading || !campaignId}
-              style={{padding: '10px 14px', borderRadius: 10}}
-            >
+            <button onClick={() => drainOnce(50)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
               Drain 50
             </button>
-            <button
-              onClick={() => drainOnce(100)}
-              disabled={loading || !campaignId}
-              style={{padding: '10px 14px', borderRadius: 10}}
-            >
+            <button onClick={() => drainOnce(100)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
               Drain 100
             </button>
           </div>
 
-          <div style={{marginTop: 10, padding: 10, borderRadius: 12, border: '1px solid #eee', background: '#fafafa'}}>
-            {sendStatus.state === 'idle' && <div style={{fontSize: 13, opacity: 0.8}}>Ready.</div>}
+          <div
+            style={{
+              marginTop: 10,
+              padding: 10,
+              borderRadius: 12,
+              border: `1px solid ${surfaceBorder}`,
+              background: surfaceBg,
+            }}
+          >
+            {sendStatus.state === 'idle' && <div style={{fontSize: 12, opacity: 0.8}}>Ready.</div>}
 
             {sendStatus.state === 'sending' && (
-              <div style={{fontSize: 13}}>
+              <div style={{fontSize: 12}}>
                 <div>
                   <b>Sending…</b> Total sent: <b>{sendStatus.totalSent}</b> • Last batch: {sendStatus.lastSent} • Remaining
                   queued: <b>{Number.isFinite(sendStatus.remainingQueued) ? sendStatus.remainingQueued : '—'}</b> • Batches:{' '}
                   {sendStatus.loops}
                 </div>
                 {sendStatus.runId ? (
-                  <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>
+                  <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>
                     runId:{' '}
-                    <code style={{background: '#f2f2f2', padding: '1px 6px', borderRadius: 6}}>{sendStatus.runId}</code>
+                    <code
+                      style={{
+                        background: 'transparent',
+                        border: `1px solid ${surfaceBorder}`,
+                        padding: '1px 6px',
+                        borderRadius: 6,
+                      }}
+                    >
+                      {sendStatus.runId}
+                    </code>
                   </div>
                 ) : null}
               </div>
             )}
 
             {sendStatus.state === 'done' && (
-              <div style={{fontSize: 13}}>
+              <div style={{fontSize: 12}}>
                 <b>Done.</b> Sent <b>{sendStatus.totalSent}</b> total.
               </div>
             )}
 
             {sendStatus.state === 'cancelled' && (
-              <div style={{fontSize: 13}}>
+              <div style={{fontSize: 12}}>
                 <b>Cancelled.</b> Sent <b>{sendStatus.totalSent}</b> before stopping.
               </div>
             )}
 
             {sendStatus.state === 'locked' && (
-              <div style={{fontSize: 13}}>
+              <div style={{fontSize: 12}}>
                 <b>Blocked:</b> {sendStatus.message}
-                <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>Another drain is likely running. Try again shortly.</div>
+                <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>Another drain is likely running. Try again shortly.</div>
               </div>
             )}
 
             {sendStatus.state === 'error' && (
-              <div style={{fontSize: 13, color: '#b00020'}}>
+              <div style={{fontSize: 12, color: '#b00020'}}>
                 <b>Error:</b> {sendStatus.message}
               </div>
             )}
           </div>
 
-          <div style={{marginTop: 12, fontSize: 12, opacity: 0.7}}>
+          <div style={{marginTop: 12, fontSize: 11, opacity: 0.7}}>
             Tokens supported:{' '}
             <code>
               {
@@ -690,16 +673,13 @@ Assets pack:
           </div>
         </div>
 
+        {/* RIGHT: keep default sizing */}
         <div style={{padding: 12, borderRadius: 12}}>
           <h2 style={{marginTop: 0, fontSize: 18}}>Preview</h2>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Sample recipient</div>
-            <select
-              value={samplePick}
-              onChange={(e) => setSamplePick(e.target.value)}
-              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            >
+            <div style={labelTitleStyleRight}>Sample recipient</div>
+            <select value={samplePick} onChange={(e) => setSamplePick(e.target.value)} style={inputStyle}>
               {sampleContacts.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.fullName || c.email} — {c.email}
@@ -709,12 +689,21 @@ Assets pack:
           </label>
 
           <div style={{marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered subject</div>
-            <div style={{padding: 10, borderRadius: 10, background: '#fafafa', border: '1px solid #eee'}}>{previewSubject}</div>
+            <div style={labelTitleStyleRight}>Rendered subject</div>
+            <div
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                background: surfaceBg,
+                border: `1px solid ${surfaceBorder}`,
+              }}
+            >
+              {previewSubject}
+            </div>
           </div>
 
           <div style={{marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>
+            <div style={labelTitleStyleRight}>
               HTML email preview (server-rendered){previewLoading ? ' — rendering…' : ''}
             </div>
 
@@ -723,9 +712,9 @@ Assets pack:
                 style={{
                   padding: 10,
                   borderRadius: 10,
-                  background: '#fff5f5',
-                  border: '1px solid #ffd6d6',
-                  color: '#b00020',
+                  background: 'rgba(176,0,32,0.12)',
+                  border: '1px solid rgba(176,0,32,0.35)',
+                  color: '#ffb3c0',
                 }}
               >
                 <b>Preview error:</b> {previewErr}
@@ -737,9 +726,9 @@ Assets pack:
                 style={{
                   width: '100%',
                   height: 520,
-                  border: '1px solid #eee',
+                  border: `1px solid ${surfaceBorder}`,
                   borderRadius: 10,
-                  background: '#fff',
+                  background: surfaceBg, // avoid forced white
                 }}
                 sandbox="allow-same-origin"
               />
@@ -747,14 +736,14 @@ Assets pack:
           </div>
 
           <div>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Rendered plaintext (what you store in Campaign body)</div>
+            <div style={labelTitleStyleRight}>Rendered plaintext (what you store in Campaign body)</div>
             <pre
               style={{
                 whiteSpace: 'pre-wrap',
                 padding: 10,
                 borderRadius: 10,
-                background: '#fafafa',
-                border: '1px solid #eee',
+                background: surfaceBg, // avoid forced white
+                border: `1px solid ${surfaceBorder}`,
                 margin: 0,
                 maxHeight: 260,
                 overflow: 'auto',
