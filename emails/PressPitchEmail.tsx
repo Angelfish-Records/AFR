@@ -11,7 +11,7 @@ export type PressPitchEmailProps = {
   bodyMarkdown: string
 }
 
-const BOX_BG = '#DDC18F'
+const BOX_BG = '#ba9c67'
 const PAGE_BG = '#0b0b0b'
 const TEXT = '#14110b'
 const MUTED = 'rgba(20,17,11,0.72)'
