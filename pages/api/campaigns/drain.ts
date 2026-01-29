@@ -50,6 +50,11 @@ function must(v: string | undefined, name: string): string {
   return v
 }
 
+function publicSiteUrl(): string {
+  const raw = must(process.env.PUBLIC_SITE_URL, 'PUBLIC_SITE_URL').trim()
+  return raw.replace(/\/+$/, '') // strip trailing slash
+}
+
 function jsonError(res: NextApiResponse, status: number, msg: string, extra?: unknown) {
   return res.status(status).json({error: msg, ...(extra ? {extra} : {})})
 }
@@ -304,6 +309,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const resend = new Resend(resendKey)
     const nowIso = isoNow()
 
+    const siteUrl = publicSiteUrl()
+    const logoUrl = `${siteUrl}/brand/AFR_logo_small.png`
+
     // Fetch campaign by RECORD_ID (one record)
     const camp = await airtableList<CampaignFields>({
       token: airtableToken,
@@ -487,7 +495,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       React.createElement(PressPitchEmail, {
         brandName: 'Angelfish Records',
         bodyMarkdown: bodyText,
-        logoUrl: 'https://www.angelfishrecords.com/brand/AFR_logo_small.png',
+        logoUrl,
       }),
       {pretty: true}
     )

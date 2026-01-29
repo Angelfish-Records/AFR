@@ -24,6 +24,16 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
 
+function must(v: string | undefined, name: string): string {
+  if (!v) throw new Error(`Missing ${name}`)
+  return v
+}
+
+function publicSiteUrl(): string {
+  const raw = must(process.env.PUBLIC_SITE_URL, 'PUBLIC_SITE_URL').trim()
+  return raw.replace(/\/+$/, '')
+}
+
 type PreviewRequest = {
   brandName?: string
   recipientName?: string
@@ -33,6 +43,7 @@ type PreviewRequest = {
   defaultCta?: string
   keyLinks?: string
   assetsPackLink?: string
+  logoUrl?: string
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -48,10 +59,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const subject = asString(body.subject).trim()
     const bodyText = asString(body.bodyText) // allow newlines
 
+    const siteUrl = publicSiteUrl()
+    const logoUrl = asString(body.logoUrl).trim() || `${siteUrl}/brand/AFR_logo_small.png`
+
     // Render the exact same component drain.ts uses
     const element = React.createElement(PressPitchEmail, {
       brandName,
       bodyMarkdown: bodyText,
+      logoUrl,
     })
 
     // In some versions/types this can be Promise<string>, so await is safest.

@@ -112,40 +112,33 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
       <Body style={styles.body}>
         <Container style={styles.outer}>
-          {/* Logo (centered, above the card) */}
-            <Section style={styles.topLogoWrap}>
-            <Text style={{textAlign: 'center', margin: 0}}>
-                {logoUrl ? (
-                <Img
-                    src={logoUrl}
-                    alt={brandName}
-                    height={34}
-                    style={{display: 'inline-block'}}
-                />
-                ) : (
-                <Text style={styles.logoPlaceholder}>LOGO</Text>
-                )}
-            </Text>
-            </Section>
+          {/* Logo placeholder / logo URL (centered, above the card) */}
+        <Section style={styles.topLogoWrap}>
+        {logoUrl ? (
+            <Img src={logoUrl} alt={brandName} style={styles.logoImg} />
+        ) : (
+            <Text style={styles.logoPlaceholder}>LOGO</Text>
+        )}
+        </Section>
 
           {/* Main content box */}
           <Section style={styles.card}>
             {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
             <Section style={styles.content}>
-              <div style={styles.proseWrap}>
+            <Text style={styles.proseWrap as React.CSSProperties}>
                 <Markdown
-                  markdownContainerStyles={{
+                markdownContainerStyles={{
                     fontFamily: styles.proseWrap.fontFamily,
                     fontSize: styles.proseWrap.fontSize,
                     lineHeight: styles.proseWrap.lineHeight,
                     color: styles.proseWrap.color,
-                  }}
-                  markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
+                }}
+                markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
                 >
-                  {bodyMarkdown}
+                {bodyMarkdown}
                 </Markdown>
-              </div>
+            </Text>
             </Section>
           </Section>
 
