@@ -144,21 +144,17 @@ export default function CampaignComposerPage() {
   const sender = useMemo(() => SENDERS[senderKey] ?? SENDERS.brendan, [senderKey])
   const replyTo = sender.replyTo
 
-  const [subjectTemplate, setSubjectTemplate] = useState('Angelfish Records: {{campaign_name}}')
+  const [subjectTemplate, setSubjectTemplate] = useState('News from Angelfish Records')
   const [bodyTemplate, setBodyTemplate] = useState(
     `Kia ora {{first_name}},
 
-{{one_line_hook}}
+This is a beautiful message beaming to you from Angelfish Records, pulling from an Airtable database and routing through a custom next.js app that integrates Resend.
 
-{{custom_paragraph}}
+I came across your work years ago when I read {{one_line_hook}}
 
-Key links:
-{{key_links}}
+We could say something tailored to you and your outlet right now. {{custom_paragraph}}
 
-Assets pack:
-{{assets_pack_link}}
-
-— Brendan
+— Angus
 `
   )
 
@@ -179,10 +175,6 @@ Assets pack:
       outlet: c?.outlet ?? '',
       one_line_hook: c?.oneLineHook ?? '',
       custom_paragraph: c?.customParagraph ?? '',
-      // These are placeholders in the UI; your drain.ts pulls real values from Airtable Campaigns fields.
-      key_links: '(set in Airtable Campaigns.Key links)',
-      assets_pack_link: '(set in Airtable Campaigns.Assets pack link)',
-      default_cta: '(set in Airtable Campaigns.Default CTA)',
     }
   }, [picked])
 
@@ -319,9 +311,6 @@ function IconBullets(props: {size?: number}) {
           recipientName,
           subject: previewSubject,
           bodyText: previewBody,
-          defaultCta: previewVars.default_cta,
-          keyLinks: previewVars.key_links,
-          assetsPackLink: previewVars.assets_pack_link,
         }),
       })
 
@@ -611,7 +600,7 @@ function IconBullets(props: {size?: number}) {
 </div>
 
 
-      <div style={{padding: 12, borderRadius: 12, marginBottom: 16}}>
+      <div style={{padding: 12, borderRadius: 12, marginTop: 10, marginBottom: 16}}>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
   <label>
     <select value={outletType} onChange={(e) => setOutletType(e.target.value)} style={{...inputStyle, minWidth: 160}}>
@@ -830,7 +819,15 @@ function IconBullets(props: {size?: number}) {
 </label>
 
 
-
+          <div style={{marginTop: 12, fontSize: 11, opacity: 0.7}}>
+            Tokens supported:{' '}
+            <code>
+              {
+                '{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}} {{campaign_name}} {{key_links}} {{assets_pack_link}} {{default_cta}}'
+              }
+            </code>
+          </div>
+          
           <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
             <button
               onClick={enqueue}
@@ -943,15 +940,6 @@ function IconBullets(props: {size?: number}) {
                 <b>Error:</b> {sendStatus.message}
               </div>
             )}
-          </div>
-
-          <div style={{marginTop: 12, fontSize: 11, opacity: 0.7}}>
-            Tokens supported:{' '}
-            <code>
-              {
-                '{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}} {{campaign_name}} {{key_links}} {{assets_pack_link}} {{default_cta}}'
-              }
-            </code>
           </div>
         </div>
 
