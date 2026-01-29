@@ -199,6 +199,29 @@ We could say something tailored to you and your outlet right now. {{custom_parag
     color: 'inherit',
   }
 
+    const hazardStripe = (angleDeg: number) =>
+    `repeating-linear-gradient(${angleDeg}deg,
+      rgba(255, 205, 0, 0.95) 0px,
+      rgba(255, 205, 0, 0.95) 10px,
+      rgba(0, 0, 0, 0.95) 10px,
+      rgba(0, 0, 0, 0.95) 20px
+    )`
+
+  const hazardCardStyle: React.CSSProperties = {
+    marginTop: 14,
+    borderRadius: 14,
+    border: `1px solid rgba(255,205,0,0.35)`,
+    background: 'rgba(255,255,255,0.035)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+    overflow: 'hidden',
+  }
+
+  const hazardEdgeStyle: React.CSSProperties = {
+    height: 10,
+    opacity: 0.55,
+    filter: 'saturate(1.05)',
+  }
+
   function IconBold(props: {size?: number}) {
   const s = props.size ?? 14
   return (
@@ -803,7 +826,7 @@ function IconBullets(props: {size?: number}) {
       value={bodyTemplate}
       onChange={(e) => setBodyTemplate(e.target.value)}
       onKeyDown={(e) => {handleUndoRedoKeydown(e)}}
-      rows={14}
+      rows={24}
       style={{
         width: '100%',
         padding: 12,
@@ -823,124 +846,168 @@ function IconBullets(props: {size?: number}) {
             Tokens supported:{' '}
             <code>
               {
-                '{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}} {{campaign_name}} {{key_links}} {{assets_pack_link}} {{default_cta}}'
+                '{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{one_line_hook}} {{custom_paragraph}}'
               }
             </code>
           </div>
-          
-          <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
-            <button
-              onClick={enqueue}
-              disabled={loading || sendStatus.state === 'sending'}
-              style={{padding: '10px 14px', borderRadius: 10}}
-            >
-              Enqueue campaign
-            </button>
 
-            <div style={{fontSize: 12, opacity: 0.85}}>
-              Campaign ID:{' '}
-              <code
+                    {/* --- SEND HAZARD ZONE --- */}
+          <div style={hazardCardStyle}>
+            {/* top hazard edge */}
+            <div style={{...hazardEdgeStyle, backgroundImage: hazardStripe(45)}} />
+
+            <div style={{padding: 12}}>
+              <div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
+                <div style={{fontSize: 12, fontWeight: 700, letterSpacing: 0.6, opacity: 0.92}}>
+                  SEND ZONE
+                  <span style={{marginLeft: 10, fontWeight: 500, opacity: 0.7}}>
+                    This triggers real email activity.
+                  </span>
+                </div>
+
+                <div style={{fontSize: 11, opacity: 0.75}}>
+                  Double-check filters • sender • templates • campaign ID
+                </div>
+              </div>
+
+              <div style={{height: 10}} />
+
+              {/* (1) Enqueue row */}
+              <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
+                <button
+                  onClick={enqueue}
+                  disabled={loading || sendStatus.state === 'sending'}
+                  style={{padding: '10px 14px', borderRadius: 10}}
+                >
+                  Enqueue campaign
+                </button>
+
+                <div style={{fontSize: 12, opacity: 0.85}}>
+                  Campaign ID:{' '}
+                  <code
+                    style={{
+                      background: surfaceBg,
+                      border: `1px solid ${surfaceBorder}`,
+                      padding: '2px 6px',
+                      borderRadius: 6,
+                    }}
+                  >
+                    {campaignId || '—'}
+                  </code>
+                </div>
+              </div>
+
+              {/* (2) Action row */}
+              <div style={{marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center'}}>
+                <button
+                  onClick={() => sendAutoDrain({limit: 50, maxLoops: 50})}
+                  disabled={loading || !campaignId || sendStatus.state === 'sending'}
+                  style={{padding: '10px 14px', borderRadius: 10}}
+                >
+                  Send campaign (auto-drain)
+                </button>
+
+                <button
+                  onClick={cancelSending}
+                  disabled={sendStatus.state !== 'sending'}
+                  style={{padding: '10px 14px', borderRadius: 10}}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={() => drainOnce(25)}
+                  disabled={loading || !campaignId}
+                  style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}
+                >
+                  Drain 25
+                </button>
+                <button
+                  onClick={() => drainOnce(50)}
+                  disabled={loading || !campaignId}
+                  style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}
+                >
+                  Drain 50
+                </button>
+                <button
+                  onClick={() => drainOnce(100)}
+                  disabled={loading || !campaignId}
+                  style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}
+                >
+                  Drain 100
+                </button>
+              </div>
+
+              {/* (3) Status box */}
+              <div
                 style={{
-                  background: surfaceBg,
+                  marginTop: 10,
+                  padding: 10,
+                  borderRadius: 12,
                   border: `1px solid ${surfaceBorder}`,
-                  padding: '2px 6px',
-                  borderRadius: 6,
+                  background: surfaceBg,
                 }}
               >
-                {campaignId || '—'}
-              </code>
-            </div>
-          </div>
+                {sendStatus.state === 'idle' && <div style={{fontSize: 12, opacity: 0.8}}>Ready.</div>}
 
-          <div style={{marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center'}}>
-            <button
-              onClick={() => sendAutoDrain({limit: 50, maxLoops: 50})}
-              disabled={loading || !campaignId || sendStatus.state === 'sending'}
-              style={{padding: '10px 14px', borderRadius: 10}}
-            >
-              Send campaign (auto-drain)
-            </button>
-
-            <button
-              onClick={cancelSending}
-              disabled={sendStatus.state !== 'sending'}
-              style={{padding: '10px 14px', borderRadius: 10}}
-            >
-              Cancel
-            </button>
-
-            <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}>
-              Drain 25
-            </button>
-            <button onClick={() => drainOnce(50)} disabled={loading || !campaignId} style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}>
-              Drain 50
-            </button>
-            <button onClick={() => drainOnce(100)} disabled={loading || !campaignId} style={{padding: '8px 10px', borderRadius: 10,  fontSize: 10}}>
-              Drain 100
-            </button>
-          </div>
-
-          <div
-            style={{
-              marginTop: 10,
-              padding: 10,
-              borderRadius: 12,
-              border: `1px solid ${surfaceBorder}`,
-              background: surfaceBg,
-            }}
-          >
-            {sendStatus.state === 'idle' && <div style={{fontSize: 12, opacity: 0.8}}>Ready.</div>}
-
-            {sendStatus.state === 'sending' && (
-              <div style={{fontSize: 12}}>
-                <div>
-                  <b>Sending…</b> Total sent: <b>{sendStatus.totalSent}</b> • Last batch: {sendStatus.lastSent} • Remaining
-                  queued: <b>{Number.isFinite(sendStatus.remainingQueued) ? sendStatus.remainingQueued : '—'}</b> • Batches:{' '}
-                  {sendStatus.loops}
-                </div>
-                {sendStatus.runId ? (
-                  <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>
-                    runId:{' '}
-                    <code
-                      style={{
-                        background: 'transparent',
-                        border: `1px solid ${surfaceBorder}`,
-                        padding: '1px 6px',
-                        borderRadius: 6,
-                      }}
-                    >
-                      {sendStatus.runId}
-                    </code>
+                {sendStatus.state === 'sending' && (
+                  <div style={{fontSize: 12}}>
+                    <div>
+                      <b>Sending…</b> Total sent: <b>{sendStatus.totalSent}</b> • Last batch: {sendStatus.lastSent} • Remaining
+                      queued: <b>{Number.isFinite(sendStatus.remainingQueued) ? sendStatus.remainingQueued : '—'}</b> • Batches:{' '}
+                      {sendStatus.loops}
+                    </div>
+                    {sendStatus.runId ? (
+                      <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>
+                        runId:{' '}
+                        <code
+                          style={{
+                            background: 'transparent',
+                            border: `1px solid ${surfaceBorder}`,
+                            padding: '1px 6px',
+                            borderRadius: 6,
+                          }}
+                        >
+                          {sendStatus.runId}
+                        </code>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
-            )}
+                )}
 
-            {sendStatus.state === 'done' && (
-              <div style={{fontSize: 12}}>
-                <b>Done.</b> Sent <b>{sendStatus.totalSent}</b> total.
-              </div>
-            )}
+                {sendStatus.state === 'done' && (
+                  <div style={{fontSize: 12}}>
+                    <b>Done.</b> Sent <b>{sendStatus.totalSent}</b> total.
+                  </div>
+                )}
 
-            {sendStatus.state === 'cancelled' && (
-              <div style={{fontSize: 12}}>
-                <b>Cancelled.</b> Sent <b>{sendStatus.totalSent}</b> before stopping.
-              </div>
-            )}
+                {sendStatus.state === 'cancelled' && (
+                  <div style={{fontSize: 12}}>
+                    <b>Cancelled.</b> Sent <b>{sendStatus.totalSent}</b> before stopping.
+                  </div>
+                )}
 
-            {sendStatus.state === 'locked' && (
-              <div style={{fontSize: 12}}>
-                <b>Blocked:</b> {sendStatus.message}
-                <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>Another drain is likely running. Try again shortly.</div>
-              </div>
-            )}
+                {sendStatus.state === 'locked' && (
+                  <div style={{fontSize: 12}}>
+                    <b>Blocked:</b> {sendStatus.message}
+                    <div style={{marginTop: 6, fontSize: 11, opacity: 0.7}}>
+                      Another drain is likely running. Try again shortly.
+                    </div>
+                  </div>
+                )}
 
-            {sendStatus.state === 'error' && (
-              <div style={{fontSize: 12, color: '#b00020'}}>
-                <b>Error:</b> {sendStatus.message}
+                {sendStatus.state === 'error' && (
+                  <div style={{fontSize: 12, color: '#b00020'}}>
+                    <b>Error:</b> {sendStatus.message}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* bottom hazard edge */}
+            <div style={{...hazardEdgeStyle, backgroundImage: hazardStripe(-45)}} />
           </div>
+
         </div>
 
         {/* RIGHT: keep default sizing */}
