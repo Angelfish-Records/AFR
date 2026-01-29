@@ -217,6 +217,7 @@ type Payload = {
   html: string
   personalisedSnapshot: string
   sendId: string
+  unsubscribeUrl?: string
 }
 
 async function countQueuedForPitch(args: {
@@ -312,11 +313,6 @@ function mintUnsubscribeToken(args: {
   const payloadB64 = base64urlEncode(Buffer.from(JSON.stringify(p), 'utf8'))
   const sigB64 = base64urlEncode(hmacSha256(args.secret, payloadB64))
   return `${payloadB64}.${sigB64}`
-}
-
-function buildUnsubscribeFooterMarkdown(unsubUrl: string): string {
-  // Confirm-page flow (GET shows confirm, POST performs)
-  return `\n\n---\nIf you’d prefer not to receive future press emails from Angelfish Records, you can [unsubscribe here](${unsubUrl}).`
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -544,21 +540,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const mergedBody = mergeTemplate(bodyTemplate, vars).trim()
 
       // Always include an unsubscribe option; if we somehow lack a contactId, fall back to reply-to instruction.
-      const footer = unsubscribeUrl
-        ? buildUnsubscribeFooterMarkdown(unsubscribeUrl)
-        : `\n\n---\nIf you’d prefer not to receive future press emails from Angelfish Records, reply with “unsubscribe” and we’ll remove you.`
-      const bodyText = (mergedBody + footer).trim()
+      // TEXT version (keep footer appended)
+const footerText = unsubscribeUrl
+  ? `\n\n---\nDon’t want to hear from us again? ${unsubscribeUrl}`
+  : `\n\n---\nDon’t want to hear from us again? Reply with “unsubscribe”.`
 
-      const text = bodyText || ' '
+const text = (mergedBody + footerText).trim() || ' '
 
-      const html = await renderEmail(
-        React.createElement(PressPitchEmail, {
-          brandName: 'Angelfish Records',
-          bodyMarkdown: bodyText,
-          logoUrl,
-        }),
-        {pretty: true}
-      )
+// HTML version (bodyMarkdown excludes footer; footer rendered via template prop)
+const html = await renderEmail(
+  React.createElement(PressPitchEmail, {
+    brandName: 'Angelfish Records',
+    bodyMarkdown: mergedBody,       // <— important
+    logoUrl,
+    unsubscribeUrl,                 // <— important
+  }),
+  {pretty: true}
+)
+
 
       const personalisedSnapshot = [oneLineHook, customParagraph].filter(Boolean).join('\n\n').trim()
 
@@ -571,6 +570,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         html,
         personalisedSnapshot,
         sendId: s.id,
+        unsubscribeUrl: unsubscribeUrl || undefined,
       })
     }
 
@@ -652,12 +652,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         text: p.text,
         html: p.html,
         ...(p.replyTo ? {replyTo: p.replyTo} : {}),
+        ...(p.unsubscribeUrl
+          ? {
+              headers: {
+                // Angle brackets are the conventional header format for a URL entry
+                'List-Unsubscribe': `<${p.unsubscribeUrl}>`,
+                // One-click unsubscribe
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
+            }
+          : {}),
         tags: [
           {name: 'campaign_id', value: campaignId},
           {name: 'send_id', value: p.sendId},
           {name: 'run_id', value: runId},
         ],
       }))
+
 
       const result = await resend.batch.send(emails, {idempotencyKey})
       const error = (result as {error?: unknown}).error

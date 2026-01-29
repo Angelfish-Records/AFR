@@ -228,14 +228,33 @@ function todayYmd(): string {
 }
 
 function pickToken(req: NextApiRequest): string {
-  // GET: /api/unsubscribe?t=...
+  // Primary: query param (works for GET and for Gmail one-click POSTs to the same URL)
   const q = typeof req.query.t === 'string' ? req.query.t : ''
   if (q) return q
 
-  // POST from HTML form: body.t
+  // Secondary: try to parse t from the raw URL (defensive; req.query should already have it)
+  if (typeof req.url === 'string') {
+    try {
+      const u = new URL(req.url, 'http://localhost')
+      const t = u.searchParams.get('t')
+      if (t) return t
+    } catch {
+      // ignore
+    }
+  }
+
+  // Tertiary: POST from your HTML form: body.t
   const b = req.body as unknown
   if (b && typeof b === 'object' && typeof (b as {t?: unknown}).t === 'string') return (b as {t: string}).t
+
   return ''
+}
+
+function isOneClickPost(req: NextApiRequest): boolean {
+  if (req.method !== 'POST') return false
+  const lup = req.headers['list-unsubscribe-post']
+  // Gmail/Yahoo set: "List-Unsubscribe=One-Click"
+  return typeof lup === 'string' && lup.toLowerCase().includes('one-click')
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -256,14 +275,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const parsed = parseToken(token, secret)
 
     if (!parsed.ok) {
+      // For one-click POSTs, return a neutral success even if token is bad/expired.
+      // This prevents clients from hammering retries and still achieves "stop sending" semantics
+      // via your suppression logic on valid tokens only.
+      if (isOneClickPost(req)) return res.status(204).end()
+
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       return res.status(400).send(
         htmlPage(
           'Link expired',
           `<h1 style="margin:0 0 10px 0;font-size:18px;">This link can’t be used</h1>
-           <div style="opacity:0.85;line-height:1.5;">
-             It may have expired or been copied incorrectly. If you still want to opt out, reply to the email and ask us to stop.
-           </div>`
+          <div style="opacity:0.85;line-height:1.5;">
+            It may have expired or been copied incorrectly. If you still want to opt out, reply to the email and ask us to stop.
+          </div>`
         )
       )
     }
@@ -336,6 +360,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           Notes: note.slice(0, 90000),
         },
       })
+
+      if (isOneClickPost(req)) {
+        // One-click should be silent; no HTML, just success.
+        // 204 is conventional; 200 also works.
+        return res.status(204).end()
+      }
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      return res.status(200).send(
+        htmlPage(
+          'Unsubscribed',
+          `<h1 style="margin:0 0 10px 0;font-size:18px;">You’re unsubscribed.</h1>
+          <div style="opacity:0.85;line-height:1.5;">
+            We won’t send further press emails to <b>${escapeHtml(p.em)}</b>.
+          </div>`
+        )
+      )
 
       // Optional: also patch Press Contacts.Contact status => Unsubscribed for visibility.
       // Your "Is mailable" formula already excludes Unsubscribed contacts, so this is fine,

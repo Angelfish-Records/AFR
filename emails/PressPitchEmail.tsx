@@ -9,6 +9,7 @@ export type PressPitchEmailProps = {
   logoUrl?: string
   heroUrl?: string
   bodyMarkdown: string
+  unsubscribeUrl?: string
 }
 
 const BOX_BG = '#ba9c67'
@@ -105,18 +106,9 @@ const mdStyles: Record<string, React.CSSProperties> = {
   em: {color: MUTED},
 }
 
-function extractUnsubscribeUrl(markdown: string): string | null {
-  // Expecting drain.ts to append exactly: [unsubscribe](https://...)
-  // Keep this conservative and stable.
-  const m = markdown.match(/\[unsubscribe\]\((https?:\/\/[^)\s]+)\)/i)
-  return m?.[1] ?? null
-}
-
 export default function PressPitchEmail(props: PressPitchEmailProps) {
-  const {previewText, brandName = 'Angelfish Records', logoUrl, heroUrl, bodyMarkdown} = props
+  const {previewText, brandName = 'Angelfish Records', logoUrl, heroUrl, bodyMarkdown, unsubscribeUrl} = props
   const preview = previewText ?? brandName
-
-  const unsubUrl = extractUnsubscribeUrl(bodyMarkdown)
 
   return (
     <Html>
@@ -166,10 +158,13 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
           <Text style={styles.footerOutside}>{brandName}</Text>
 
-          {unsubUrl ? (
+          {unsubscribeUrl ? (
             <Text style={styles.unsubscribeOutside}>
               Don’t want to hear from us again?{' '}
-              <a href={unsubUrl} style={{color: FOOTER_TONE, textDecoration: 'underline', textUnderlineOffset: '2px'}}>
+              <a
+                href={unsubscribeUrl}
+                style={{color: FOOTER_TONE, textDecoration: 'underline', textUnderlineOffset: '2px'}}
+              >
                 Click here to opt out of future communications.
               </a>
               .
