@@ -59,6 +59,19 @@ type PreviewResponse =
   | {ok: true; subject: string; html: string}
   | {ok?: false; error?: string; message?: string}
 
+type SenderKey = 'brendan' | 'angus'
+
+const SENDERS: Record<SenderKey, {from: string; replyTo: string}> = {
+  brendan: {
+    from: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
+    replyTo: 'brendan@press.angelfishrecords.com',
+  },
+  angus: {
+    from: 'Angus at Angelfish Records <angus@press.angelfishrecords.com>',
+    replyTo: 'angus@press.angelfishrecords.com',
+  },
+}
+
 export default function CampaignComposerPage() {
   const [internalKey, setInternalKey] = useState<string>('')
 
@@ -67,8 +80,12 @@ export default function CampaignComposerPage() {
   const [sampleContacts, setSampleContacts] = useState<SampleContact[]>([])
   const [samplePick, setSamplePick] = useState<string>('')
 
-  const [fromAddress, setFromAddress] = useState('Brendan at Angelfish Records <brendan@press.angelfishrecords.com>')
-  const [replyTo, setReplyTo] = useState('brendan@press.angelfishrecords.com')
+  const [senderKey, setSenderKey] = useState<SenderKey>('brendan')
+
+  const sender = useMemo(() => SENDERS[senderKey] ?? SENDERS.brendan, [senderKey])
+  const replyTo = sender.replyTo
+
+
   const [campaignName, setCampaignName] = useState('')
 
   const [subjectTemplate, setSubjectTemplate] = useState('Angelfish Records: {{campaign_name}}')
@@ -256,13 +273,13 @@ Assets pack:
           ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
         },
         body: JSON.stringify({
-          audienceKey: 'press_mailable_v1',
-          campaignName: campaignName || undefined,
-          fromAddress,
-          replyTo,
-          subjectTemplate,
-          bodyTemplate,
-        }),
+        audienceKey: 'press_mailable_v1',
+        campaignName: campaignName || undefined,
+        fromAddress: sender.from,
+        replyTo: sender.replyTo,
+        subjectTemplate,
+        bodyTemplate,
+      }),
       })
       const j = (await res.json().catch(() => null)) as unknown
       if (!res.ok) {
@@ -469,21 +486,19 @@ Assets pack:
           </label>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>From</div>
-            <input
-              value={fromAddress}
-              onChange={(e) => setFromAddress(e.target.value)}
+            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Sender (From + Reply-To)</div>
+            <select
+              value={senderKey}
+              onChange={(e) => setSenderKey(e.target.value as SenderKey)}
               style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            />
-          </label>
+            >
+              <option value="brendan">{SENDERS.brendan.from}</option>
+              <option value="angus">{SENDERS.angus.from}</option>
+            </select>
 
-          <label style={{display: 'block', marginBottom: 10}}>
-            <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Reply-To</div>
-            <input
-              value={replyTo}
-              onChange={(e) => setReplyTo(e.target.value)}
-              style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
-            />
+            <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>
+              Reply-To: <code>{replyTo}</code>
+            </div>
           </label>
 
           <label style={{display: 'block', marginBottom: 10}}>

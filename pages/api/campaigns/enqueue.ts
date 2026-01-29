@@ -211,6 +211,29 @@ type SendFields = {
   Pitch?: unknown
 }
 
+type SenderKey = 'brendan' | 'angus'
+
+const SENDERS: Record<SenderKey, {fromAddress: string; replyTo: string}> = {
+  brendan: {
+    fromAddress: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
+    replyTo: 'brendan@press.angelfishrecords.com',
+  },
+  angus: {
+    fromAddress: 'Angus at Angelfish Records <angus@press.angelfishrecords.com>',
+    replyTo: 'angus@press.angelfishrecords.com',
+  },
+}
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function parseSenderKey(v: unknown): SenderKey | null {
+  const s = asString(v).trim()
+  if (s === 'brendan' || s === 'angus') return s
+  return null
+}
+
 function normalizeAudienceKey(k: string | undefined): string {
   return (k ?? 'press_mailable_v1').trim()
 }
@@ -306,19 +329,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = (req.body ?? {}) as Record<string, unknown>
 
     const campaignName = typeof body.campaignName === 'string' ? body.campaignName : undefined
-    const fromAddress = typeof body.fromAddress === 'string' ? body.fromAddress : undefined
-    const replyTo = typeof body.replyTo === 'string' ? body.replyTo : undefined
+    const senderKey = parseSenderKey(body.senderKey) ?? 'brendan'
+
+    const legacyFromAddress = typeof body.fromAddress === 'string' ? body.fromAddress : undefined
+    const legacyReplyTo = typeof body.replyTo === 'string' ? body.replyTo : undefined
+
     const subjectTemplate = typeof body.subjectTemplate === 'string' ? body.subjectTemplate : undefined
     const bodyTemplate = typeof body.bodyTemplate === 'string' ? body.bodyTemplate : undefined
     const existingCampaignId = typeof body.campaignId === 'string' ? body.campaignId : undefined
 
-    if (!fromAddress || !subjectTemplate || !bodyTemplate) {
-      return jsonError(res, 400, 'Missing required fields: fromAddress, subjectTemplate, bodyTemplate')
+    if (!subjectTemplate || !bodyTemplate) {
+      return jsonError(res, 400, 'Missing required fields: subjectTemplate, bodyTemplate')
+    }
+
+    const derived = SENDERS[senderKey]
+    const fromAddress = derived.fromAddress
+    const replyTo = derived.replyTo
+
+    // Optional: guard against mixed/legacy inputs silently diverging
+    if (legacyFromAddress && legacyFromAddress.trim() && legacyFromAddress.trim() !== fromAddress) {
+      return jsonError(res, 400, 'fromAddress must not be provided when senderKey is set (or must match senderKey)')
+    }
+    if (legacyReplyTo && legacyReplyTo.trim() && legacyReplyTo.trim() !== replyTo) {
+      return jsonError(res, 400, 'replyTo must not be provided when senderKey is set (or must match senderKey)')
     }
 
     const fromEmail = extractEmailFromFromAddress(fromAddress)
-    if (!fromEmail) return jsonError(res, 400, 'fromAddress must be like "Name <email@domain>" or "email@domain>"')
-    if (replyTo && !isValidEmailLoose(replyTo)) return jsonError(res, 400, 'replyTo must be a valid email address')
+    if (!fromEmail) return jsonError(res, 400, 'Configured sender fromAddress is invalid')
+    if (!isValidEmailLoose(replyTo)) return jsonError(res, 400, 'Configured sender replyTo is invalid')
+
 
     const runId = crypto.randomUUID()
 
@@ -384,7 +423,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         Pitch: [campaignId],
         Recipient: x.email,
         'From address': fromAddress,
-        ...(replyTo && replyTo.trim() ? {'Reply-to': replyTo.trim()} : {}),
+        'Reply-to': replyTo,
         'Delivery status': 'Queued',
         Contact: [x.contactId],
         Notes: `enqueue_run_id=${runId}`,
