@@ -114,16 +114,16 @@ type PreviewResponse =
   | {ok: true; subject: string; html: string}
   | {ok?: false; error?: string; message?: string}
 
-type SenderKey = 'brendan' | 'angus'
+type SenderKey = 'angus' | 'brendan'
 
 const SENDERS: Record<SenderKey, {from: string; replyTo: string}> = {
-  brendan: {
-    from: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
-    replyTo: 'brendan@press.angelfishrecords.com',
-  },
   angus: {
     from: 'Angus at Angelfish Records <angus@press.angelfishrecords.com>',
     replyTo: 'angus@press.angelfishrecords.com',
+  },
+  brendan: {
+    from: 'Brendan at Angelfish Records <brendan@press.angelfishrecords.com>',
+    replyTo: 'brendan@press.angelfishrecords.com',
   },
 }
 
