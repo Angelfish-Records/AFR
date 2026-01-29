@@ -26,6 +26,31 @@ function errorMessage(err: unknown): string {
   }
 }
 
+function insertAtCursor(
+  textarea: HTMLTextAreaElement,
+  insert: string,
+  selectRange?: [number, number]
+) {
+  const start = textarea.selectionStart ?? textarea.value.length
+  const end = textarea.selectionEnd ?? textarea.value.length
+
+  const before = textarea.value.slice(0, start)
+  const after = textarea.value.slice(end)
+
+  textarea.value = before + insert + after
+
+  const cursorPos =
+    selectRange
+      ? start + selectRange[0]
+      : start + insert.length
+
+  textarea.focus()
+  textarea.setSelectionRange(
+    cursorPos,
+    selectRange ? start + selectRange[1] : cursorPos
+  )
+}
+
 type EnqueueGetResponse = {
   ok: true
   audienceKey: string
@@ -543,17 +568,122 @@ Assets pack:
           </label>
 
           <label style={{display: 'block', marginBottom: 10}}>
-            <div style={labelTitleStyleLeft}>Body template</div>
-            <textarea
-              value={bodyTemplate}
-              onChange={(e) => setBodyTemplate(e.target.value)}
-              rows={14}
-              style={{
-                ...inputStyle,
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              }}
-            />
-          </label>
+  <div style={labelTitleStyleLeft}>Body template</div>
+
+  {/* Toolbar */}
+  <div
+  style={{
+    display: 'flex',
+    gap: 6,
+    marginBottom: 6,
+    flexWrap: 'wrap',
+  }}
+>
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(el, '**bold text**', [2, 11])
+      setBodyTemplate(el.value)
+    }}
+  >
+    Bold
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(el, '*italic text*', [1, 12])
+      setBodyTemplate(el.value)
+    }}
+  >
+    Italic
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(el, '[link text](https://)', [1, 10])
+      setBodyTemplate(el.value)
+    }}
+  >
+    Link
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(el, '![alt text](https://image-url)', [2, 10])
+      setBodyTemplate(el.value)
+    }}
+  >
+    Image
+  </button>
+
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(el, '\n\n---\n\n')
+      setBodyTemplate(el.value)
+    }}
+  >
+    Divider
+  </button>
+
+  {/* NEW: Heading */}
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(el, '\n\n## Heading text\n\n', [4, 16])
+      setBodyTemplate(el.value)
+    }}
+  >
+    Heading
+  </button>
+
+  {/* NEW: Bullet list */}
+  <button
+    type="button"
+    onClick={() => {
+      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+      if (!el) return
+      insertAtCursor(
+        el,
+        '\n\n- Bullet one\n- Bullet two\n- Bullet three\n\n',
+        [4, 14]
+      )
+      setBodyTemplate(el.value)
+    }}
+  >
+    Bullets
+  </button>
+</div>
+
+
+  {/* Textarea */}
+  <textarea
+    id="body-template"
+    value={bodyTemplate}
+    onChange={(e) => setBodyTemplate(e.target.value)}
+    rows={14}
+    style={{
+      ...inputStyle,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    }}
+  />
+</label>
+
 
           <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
             <button
