@@ -60,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const bodyText = asString(body.bodyText) // allow newlines
 
     const siteUrl = publicSiteUrl()
-    const logoUrl = asString(body.logoUrl).trim() || `${siteUrl}/brand/AFR_logo_small.png`
+    const logoUrl = asString(body.logoUrl).trim() || `${siteUrl}/brand/AFR_logo_circle_light_mini.png`
 
     // Render the exact same component drain.ts uses
     const element = React.createElement(PressPitchEmail, {

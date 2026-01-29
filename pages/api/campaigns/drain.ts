@@ -310,7 +310,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const nowIso = isoNow()
 
     const siteUrl = publicSiteUrl()
-    const logoUrl = `${siteUrl}/brand/AFR_logo_small.png`
+    const logoUrl = `${siteUrl}/brand/AFR_logo_circle_light_mini.png`
 
     // Fetch campaign by RECORD_ID (one record)
     const camp = await airtableList<CampaignFields>({

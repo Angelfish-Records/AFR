@@ -138,7 +138,7 @@ Assets pack:
         },
         body: JSON.stringify({
           brandName: 'Angelfish Records',
-          logoUrl: 'https://www.angelfishrecords.com/brand/AFR_logo_small.png',
+          logoUrl: 'https://www.angelfishrecords.com/brand/AFR_logo_circle_light_mini.png',
           recipientName,
           campaignName: previewVars.campaign_name,
           subject: previewSubject,
