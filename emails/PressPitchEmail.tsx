@@ -112,14 +112,21 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
 
       <Body style={styles.body}>
         <Container style={styles.outer}>
-          {/* Logo placeholder / logo URL (centered, above the card) */}
-          <Section style={styles.topLogoWrap}>
-            {logoUrl ? (
-              <Img src={logoUrl} alt={brandName} style={styles.logoImg} />
-            ) : (
-              <div style={styles.logoPlaceholder}>LOGO</div>
-            )}
-          </Section>
+          {/* Logo (centered, above the card) */}
+            <Section style={styles.topLogoWrap}>
+            <Text style={{textAlign: 'center', margin: 0}}>
+                {logoUrl ? (
+                <Img
+                    src={logoUrl}
+                    alt={brandName}
+                    height={34}
+                    style={{display: 'inline-block'}}
+                />
+                ) : (
+                <Text style={styles.logoPlaceholder}>LOGO</Text>
+                )}
+            </Text>
+            </Section>
 
           {/* Main content box */}
           <Section style={styles.card}>
