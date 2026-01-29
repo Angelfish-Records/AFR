@@ -165,9 +165,9 @@ export default function PressPitchEmail(props: PressPitchEmailProps) {
                 href={unsubscribeUrl}
                 style={{color: FOOTER_TONE, textDecoration: 'underline', textUnderlineOffset: '2px'}}
               >
-                Click here 
-              </a>
-               to opt out of future communications.
+                Click here
+              </a>{' '}
+              to opt out of future communications.
             </Text>
           ) : null}
         </Container>
