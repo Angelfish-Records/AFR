@@ -610,18 +610,14 @@ function IconBullets(props: {size?: number}) {
     return `<!doctype html><html><head><meta charset="utf-8" /></head><body style="margin:0;padding:0;">${previewHtml}</body></html>`
   }, [previewHtml])
 
+                  {/* --- SEND HAZARD ZONE --- */}
+
     const hazardZone = (
     <div style={hazardCardStyle}>
       {/* top hazard edge */}
       <div style={{...hazardEdgeStyle, backgroundImage: hazardStripe(45)}} />
 
       <div style={{padding: 12}}>
-                  {/* --- SEND HAZARD ZONE --- */}
-          <div style={hazardCardStyle}>
-            {/* top hazard edge */}
-            <div style={{...hazardEdgeStyle, backgroundImage: hazardStripe(45)}} />
-
-            <div style={{padding: 12}}>
               <div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'}}>
                 <div style={{fontSize: 12, fontWeight: 700, letterSpacing: 0.6, opacity: 0.92}}>
                   SEND CONTROLS
@@ -772,11 +768,6 @@ function IconBullets(props: {size?: number}) {
             {/* bottom hazard edge */}
             <div style={{...hazardEdgeStyle, backgroundImage: hazardStripe(-45)}} />
           </div>
-      </div>
-
-      {/* bottom hazard edge */}
-      <div style={{...hazardEdgeStyle, backgroundImage: hazardStripe(-45)}} />
-    </div>
   )
 
   return (
