@@ -377,7 +377,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = (req.body ?? {}) as Record<string, unknown>
 
     const campaignName = typeof body.campaignName === 'string' ? body.campaignName : undefined
-    const senderKey = parseSenderKey(body.senderKey) ?? 'brendan'
+    const senderKey = parseSenderKey(body.senderKey) ?? 'angus'
 
     const legacyFromAddress = typeof body.fromAddress === 'string' ? body.fromAddress : undefined
     const legacyReplyTo = typeof body.replyTo === 'string' ? body.replyTo : undefined

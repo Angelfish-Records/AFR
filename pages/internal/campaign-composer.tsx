@@ -1,4 +1,5 @@
 // pages/internal/campaign-composer.tsx
+import Head from 'next/head'
 import React, {useEffect, useMemo, useRef, useState} from 'react'
 
 type SampleContact = {
@@ -139,7 +140,7 @@ export default function CampaignComposerPage() {
   const [outletTypeOptions, setOutletTypeOptions] = useState<string[]>([])
   const [outletRegionOptions, setOutletRegionOptions] = useState<string[]>([])
 
-  const [senderKey, setSenderKey] = useState<SenderKey>('brendan')
+  const [senderKey, setSenderKey] = useState<SenderKey>('angus')
 
   const sender = useMemo(() => SENDERS[senderKey] ?? SENDERS.brendan, [senderKey])
   const replyTo = sender.replyTo
@@ -596,6 +597,11 @@ function IconBullets(props: {size?: number}) {
   }, [previewHtml])
 
   return (
+    <>
+    <Head>
+        <title>AFR Campaign Composer</title>
+        <meta name="description" content="Internal tool for composing and sending AFR press campaigns." />
+      </Head>
     <div
       style={{
         maxWidth: 1100,
@@ -1089,5 +1095,6 @@ function IconBullets(props: {size?: number}) {
         </div>
       </div>
     </div>
+    </>
   )
 }
