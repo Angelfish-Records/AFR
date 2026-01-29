@@ -26,6 +26,33 @@ function errorMessage(err: unknown): string {
   }
 }
 
+function handleUndoRedoKeydown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+  const key = e.key.toLowerCase()
+
+  // Undo: Cmd+Z (mac) / Ctrl+Z (win)
+  const isUndo = (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && key === 'z'
+
+  // Redo:
+  // - Mac commonly: Cmd+Shift+Z
+  // - Windows commonly: Ctrl+Y (also Ctrl+Shift+Z in some apps)
+  const isRedo =
+    ((isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && key === 'z') || (!isMac && e.ctrlKey && !e.shiftKey && key === 'y')
+
+  if (!isUndo && !isRedo) return
+
+  // Prevent browser "back" / other weird defaults in some contexts
+  e.preventDefault()
+
+  // Ask the browser to do native undo/redo for this textarea
+  try {
+    document.execCommand(isUndo ? 'undo' : 'redo')
+  } catch {
+    // no-op: most modern browsers still support this for contenteditable/textarea,
+    // and the textarea usually still handles it natively anyway.
+  }
+}
+
 function insertAtCursor(
   textarea: HTMLTextAreaElement,
   insert: string,
@@ -786,6 +813,7 @@ function IconBullets(props: {size?: number}) {
       id="body-template"
       value={bodyTemplate}
       onChange={(e) => setBodyTemplate(e.target.value)}
+      onKeyDown={(e) => {handleUndoRedoKeydown(e)}}
       rows={14}
       style={{
         width: '100%',

@@ -5,6 +5,7 @@ import {Resend} from 'resend'
 import {render as renderEmail} from '@react-email/render'
 import PressPitchEmail from '../../../emails/PressPitchEmail'
 import * as React from 'react'
+import { requireInternalBasicAuth } from '../_internalAuth'
 
 type AirtableListResp<TFields> = {
   records: Array<{id: string; fields: TFields}>
@@ -73,21 +74,6 @@ function isoNow(): string {
 
 function escapeAirtableString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a)
-  const bb = Buffer.from(b)
-  if (ab.length !== bb.length) return false
-  return crypto.timingSafeEqual(ab, bb)
-}
-
-function allowInternal(req: NextApiRequest): boolean {
-  const key = process.env.AFR_INTERNAL_KEY
-  if (!key) return true
-  const got = typeof req.headers['x-afr-internal-key'] === 'string' ? req.headers['x-afr-internal-key'] : ''
-  if (!got) return false
-  return safeEqual(got, key)
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -337,7 +323,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const runId = crypto.randomUUID()
 
   try {
-    if (!allowInternal(req)) return jsonError(res, 401, 'Unauthorized')
+    if (!requireInternalBasicAuth(req, res)) return
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
 
     const resendKey = must(process.env.AFR_RESEND_API_KEY, 'AFR_RESEND_API_KEY')

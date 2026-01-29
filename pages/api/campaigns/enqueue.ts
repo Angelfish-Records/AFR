@@ -1,6 +1,7 @@
 // pages/api/campaigns/enqueue.ts
 import type {NextApiRequest, NextApiResponse} from 'next'
 import crypto from 'crypto'
+import { requireInternalBasicAuth } from '../_internalAuth'
 
 type AirtableListResp<TFields> = {
   records: Array<{id: string; fields: TFields}>
@@ -14,21 +15,6 @@ function must(v: string | undefined, name: string): string {
 
 function jsonError(res: NextApiResponse, status: number, msg: string, extra?: unknown) {
   return res.status(status).json({error: msg, ...(extra ? {extra} : {})})
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a)
-  const bb = Buffer.from(b)
-  if (ab.length !== bb.length) return false
-  return crypto.timingSafeEqual(ab, bb)
-}
-
-function allowInternal(req: NextApiRequest): boolean {
-  const key = process.env.AFR_INTERNAL_KEY
-  if (!key) return true
-  const got = typeof req.headers['x-afr-internal-key'] === 'string' ? req.headers['x-afr-internal-key'] : ''
-  if (!got) return false
-  return safeEqual(got, key)
 }
 
 function escapeAirtableString(s: string): string {
@@ -259,7 +245,7 @@ function normalizeAudienceKey(k: string | undefined): string {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (!allowInternal(req)) return jsonError(res, 401, 'Unauthorized')
+    if (!requireInternalBasicAuth(req, res)) return
 
     const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
     const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')

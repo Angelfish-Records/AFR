@@ -1,24 +1,9 @@
 // pages/api/campaigns/preview.ts
 import type {NextApiRequest, NextApiResponse} from 'next'
-import crypto from 'crypto'
 import * as React from 'react'
 import {render as renderEmail} from '@react-email/render'
 import PressPitchEmail from '../../../emails/PressPitchEmail'
-
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a)
-  const bb = Buffer.from(b)
-  if (ab.length !== bb.length) return false
-  return crypto.timingSafeEqual(ab, bb)
-}
-
-function allowInternal(req: NextApiRequest): boolean {
-  const key = process.env.AFR_INTERNAL_KEY
-  if (!key) return true
-  const got = typeof req.headers['x-afr-internal-key'] === 'string' ? req.headers['x-afr-internal-key'] : ''
-  if (!got) return false
-  return safeEqual(got, key)
-}
+import { requireInternalBasicAuth } from '../_internalAuth'
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v : ''
@@ -48,7 +33,7 @@ type PreviewRequest = {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (!allowInternal(req)) return res.status(401).json({error: 'Unauthorized'})
+    if (!requireInternalBasicAuth(req, res)) return
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed')
 
     const body = (req.body ?? {}) as PreviewRequest
