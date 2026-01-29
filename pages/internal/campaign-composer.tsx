@@ -179,6 +179,100 @@ Assets pack:
     background: surfaceBg,
     color: 'inherit',
   }
+
+  function IconBold(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M8 4h6a4 4 0 0 1 0 8H8V4Zm0 8h7a4 4 0 1 1 0 8H8v-8Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function IconItalic(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M10 4h10M4 20h10M14 4l-4 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconLink(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 1 1-7-7l1-1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function IconImage(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path d="M8 10a1.5 1.5 0 1 0 0.001 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 17l5-5 4 4 3-3 4 4" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconDivider(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 6v1M12 6v1M16 6v1M8 17v1M12 17v1M16 17v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconH2(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6v12M12 6v12M4 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M16 11a2 2 0 1 1 4 0c0 1-1 1.5-2 2.2-1 .7-2 1.2-2 2.8h4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function IconBullets(props: {size?: number}) {
+  const s = props.size ?? 14
+  return (
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 7h11M9 12h11M9 17h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M5 7h.01M5 12h.01M5 17h.01" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
   const labelTitleStyleLeft: React.CSSProperties = {fontSize: 10, opacity: 0.7, marginBottom: 6}
   const labelTitleStyleRight: React.CSSProperties = {fontSize: 12, opacity: 0.7, marginBottom: 6}
 
@@ -475,7 +569,7 @@ Assets pack:
   <h1 style={{marginTop: 0, marginBottom: 0}}>AFR Campaign Composer</h1>
 
   <a
-    href="https://airtable.com/appsHyPfRvjmH60ix?ao=cmVjZW50"
+    href="https://airtable.com/appsHyPfRvjmH60ix"
     target="_blank"
     rel="noreferrer"
     title="Open Airtable campaign database"
@@ -484,7 +578,7 @@ Assets pack:
     <img
       src="https://www.angelfishrecords.com/gfx/airtable_logo.png"
       alt="Airtable"
-      style={{height: 20, opacity: 0.9}}
+      style={{height: 30, opacity: 0.9}}
     />
   </a>
 </div>
@@ -570,119 +664,143 @@ Assets pack:
           <label style={{display: 'block', marginBottom: 10}}>
   <div style={labelTitleStyleLeft}>Body template</div>
 
-  {/* Toolbar */}
+  {/* Joined control: toolbar + textarea */}
   <div
-  style={{
-    display: 'flex',
-    gap: 6,
-    marginBottom: 6,
-    flexWrap: 'wrap',
-  }}
->
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(el, '**bold text**', [2, 11])
-      setBodyTemplate(el.value)
-    }}
-  >
-    Bold
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(el, '*italic text*', [1, 12])
-      setBodyTemplate(el.value)
-    }}
-  >
-    Italic
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(el, '[link text](https://)', [1, 10])
-      setBodyTemplate(el.value)
-    }}
-  >
-    Link
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(el, '![alt text](https://image-url)', [2, 10])
-      setBodyTemplate(el.value)
-    }}
-  >
-    Image
-  </button>
-
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(el, '\n\n---\n\n')
-      setBodyTemplate(el.value)
-    }}
-  >
-    Divider
-  </button>
-
-  {/* NEW: Heading */}
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(el, '\n\n## Heading text\n\n', [4, 16])
-      setBodyTemplate(el.value)
-    }}
-  >
-    Heading
-  </button>
-
-  {/* NEW: Bullet list */}
-  <button
-    type="button"
-    onClick={() => {
-      const el = document.getElementById('body-template') as HTMLTextAreaElement | null
-      if (!el) return
-      insertAtCursor(
-        el,
-        '\n\n- Bullet one\n- Bullet two\n- Bullet three\n\n',
-        [4, 14]
-      )
-      setBodyTemplate(el.value)
-    }}
-  >
-    Bullets
-  </button>
-</div>
-
-
-  {/* Textarea */}
-  <textarea
-    id="body-template"
-    value={bodyTemplate}
-    onChange={(e) => setBodyTemplate(e.target.value)}
-    rows={14}
     style={{
-      ...inputStyle,
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      border: `1px solid ${surfaceBorder}`,
+      borderRadius: 12,
+      overflow: 'hidden',
+      background: surfaceBg,
     }}
-  />
+  >
+    {/* Toolbar (top) */}
+    <div
+      style={{
+        display: 'flex',
+        gap: 6,
+        padding: 8,
+        borderBottom: `1px solid ${surfaceBorder}`,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+      }}
+    >
+      {[
+        {
+          title: 'Bold',
+          icon: <IconBold />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '**bold text**', [2, 11])
+            setBodyTemplate(el.value)
+          },
+        },
+        {
+          title: 'Italic',
+          icon: <IconItalic />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '*italic text*', [1, 12])
+            setBodyTemplate(el.value)
+          },
+        },
+        {
+          title: 'Link',
+          icon: <IconLink />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '[link text](https://)', [1, 10])
+            setBodyTemplate(el.value)
+          },
+        },
+        {
+          title: 'Image',
+          icon: <IconImage />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '![alt text](https://image-url)', [2, 10])
+            setBodyTemplate(el.value)
+          },
+        },
+        {
+          title: 'Divider',
+          icon: <IconDivider />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '\n\n---\n\n')
+            setBodyTemplate(el.value)
+          },
+        },
+        {
+          title: 'Heading',
+          icon: <IconH2 />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '\n\n## Heading text\n\n', [4, 16])
+            setBodyTemplate(el.value)
+          },
+        },
+        {
+          title: 'Bullets',
+          icon: <IconBullets />,
+          run: () => {
+            const el = document.getElementById('body-template') as HTMLTextAreaElement | null
+            if (!el) return
+            insertAtCursor(el, '\n\n- Bullet one\n- Bullet two\n- Bullet three\n\n', [4, 14])
+            setBodyTemplate(el.value)
+          },
+        },
+      ].map((b) => (
+        <button
+          key={b.title}
+          type="button"
+          onClick={b.run}
+          title={b.title}
+          aria-label={b.title}
+          style={{
+            width: 34,
+            height: 30,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 10,
+            border: `1px solid ${surfaceBorder}`,
+            background: 'rgba(255,255,255,0.04)',
+            color: 'inherit',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          {b.icon}
+        </button>
+      ))}
+    </div>
+
+    {/* Textarea (bottom) */}
+    <textarea
+      id="body-template"
+      value={bodyTemplate}
+      onChange={(e) => setBodyTemplate(e.target.value)}
+      rows={14}
+      style={{
+        width: '100%',
+        padding: 12,
+        border: 'none',
+        outline: 'none',
+        background: 'transparent',
+        color: 'inherit',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        resize: 'vertical',
+      }}
+    />
+  </div>
 </label>
+
 
 
           <div style={{display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap'}}>
