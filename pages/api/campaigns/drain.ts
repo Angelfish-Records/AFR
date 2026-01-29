@@ -283,6 +283,56 @@ function computeNextPollMs(args: {sent: number; remainingQueued: number; batchLi
   return 1400
 }
 
+/** ---- Unsubscribe token minting ---- */
+function base64urlEncode(buf: Buffer): string {
+  return buf
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+}
+
+function hmacSha256(secret: string, msg: string): Buffer {
+  return crypto.createHmac('sha256', secret).update(msg).digest()
+}
+
+type UnsubTokenPayload = {
+  v: 1
+  cid: string
+  em: string
+  exp: number
+  sid?: string
+  camp?: string
+}
+
+function mintUnsubscribeToken(args: {
+  secret: string
+  contactId: string
+  email: string
+  campaignId: string
+  sendId: string
+  ttlDays?: number
+}): string {
+  const ttlDays = Math.max(1, Math.min(180, Math.floor(args.ttlDays ?? 60)))
+  const nowSec = Math.floor(Date.now() / 1000)
+  const p: UnsubTokenPayload = {
+    v: 1,
+    cid: args.contactId,
+    em: normalizeEmail(args.email),
+    exp: nowSec + ttlDays * 86400,
+    sid: args.sendId,
+    camp: args.campaignId,
+  }
+  const payloadB64 = base64urlEncode(Buffer.from(JSON.stringify(p), 'utf8'))
+  const sigB64 = base64urlEncode(hmacSha256(args.secret, payloadB64))
+  return `${payloadB64}.${sigB64}`
+}
+
+function buildUnsubscribeFooterMarkdown(unsubUrl: string): string {
+  // Confirm-page flow (GET shows confirm, POST performs)
+  return `\n\n---\nIf you’d prefer not to receive future press emails from Angelfish Records, you can [unsubscribe here](${unsubUrl}).`
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const runId = crypto.randomUUID()
 
@@ -293,6 +343,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const resendKey = must(process.env.AFR_RESEND_API_KEY, 'AFR_RESEND_API_KEY')
     const airtableToken = must(process.env.AIRTABLE_TOKEN, 'AIRTABLE_TOKEN')
     const baseId = must(process.env.AIRTABLE_BASE_ID, 'AIRTABLE_BASE_ID')
+
+    const unsubscribeSecret = must(process.env.AFR_UNSUBSCRIBE_SECRET, 'AFR_UNSUBSCRIBE_SECRET')
 
     const contactsTable = must(process.env.AIRTABLE_PRESS_CONTACTS_TABLE, 'AIRTABLE_PRESS_CONTACTS_TABLE')
     const campaignsTable = must(process.env.AIRTABLE_CAMPAIGNS_TABLE, 'AIRTABLE_CAMPAIGNS_TABLE')
@@ -472,6 +524,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const oneLineHook = asString(cf?.['One-line hook'])
       const customParagraph = asString(cf?.['Custom paragraph'])
 
+      // Unsubscribe URL: only if we can bind to a real Press Contact record
+      const unsubscribeUrl =
+        contactId && contactId.startsWith('rec')
+          ? `${siteUrl}/api/unsubscribe?t=${encodeURIComponent(
+              mintUnsubscribeToken({
+                secret: unsubscribeSecret,
+                contactId,
+                email: to,
+                campaignId,
+                sendId: s.id,
+                ttlDays: 60,
+              })
+            )}`
+          : ''
+
       const vars: Record<string, string> = {
         first_name: firstName,
         last_name: lastName,
@@ -484,21 +551,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         key_links: asString(campaignFields['Key links']),
         assets_pack_link: asString(campaignFields['Assets pack link']),
         default_cta: asString(campaignFields['Default CTA']),
+        unsubscribe_url: unsubscribeUrl,
       }
 
       const subj = mergeTemplate(subjectTemplate, vars).trim()
-      const bodyText = mergeTemplate(bodyTemplate, vars).trim()
+      const mergedBody = mergeTemplate(bodyTemplate, vars).trim()
+
+      // Always include an unsubscribe option; if we somehow lack a contactId, fall back to reply-to instruction.
+      const footer = unsubscribeUrl
+        ? buildUnsubscribeFooterMarkdown(unsubscribeUrl)
+        : `\n\n---\nIf you’d prefer not to receive future press emails from Angelfish Records, reply with “unsubscribe” and we’ll remove you.`
+      const bodyText = (mergedBody + footer).trim()
 
       const text = bodyText || ' '
 
       const html = await renderEmail(
-      React.createElement(PressPitchEmail, {
-        brandName: 'Angelfish Records',
-        bodyMarkdown: bodyText,
-        logoUrl,
-      }),
-      {pretty: true}
-    )
+        React.createElement(PressPitchEmail, {
+          brandName: 'Angelfish Records',
+          bodyMarkdown: bodyText,
+          logoUrl,
+        }),
+        {pretty: true}
+      )
 
       const personalisedSnapshot = [oneLineHook, customParagraph].filter(Boolean).join('\n\n').trim()
 

@@ -15,6 +15,7 @@ const BOX_BG = '#ba9c67'
 const PAGE_BG = '#0b0b0b'
 const TEXT = '#14110b'
 const MUTED = 'rgba(20,17,11,0.72)'
+const FOOTER_TONE = 'rgba(221,193,143,0.95)'
 
 const styles = {
   body: {
@@ -25,9 +26,8 @@ const styles = {
   outer: {
     maxWidth: 720,
     margin: '0 auto',
-    padding: '36px 18px', // more breathing room
+    padding: '36px 18px',
   },
-  // Centered logo area ABOVE the box
   topLogoWrap: {
     textAlign: 'center' as const,
     paddingBottom: 18,
@@ -61,32 +61,37 @@ const styles = {
     display: 'block',
   } as const,
   content: {
-    padding: '22px 22px 24px', // more padding
+    padding: '22px 22px 24px',
   },
 
   proseWrap: {
-    fontSize: 14, // more “polished corporate” than 16
+    fontSize: 14,
     lineHeight: '1.65',
     color: TEXT,
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
     letterSpacing: '0px',
   } as const,
 
-  // Footer OUTSIDE the box, in the same tone as the box
+  // Footer OUTSIDE the box
   footerOutside: {
     textAlign: 'center' as const,
     marginTop: 16,
     fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
     fontSize: 12,
     lineHeight: '1.4',
-    color: `rgba(221,193,143,0.95)`,
+    color: FOOTER_TONE,
   } as const,
-  footerOutsideMuted: {
-    marginTop: 6,
-    fontSize: 11,
-    color: `rgba(221,193,143,0.70)`,
+
+  // NEW: micro unsubscribe line, same colour as footerOutside but smaller + slightly softer.
+  unsubscribeOutside: {
+    textAlign: 'center' as const,
+    marginTop: 8,
+    fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+    fontSize: 10,
+    lineHeight: '1.35',
+    color: 'rgba(221,193,143,0.85)',
   } as const,
-}
+} as const
 
 type MarkdownCustomStyles = React.ComponentProps<typeof Markdown>['markdownCustomStyles']
 
@@ -101,67 +106,85 @@ const mdStyles: Record<string, React.CSSProperties> = {
   em: {color: MUTED},
 }
 
+function extractUnsubscribeUrl(markdown: string): string | null {
+  // Looks for: [unsubscribe here](https://...)
+  // (We generate this exact shape in drain.ts; keep it conservative.)
+  const m = markdown.match(/\[unsubscribe here\]\((https?:\/\/[^)\s]+)\)/i)
+  return m?.[1] ?? null
+}
+
 export default function PressPitchEmail(props: PressPitchEmailProps) {
   const {previewText, brandName = 'Angelfish Records', logoUrl, heroUrl, bodyMarkdown} = props
   const preview = previewText ?? brandName
 
+  const unsubUrl = extractUnsubscribeUrl(bodyMarkdown)
+
   return (
     <Html>
       <Head>
-  <meta name="color-scheme" content="light only" />
-  <meta name="supported-color-schemes" content="light only" />
-  <style>{`
-    :root { color-scheme: light; supported-color-schemes: light; }
-    body { -webkit-text-size-adjust: 100%; }
+        <meta name="color-scheme" content="light only" />
+        <meta name="supported-color-schemes" content="light only" />
+        <style>{`
+          :root { color-scheme: light; supported-color-schemes: light; }
+          body { -webkit-text-size-adjust: 100%; }
 
-    /* Stop “smart invert” / dark-mode image filtering where supported */
-    img { filter: none !important; -webkit-filter: none !important; }
+          /* Stop “smart invert” / dark-mode image filtering where supported */
+          img { filter: none !important; -webkit-filter: none !important; }
 
-    /* If a client forces dark mode anyway, force your intended colours back */
-    @media (prefers-color-scheme: dark) {
-      body, .bg-page { background: ${PAGE_BG} !important; }
-      .card { background: ${BOX_BG} !important; }
-      .prose, .prose * { color: ${TEXT} !important; }
-    }
-  `}</style>
-</Head>
+          /* If a client forces dark mode anyway, force your intended colours back */
+          @media (prefers-color-scheme: dark) {
+            body, .bg-page { background: ${PAGE_BG} !important; }
+            .card { background: ${BOX_BG} !important; }
+            .prose, .prose * { color: ${TEXT} !important; }
+          }
+        `}</style>
+      </Head>
 
       <Preview>{preview}</Preview>
 
       <Body style={styles.body} className="bg-page">
         <Container style={styles.outer}>
           {/* Logo placeholder / logo URL (centered, above the card) */}
-        <Section style={styles.topLogoWrap}>
-        {logoUrl ? (
-            <Img src={logoUrl} alt={brandName} style={styles.logoImg} />
-        ) : (
-            <Text style={styles.logoPlaceholder}>LOGO</Text>
-        )}
-        </Section>
+          <Section style={styles.topLogoWrap}>
+            {logoUrl ? <Img src={logoUrl} alt={brandName} style={styles.logoImg} /> : <Text style={styles.logoPlaceholder}>LOGO</Text>}
+          </Section>
 
           {/* Main content box */}
           <Section style={styles.card} className="card">
             {heroUrl ? <Img src={heroUrl} alt="" width={720} style={styles.hero} /> : null}
 
             <Section style={styles.content}>
-                <Section style={styles.proseWrap} className="prose">
-                    <Markdown
-                    markdownContainerStyles={{
-                        fontFamily: styles.proseWrap.fontFamily,
-                        fontSize: styles.proseWrap.fontSize,
-                        lineHeight: styles.proseWrap.lineHeight,
-                        color: styles.proseWrap.color,
-                    }}
-                    markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
-                    >
-                    {bodyMarkdown}
-                    </Markdown>
-                </Section>
-                </Section>
+              <Section style={styles.proseWrap} className="prose">
+                <Markdown
+                  markdownContainerStyles={{
+                    fontFamily: styles.proseWrap.fontFamily,
+                    fontSize: styles.proseWrap.fontSize,
+                    lineHeight: styles.proseWrap.lineHeight,
+                    color: styles.proseWrap.color,
+                  }}
+                  markdownCustomStyles={mdStyles as unknown as MarkdownCustomStyles}
+                >
+                  {bodyMarkdown}
+                </Markdown>
+              </Section>
+            </Section>
           </Section>
 
-          {/* Footer OUTSIDE the card, in the box's tone */}
+          {/* Footer OUTSIDE the card */}
           <Text style={styles.footerOutside}>{brandName}</Text>
+
+          {/* NEW: unsubscribe microcopy (same tone, smaller) */}
+          {unsubUrl ? (
+            <Text style={styles.unsubscribeOutside}>
+              Prefer not to receive future press emails?{' '}
+              <a href={unsubUrl} style={{color: FOOTER_TONE, textDecoration: 'underline', textUnderlineOffset: '2px'}}>
+                Unsubscribe
+              </a>
+              .
+            </Text>
+          ) : (
+            <Text style={styles.unsubscribeOutside}>Prefer not to receive future press emails? Reply with “unsubscribe”.</Text>
+          )}
         </Container>
       </Body>
     </Html>

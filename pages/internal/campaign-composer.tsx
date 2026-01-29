@@ -455,6 +455,18 @@ Assets pack:
 
       <div style={{padding: 12, borderRadius: 12, marginBottom: 16}}>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
+          
+          <div style={{fontSize: 14, opacity: 0.85}}>
+            Mailable contacts: <b>{audienceCount ?? '—'}</b>
+          </div>
+
+          <div style={{fontSize: 14, opacity: 0.7}}>
+            Preview: {previewLoading ? 'rendering…' : previewHtml ? 'ready' : previewErr ? 'error' : '—'}
+          </div>
+        
+        </div>
+        <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
+          
           <button onClick={loadAudience} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
             Refresh audience
           </button>
@@ -467,14 +479,7 @@ Assets pack:
           >
             Refresh preview
           </button>
-
-          <div style={{fontSize: 14, opacity: 0.85}}>
-            Mailable contacts: <b>{audienceCount ?? '—'}</b>
-          </div>
-
-          <div style={{fontSize: 12, opacity: 0.7}}>
-            Preview: {previewLoading ? 'rendering…' : previewHtml ? 'ready' : previewErr ? 'error' : '—'}
-          </div>
+          
         </div>
       </div>
 
@@ -482,7 +487,7 @@ Assets pack:
       <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16}}>
         {/* LEFT: slightly smaller typography */}
         <div style={{padding: 12, borderRadius: 12, fontSize: 14}}>
-          <h2 style={{marginTop: 0, fontSize: 18}}>Compose</h2>
+          <h2 style={{marginTop: 0, marginBottom: 5, fontSize: 18}}>Compose</h2>
 
           <label style={{display: 'block', marginBottom: 10}}>
             <div style={labelTitleStyleLeft}>Campaign name (optional)</div>
@@ -590,13 +595,13 @@ Assets pack:
               Cancel
             </button>
 
-            <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}>
               Drain 25
             </button>
-            <button onClick={() => drainOnce(50)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button onClick={() => drainOnce(50)} disabled={loading || !campaignId} style={{padding: '8px 10px', borderRadius: 10, fontSize: 10}}>
               Drain 50
             </button>
-            <button onClick={() => drainOnce(100)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button onClick={() => drainOnce(100)} disabled={loading || !campaignId} style={{padding: '8px 10px', borderRadius: 10,  fontSize: 10}}>
               Drain 100
             </button>
           </div>
@@ -675,7 +680,7 @@ Assets pack:
 
         {/* RIGHT: keep default sizing */}
         <div style={{padding: 12, borderRadius: 12}}>
-          <h2 style={{marginTop: 0, fontSize: 18}}>Preview</h2>
+          <h2 style={{marginTop: 0, marginBottom: 5, fontSize: 18}}>Preview</h2>
 
           <label style={{display: 'block', marginBottom: 10}}>
             <div style={labelTitleStyleRight}>Sample recipient</div>
