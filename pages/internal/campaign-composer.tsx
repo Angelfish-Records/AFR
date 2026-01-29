@@ -273,13 +273,12 @@ Assets pack:
           ...(internalKey ? {'x-afr-internal-key': internalKey} : {}),
         },
         body: JSON.stringify({
-        audienceKey: 'press_mailable_v1',
-        campaignName: campaignName || undefined,
-        fromAddress: sender.from,
-        replyTo: sender.replyTo,
-        subjectTemplate,
-        bodyTemplate,
-      }),
+          audienceKey: 'press_mailable_v1',
+          campaignName: campaignName || undefined,
+          senderKey,
+          subjectTemplate,
+          bodyTemplate,
+        }),
       })
       const j = (await res.json().catch(() => null)) as unknown
       if (!res.ok) {
