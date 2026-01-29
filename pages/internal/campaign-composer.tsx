@@ -92,8 +92,6 @@ export default function CampaignComposerPage() {
   const sender = useMemo(() => SENDERS[senderKey] ?? SENDERS.brendan, [senderKey])
   const replyTo = sender.replyTo
 
-  const [campaignName, setCampaignName] = useState('')
-
   const [subjectTemplate, setSubjectTemplate] = useState('Angelfish Records: {{campaign_name}}')
   const [bodyTemplate, setBodyTemplate] = useState(
     `Kia ora {{first_name}},
@@ -129,13 +127,12 @@ Assets pack:
       outlet: c?.outlet ?? '',
       one_line_hook: c?.oneLineHook ?? '',
       custom_paragraph: c?.customParagraph ?? '',
-      campaign_name: campaignName || '(campaign)',
       // These are placeholders in the UI; your drain.ts pulls real values from Airtable Campaigns fields.
       key_links: '(set in Airtable Campaigns.Key links)',
       assets_pack_link: '(set in Airtable Campaigns.Assets pack link)',
       default_cta: '(set in Airtable Campaigns.Default CTA)',
     }
-  }, [picked, campaignName])
+  }, [picked])
 
   const previewSubject = useMemo(() => mergeTemplate(subjectTemplate, previewVars), [subjectTemplate, previewVars])
   const previewBody = useMemo(() => mergeTemplate(bodyTemplate, previewVars), [bodyTemplate, previewVars])
@@ -174,7 +171,6 @@ Assets pack:
           brandName: 'Angelfish Records',
           logoUrl: 'https://www.angelfishrecords.com/brand/AFR_logo_circle_light_mini.png',
           recipientName,
-          campaignName: previewVars.campaign_name,
           subject: previewSubject,
           bodyText: previewBody,
           defaultCta: previewVars.default_cta,
@@ -296,7 +292,6 @@ Assets pack:
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           audienceKey: 'press_mailable_v1',
-          campaignName: campaignName || undefined,
           senderKey,
           subjectTemplate,
           bodyTemplate,
@@ -451,14 +446,43 @@ Assets pack:
         fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
       }}
     >
-      <h1 style={{marginTop: 0}}>Campaign Composer (Internal)</h1>
+      <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+  <h1 style={{marginTop: 0, marginBottom: 0}}>AFR Campaign Composer</h1>
+
+  <a
+    href="https://airtable.com/appsHyPfRvjmH60ix?ao=cmVjZW50"
+    target="_blank"
+    rel="noreferrer"
+    title="Open Airtable campaign database"
+    style={{display: 'inline-flex', alignItems: 'center'}}
+  >
+    <img
+      src="https://www.angelfishrecords.com/gfx/airtable_logo.png"
+      alt="Airtable"
+      style={{height: 20, opacity: 0.9}}
+    />
+  </a>
+</div>
+
 
       <div style={{padding: 12, borderRadius: 12, marginBottom: 16}}>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
           
-          <div style={{fontSize: 14, opacity: 0.85}}>
-            Mailable contacts: <b>{audienceCount ?? '—'}</b>
-          </div>
+          <div
+  style={{
+    padding: '10px 14px',
+    borderRadius: 10,
+    background: 'rgba(186,156,103,0.18)', // AFR gold, muted
+    border: '1px solid rgba(186,156,103,0.45)',
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    fontWeight: 500,
+  }}
+>
+  Mailable contacts&nbsp;
+  <b style={{marginLeft: 6}}>{audienceCount ?? '—'}</b>
+</div>
+
 
           <div style={{fontSize: 14, opacity: 0.7}}>
             Preview: {previewLoading ? 'rendering…' : previewHtml ? 'ready' : previewErr ? 'error' : '—'}
@@ -466,21 +490,39 @@ Assets pack:
         
         </div>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
-          
-          <button onClick={loadAudience} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
-            Refresh audience
-          </button>
+  <label>
+    <div style={{fontSize: 10, opacity: 0.7, marginBottom: 4}}>Outlet Type</div>
+    <select value={outletType} onChange={(e) => setOutletType(e.target.value)} style={{...inputStyle, minWidth: 160}}>
+      <option value="">All types</option>
+      {outletTypeOptions.map((t) => (
+        <option key={t} value={t}>{t}</option>
+      ))}
+    </select>
+  </label>
 
-          <button
-            onClick={refreshPreviewHtml}
-            disabled={previewLoading || !picked}
-            style={{padding: '10px 14px', borderRadius: 10}}
-            title="Force refresh the server-rendered HTML preview"
-          >
-            Refresh preview
-          </button>
-          
-        </div>
+  <label>
+    <div style={{fontSize: 10, opacity: 0.7, marginBottom: 4}}>Outlet Region</div>
+    <select value={outletRegion} onChange={(e) => setOutletRegion(e.target.value)} style={{...inputStyle, minWidth: 160}}>
+      <option value="">All regions</option>
+      {outletRegionOptions.map((r) => (
+        <option key={r} value={r}>{r}</option>
+      ))}
+    </select>
+  </label>
+
+  <button onClick={loadAudience} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
+    Refresh audience
+  </button>
+
+  <button
+    onClick={refreshPreviewHtml}
+    disabled={previewLoading || !picked}
+    style={{padding: '10px 14px', borderRadius: 10}}
+  >
+    Refresh preview
+  </button>
+</div>
+
       </div>
 
       {/* 1/3 + 2/3 layout */}
@@ -488,11 +530,6 @@ Assets pack:
         {/* LEFT: slightly smaller typography */}
         <div style={{padding: 12, borderRadius: 12, fontSize: 14}}>
           <h2 style={{marginTop: 0, marginBottom: 5, fontSize: 18}}>Compose</h2>
-
-          <label style={{display: 'block', marginBottom: 10}}>
-            <div style={labelTitleStyleLeft}>Campaign name (optional)</div>
-            <input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} style={inputStyle} />
-          </label>
 
           <label style={{display: 'block', marginBottom: 10}}>
             <div style={labelTitleStyleLeft}>Sender (From + Reply-To)</div>
@@ -509,32 +546,6 @@ Assets pack:
               Reply-To: <code>{replyTo}</code>
             </div>
           </label>
-
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10}}>
-            <label style={{display: 'block'}}>
-              <div style={labelTitleStyleLeft}>Outlet Type (audience filter)</div>
-              <select value={outletType} onChange={(e) => setOutletType(e.target.value)} style={inputStyle}>
-                <option value="">All types</option>
-                {outletTypeOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={{display: 'block'}}>
-              <div style={labelTitleStyleLeft}>Outlet Region (audience filter)</div>
-              <select value={outletRegion} onChange={(e) => setOutletRegion(e.target.value)} style={inputStyle}>
-                <option value="">All regions</option>
-                {outletRegionOptions.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
 
           <label style={{display: 'block', marginBottom: 10}}>
             <div style={labelTitleStyleLeft}>Subject template</div>
@@ -708,9 +719,6 @@ Assets pack:
           </div>
 
           <div style={{marginBottom: 10}}>
-            <div style={labelTitleStyleRight}>
-              HTML email preview (server-rendered){previewLoading ? ' — rendering…' : ''}
-            </div>
 
             {previewErr ? (
               <div
