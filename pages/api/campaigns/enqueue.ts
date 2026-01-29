@@ -32,7 +32,24 @@ function allowInternal(req: NextApiRequest): boolean {
 }
 
 function escapeAirtableString(s: string): string {
+  // safe inside Airtable string literal "..."
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+function normalizeFilterValue(v: unknown): string {
+  return typeof v === 'string' ? v.trim() : ''
+}
+
+function buildContactsFilter(args: {outletType?: string; outletRegion?: string}): string {
+  const parts: string[] = ['{Is mailable}']
+
+  const t = (args.outletType ?? '').trim()
+  if (t) parts.push(`FIND("${escapeAirtableString(t)}", ARRAYJOIN({Outlet Type}))`)
+
+  const r = (args.outletRegion ?? '').trim()
+  if (r) parts.push(`FIND("${escapeAirtableString(r)}", ARRAYJOIN({Outlet Region}))`)
+
+  return parts.length === 1 ? parts[0] : `AND(${parts.join(',')})`
 }
 
 function isValidEmailLoose(s: string): boolean {
@@ -193,6 +210,8 @@ async function airtableCreateSingle(args: {
 type PressContactFields = {
   Email?: string
   Outlets?: string[]
+  'Outlet Type'?: string[] // lookup array from Outlets.Type
+  'Outlet Region'?: string[] // lookup array from Outlets.Region
   'Full name'?: string
   'First name'?: string
   'Last name'?: string
@@ -259,15 +278,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (audienceKey !== 'press_mailable_v1') return jsonError(res, 400, 'Unknown audienceKey')
 
-    const mailableFilter = `{Is mailable}`
+    // GET query filters
+    const outletTypeQ = req.method === 'GET' ? normalizeFilterValue(req.query.outletType) : ''
+    const outletRegionQ = req.method === 'GET' ? normalizeFilterValue(req.query.outletRegion) : ''
 
     if (req.method === 'GET') {
+      const contactsFilter = buildContactsFilter({outletType: outletTypeQ, outletRegion: outletRegionQ})
+
       const sampleContacts = await airtableListAll<PressContactFields>({
         token: airtableToken,
         baseId,
         table: contactsTable,
-        filterByFormula: mailableFilter,
-        fields: ['Full name', 'First name', 'Last name', 'Email', 'Outlets', 'One-line hook', 'Custom paragraph'],
+        filterByFormula: contactsFilter,
+        fields: [
+          'Full name',
+          'First name',
+          'Last name',
+          'Email',
+          'Outlets',
+          'Outlet Type',
+          'Outlet Region',
+          'One-line hook',
+          'Custom paragraph',
+        ],
         maxRecords: 12,
       })
 
@@ -295,9 +328,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         token: airtableToken,
         baseId,
         table: contactsTable,
-        filterByFormula: mailableFilter,
+        filterByFormula: contactsFilter,
         fields: [],
       })
+
+      // Facets from the full mailable set (unfiltered), so dropdowns stay complete.
+      const allForFacet = await airtableListAll<Pick<PressContactFields, 'Outlet Type' | 'Outlet Region'>>({
+        token: airtableToken,
+        baseId,
+        table: contactsTable,
+        filterByFormula: '{Is mailable}',
+        fields: ['Outlet Type', 'Outlet Region'],
+      })
+
+      const typeSet = new Set<string>()
+      const regionSet = new Set<string>()
+
+      for (const rec of allForFacet) {
+        const ts = Array.isArray(rec.fields['Outlet Type']) ? rec.fields['Outlet Type'] : []
+        for (const t of ts) if (typeof t === 'string' && t.trim()) typeSet.add(t.trim())
+
+        const rs = Array.isArray(rec.fields['Outlet Region']) ? rec.fields['Outlet Region'] : []
+        for (const r of rs) if (typeof r === 'string' && r.trim()) regionSet.add(r.trim())
+      }
+
+      const availableOutletTypes = Array.from(typeSet).sort((a, b) => a.localeCompare(b))
+      const availableOutletRegions = Array.from(regionSet).sort((a, b) => a.localeCompare(b))
 
       const sample = sampleContacts
         .filter((c) => !!c.fields.Email)
@@ -321,6 +377,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         audienceKey,
         mailableCount: all.length,
         sampleContacts: sample,
+        availableOutletTypes,
+        availableOutletRegions,
+        appliedFilters: {
+          outletType: outletTypeQ || null,
+          outletRegion: outletRegionQ || null,
+        },
       })
     }
 
@@ -337,6 +399,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const subjectTemplate = typeof body.subjectTemplate === 'string' ? body.subjectTemplate : undefined
     const bodyTemplate = typeof body.bodyTemplate === 'string' ? body.bodyTemplate : undefined
     const existingCampaignId = typeof body.campaignId === 'string' ? body.campaignId : undefined
+
+    // POST body filters
+    const outletType = normalizeFilterValue((body as {outletType?: unknown}).outletType)
+    const outletRegion = normalizeFilterValue((body as {outletRegion?: unknown}).outletRegion)
+    const contactsFilter = buildContactsFilter({outletType, outletRegion})
 
     if (!subjectTemplate || !bodyTemplate) {
       return jsonError(res, 400, 'Missing required fields: subjectTemplate, bodyTemplate')
@@ -358,7 +425,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!fromEmail) return jsonError(res, 400, 'Configured sender fromAddress is invalid')
     if (!isValidEmailLoose(replyTo)) return jsonError(res, 400, 'Configured sender replyTo is invalid')
 
-
     const runId = crypto.randomUUID()
 
     const campaignId =
@@ -369,7 +435,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             baseId,
             table: campaignsTable,
             fields: {
-              'Campaign/Pitch': campaignName && campaignName.trim() ? campaignName.trim() : subjectTemplate.trim().slice(0, 120),
+              'Campaign/Pitch':
+                campaignName && campaignName.trim() ? campaignName.trim() : subjectTemplate.trim().slice(0, 120),
               'Email subject template': subjectTemplate,
               'Email body template': bodyTemplate,
               Status: 'Ready',
@@ -377,12 +444,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           })
 
-    // Pull mailable contacts (email + link id)
+    // Pull mailable contacts (email + link id) WITH applied filters
     const contacts = await airtableListAll<PressContactFields>({
       token: airtableToken,
       baseId,
       table: contactsTable,
-      filterByFormula: mailableFilter,
+      filterByFormula: contactsFilter,
       fields: ['Email'],
     })
 
@@ -398,7 +465,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         enqueued: 0,
         skippedInvalid: contacts.length,
         runId,
-        note: 'No valid emails found in Press Contacts (Is mailable).',
+        note: 'No valid emails found in Press Contacts for the applied filters.',
       })
     }
 

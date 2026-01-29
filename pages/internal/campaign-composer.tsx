@@ -31,6 +31,9 @@ type EnqueueGetResponse = {
   audienceKey: string
   mailableCount: number
   sampleContacts: SampleContact[]
+  availableOutletTypes: string[]
+  availableOutletRegions: string[]
+  appliedFilters?: {outletType: string | null; outletRegion: string | null}
 }
 
 type EnqueuePostResponse = {
@@ -80,11 +83,16 @@ export default function CampaignComposerPage() {
   const [sampleContacts, setSampleContacts] = useState<SampleContact[]>([])
   const [samplePick, setSamplePick] = useState<string>('')
 
+  // Audience filters
+  const [outletType, setOutletType] = useState<string>('') // '' means All
+  const [outletRegion, setOutletRegion] = useState<string>('') // '' means All
+  const [outletTypeOptions, setOutletTypeOptions] = useState<string[]>([])
+  const [outletRegionOptions, setOutletRegionOptions] = useState<string[]>([])
+
   const [senderKey, setSenderKey] = useState<SenderKey>('brendan')
 
   const sender = useMemo(() => SENDERS[senderKey] ?? SENDERS.brendan, [senderKey])
   const replyTo = sender.replyTo
-
 
   const [campaignName, setCampaignName] = useState('')
 
@@ -197,7 +205,7 @@ Assets pack:
     }, 250)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalKey, picked?.id, previewSubject, previewBody])
+  }, [internalKey, picked?.id, previewSubject, previewBody, outletType, outletRegion])
 
   // ---- sending state ----
   const [sendStatus, setSendStatus] = useState<
@@ -236,9 +244,15 @@ Assets pack:
   async function loadAudience() {
     setLoading(true)
     try {
-      const res = await fetch('/api/campaigns/enqueue?audienceKey=press_mailable_v1', {
+      const params = new URLSearchParams()
+      params.set('audienceKey', 'press_mailable_v1')
+      if (outletType) params.set('outletType', outletType)
+      if (outletRegion) params.set('outletRegion', outletRegion)
+
+      const res = await fetch(`/api/campaigns/enqueue?${params.toString()}`, {
         headers: internalKey ? {'x-afr-internal-key': internalKey} : {},
       })
+
       const j = (await res.json().catch(() => null)) as unknown
       if (!res.ok) {
         const msg =
@@ -247,9 +261,14 @@ Assets pack:
             : 'Failed to load audience'
         throw new Error(msg)
       }
+
       const data = j as EnqueueGetResponse
       setAudienceCount(typeof data.mailableCount === 'number' ? data.mailableCount : null)
       setSampleContacts(Array.isArray(data.sampleContacts) ? data.sampleContacts : [])
+
+      setOutletTypeOptions(Array.isArray(data.availableOutletTypes) ? data.availableOutletTypes : [])
+      setOutletRegionOptions(Array.isArray(data.availableOutletRegions) ? data.availableOutletRegions : [])
+
       if (data.sampleContacts?.[0]?.id) setSamplePick(data.sampleContacts[0].id)
     } catch (e: unknown) {
       alert(errorMessage(e))
@@ -261,7 +280,7 @@ Assets pack:
   useEffect(() => {
     loadAudience()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [outletType, outletRegion])
 
   async function enqueue() {
     setLoading(true)
@@ -278,6 +297,8 @@ Assets pack:
           senderKey,
           subjectTemplate,
           bodyTemplate,
+          outletType: outletType || undefined,
+          outletRegion: outletRegion || undefined,
         }),
       })
       const j = (await res.json().catch(() => null)) as unknown
@@ -500,6 +521,40 @@ Assets pack:
             </div>
           </label>
 
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10}}>
+            <label style={{display: 'block'}}>
+              <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Outlet Type (audience filter)</div>
+              <select
+                value={outletType}
+                onChange={(e) => setOutletType(e.target.value)}
+                style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+              >
+                <option value="">All types</option>
+                {outletTypeOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{display: 'block'}}>
+              <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Outlet Region (audience filter)</div>
+              <select
+                value={outletRegion}
+                onChange={(e) => setOutletRegion(e.target.value)}
+                style={{width: '100%', padding: 10, borderRadius: 10, border: '1px solid #ccc'}}
+              >
+                <option value="">All regions</option>
+                {outletRegionOptions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <label style={{display: 'block', marginBottom: 10}}>
             <div style={{fontSize: 12, opacity: 0.7, marginBottom: 6}}>Subject template</div>
             <input
@@ -557,13 +612,25 @@ Assets pack:
               Cancel
             </button>
 
-            <button onClick={() => drainOnce(25)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button
+              onClick={() => drainOnce(25)}
+              disabled={loading || !campaignId}
+              style={{padding: '10px 14px', borderRadius: 10}}
+            >
               Drain 25
             </button>
-            <button onClick={() => drainOnce(50)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button
+              onClick={() => drainOnce(50)}
+              disabled={loading || !campaignId}
+              style={{padding: '10px 14px', borderRadius: 10}}
+            >
               Drain 50
             </button>
-            <button onClick={() => drainOnce(100)} disabled={loading || !campaignId} style={{padding: '10px 14px', borderRadius: 10}}>
+            <button
+              onClick={() => drainOnce(100)}
+              disabled={loading || !campaignId}
+              style={{padding: '10px 14px', borderRadius: 10}}
+            >
               Drain 100
             </button>
           </div>
@@ -574,12 +641,14 @@ Assets pack:
             {sendStatus.state === 'sending' && (
               <div style={{fontSize: 13}}>
                 <div>
-                  <b>Sending…</b> Total sent: <b>{sendStatus.totalSent}</b> • Last batch: {sendStatus.lastSent} • Remaining queued:{' '}
-                  <b>{Number.isFinite(sendStatus.remainingQueued) ? sendStatus.remainingQueued : '—'}</b> • Batches: {sendStatus.loops}
+                  <b>Sending…</b> Total sent: <b>{sendStatus.totalSent}</b> • Last batch: {sendStatus.lastSent} • Remaining
+                  queued: <b>{Number.isFinite(sendStatus.remainingQueued) ? sendStatus.remainingQueued : '—'}</b> • Batches:{' '}
+                  {sendStatus.loops}
                 </div>
                 {sendStatus.runId ? (
                   <div style={{marginTop: 6, fontSize: 12, opacity: 0.7}}>
-                    runId: <code style={{background: '#f2f2f2', padding: '1px 6px', borderRadius: 6}}>{sendStatus.runId}</code>
+                    runId:{' '}
+                    <code style={{background: '#f2f2f2', padding: '1px 6px', borderRadius: 6}}>{sendStatus.runId}</code>
                   </div>
                 ) : null}
               </div>
@@ -650,7 +719,15 @@ Assets pack:
             </div>
 
             {previewErr ? (
-              <div style={{padding: 10, borderRadius: 10, background: '#fff5f5', border: '1px solid #ffd6d6', color: '#b00020'}}>
+              <div
+                style={{
+                  padding: 10,
+                  borderRadius: 10,
+                  background: '#fff5f5',
+                  border: '1px solid #ffd6d6',
+                  color: '#b00020',
+                }}
+              >
                 <b>Preview error:</b> {previewErr}
               </div>
             ) : (
