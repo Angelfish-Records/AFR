@@ -467,33 +467,9 @@ Assets pack:
 
       <div style={{padding: 12, borderRadius: 12, marginBottom: 16}}>
         <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
-          
-          <div
-  style={{
-    padding: '10px 14px',
-    borderRadius: 10,
-    background: 'rgba(186,156,103,0.18)', // AFR gold, muted
-    border: '1px solid rgba(186,156,103,0.45)',
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
-    fontWeight: 500,
-  }}
->
-  Mailable contacts&nbsp;
-  <b style={{marginLeft: 6}}>{audienceCount ?? '—'}</b>
-</div>
-
-
-          <div style={{fontSize: 14, opacity: 0.7}}>
-            Preview: {previewLoading ? 'rendering…' : previewHtml ? 'ready' : previewErr ? 'error' : '—'}
-          </div>
-        
-        </div>
-        <div style={{display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap'}}>
   <label>
-    <div style={{fontSize: 10, opacity: 0.7, marginBottom: 4}}>Outlet Type</div>
     <select value={outletType} onChange={(e) => setOutletType(e.target.value)} style={{...inputStyle, minWidth: 160}}>
-      <option value="">All types</option>
+      <option value="">Outlet Type</option>
       {outletTypeOptions.map((t) => (
         <option key={t} value={t}>{t}</option>
       ))}
@@ -501,17 +477,31 @@ Assets pack:
   </label>
 
   <label>
-    <div style={{fontSize: 10, opacity: 0.7, marginBottom: 4}}>Outlet Region</div>
     <select value={outletRegion} onChange={(e) => setOutletRegion(e.target.value)} style={{...inputStyle, minWidth: 160}}>
-      <option value="">All regions</option>
+      <option value="">Outlet Region</option>
       {outletRegionOptions.map((r) => (
         <option key={r} value={r}>{r}</option>
       ))}
     </select>
   </label>
 
+  <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 10,
+              background: 'rgba(186,156,103,0.18)', // AFR gold, muted
+              border: '1px solid rgba(186,156,103,0.45)',
+              color: 'rgba(255,255,255,0.9)',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Mailable Contacts&nbsp;
+            <b style={{marginLeft: 6}}>{audienceCount ?? '—'}</b>
+          </div>
+
   <button onClick={loadAudience} disabled={loading} style={{padding: '10px 14px', borderRadius: 10}}>
-    Refresh audience
+    Refresh Audience
   </button>
 
   <button
@@ -519,7 +509,7 @@ Assets pack:
     disabled={previewLoading || !picked}
     style={{padding: '10px 14px', borderRadius: 10}}
   >
-    Refresh preview
+    Refresh Preview
   </button>
 </div>
 
