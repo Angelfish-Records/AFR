@@ -176,14 +176,14 @@ function PlasmicHeader__RenderFunc(props: {
               displayMinHeight={"0"}
               displayMinWidth={"0"}
               displayWidth={"96px"}
+              loader={"plasmic"}
               onClick={async event => {
                 const $steps = {};
               }}
               src={{
-                src: "/plasmic/afr/images/afRlogoTransparentPng.png",
+                src: "https://img.plasmic.app/img-optimizer/v1/img/91b013a213536d034e6c3f2cc78c443a.png",
                 fullWidth: 4224,
-                fullHeight: 3968,
-                aspectRatio: undefined
+                fullHeight: 3968
               }}
             />
           </PlasmicLink__>

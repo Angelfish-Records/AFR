@@ -283,12 +283,12 @@ function PlasmicLicensing__RenderFunc(props: {
                     displayMinHeight={"0"}
                     displayMinWidth={"0"}
                     displayWidth={"747px"}
+                    loader={"plasmic"}
                     loading={"lazy"}
                     src={{
-                      src: "/plasmic/afr/images/screenshot20260203At44410PmPng.png",
+                      src: "https://img.plasmic.app/img-optimizer/v1/img/69f1ce7a3734a366b24b73384d6630ad.png",
                       fullWidth: 2670,
-                      fullHeight: 1198,
-                      aspectRatio: undefined
+                      fullHeight: 1198
                     }}
                   />
                 </div>
@@ -382,11 +382,11 @@ function PlasmicLicensing__RenderFunc(props: {
                   displayMinHeight={"0"}
                   displayMinWidth={"0"}
                   displayWidth={"auto"}
+                  loader={"plasmic"}
                   src={{
-                    src: "/plasmic/afr/images/apraAmcosLogoSvg1Png.png",
+                    src: "https://img.plasmic.app/img-optimizer/v1/img/2fcada28cf93910c09e38e74ac020aa8.png",
                     fullWidth: 1208,
-                    fullHeight: 439,
-                    aspectRatio: undefined
+                    fullHeight: 439
                   }}
                 />
 
@@ -399,11 +399,11 @@ function PlasmicLicensing__RenderFunc(props: {
                   displayMinHeight={"0"}
                   displayMinWidth={"0"}
                   displayWidth={"auto"}
+                  loader={"plasmic"}
                   src={{
-                    src: "/plasmic/afr/images/symphonicLogo1Png.png",
+                    src: "https://img.plasmic.app/img-optimizer/v1/img/d171d73697f818b902870d47b65c2b2e.png",
                     fullWidth: 661,
-                    fullHeight: 823,
-                    aspectRatio: undefined
+                    fullHeight: 823
                   }}
                 />
 
@@ -416,11 +416,11 @@ function PlasmicLicensing__RenderFunc(props: {
                   displayMinHeight={"0"}
                   displayMinWidth={"0"}
                   displayWidth={"auto"}
+                  loader={"plasmic"}
                   src={{
-                    src: "/plasmic/afr/images/bmiLogo1Png.png",
+                    src: "https://img.plasmic.app/img-optimizer/v1/img/1e978e99fe53485f8f5577e71440e396.png",
                     fullWidth: 800,
-                    fullHeight: 629,
-                    aspectRatio: undefined
+                    fullHeight: 629
                   }}
                 />
 
@@ -433,11 +433,11 @@ function PlasmicLicensing__RenderFunc(props: {
                   displayMinHeight={"0"}
                   displayMinWidth={"0"}
                   displayWidth={"auto"}
+                  loader={"plasmic"}
                   src={{
-                    src: "/plasmic/afr/images/pplLogoWhitePng.png",
+                    src: "https://img.plasmic.app/img-optimizer/v1/img/03fc71924595fc416f3663e2537ed1dc.png",
                     fullWidth: 445,
-                    fullHeight: 352,
-                    aspectRatio: undefined
+                    fullHeight: 352
                   }}
                 />
               </div>
