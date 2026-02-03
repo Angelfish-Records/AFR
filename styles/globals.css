@@ -75,20 +75,20 @@ a {
 
 a.outbound {
   position: relative;
-  color: inherit;
+  color: #D9BD8A;
   text-decoration: none;
-  border-bottom: 1px dotted currentColor;
-  padding-right: 0.9em;
+  border-bottom: 1px dotted #D9BD8A;
+  padding-right: 0.85em;
 }
 
 a.outbound::after {
-  content: "↗";
+  content: "↗︎"; /* subtler glyph */
   position: absolute;
   right: 0;
-  top: 0.05em;
-  font-size: 0.85em;
+  top: 0.2em; /* drops it into the text rhythm */
+  font-size: 0.75em;
   line-height: 1;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 a.outbound:hover {
@@ -96,5 +96,6 @@ a.outbound:hover {
 }
 
 a.outbound:hover::after {
-  opacity: 1;
+  opacity: 0.85;
 }
+
