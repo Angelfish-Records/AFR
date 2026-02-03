@@ -74,20 +74,18 @@ a {
 }
 
 a.outbound {
-  position: relative;
   color: #D9BD8A;
   text-decoration: none;
   border-bottom: 1px dotted #D9BD8A;
-  padding-right: 0.75em;
 }
 
 a.outbound::after {
   content: "↗";
-  position: absolute;
-  right: 0;
-  bottom: 0.06em;     /* sits on the baseline band */
-  font-size: 0.55em;  /* keeps it within x-height */
+  display: inline-block;
+  margin-left: 0.15em;
+  font-size: 0.55em;      /* caps it at x-height */
   line-height: 1;
+  vertical-align: baseline;
   opacity: 0.7;
 }
 
