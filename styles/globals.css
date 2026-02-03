@@ -80,7 +80,7 @@ a.outbound {
 }
 
 a.outbound::after {
-  content: "↗";
+  content: "➚";
   display: inline-block;
   margin-left: 0.15em;
   font-size: 0.55em;      /* caps it at x-height */
