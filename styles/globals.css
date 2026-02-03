@@ -85,8 +85,8 @@ a.outbound::after {
   content: "↗";
   position: absolute;
   right: 0;
-  top: 0.32em;        /* aligns with x-height, not cap height */
-  font-size: 0.6em;   /* keeps it below lowercase 'm' */
+  bottom: 0.02em;     /* sits on the baseline band */
+  font-size: 0.55em;  /* keeps it within x-height */
   line-height: 1;
   opacity: 0.7;
 }
