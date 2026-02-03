@@ -10,7 +10,7 @@
     "defaultStyleCssFilePath": "plasmic/plasmic__default_style.module.css"
   },
   "images": {
-    "scheme": "public-files",
+    "scheme": "cdn",
     "publicDir": "public",
     "publicUrlPrefix": "/"
   },
