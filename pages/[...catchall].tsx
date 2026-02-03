@@ -61,12 +61,24 @@ export const getStaticProps: GetStaticProps = async (context) => {
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const pageModules = await PLASMIC.fetchPages();
-  return {
-    paths: pageModules.map((mod) => ({
-      params: {
-        catchall: mod.path.substring(1).split("/"),
-      },
-    })),
-    fallback: "blocking",
-  };
-}
+
+  // Routes that are implemented as real Next pages (or otherwise must not be
+  // claimed by the Plasmic catch-all), to avoid duplicate SSG paths.
+  const RESERVED = new Set<string>([
+    "/",            // homepage
+    "/licensing",
+    "/artists",
+    "/plasmic-host" // often present; harmless to reserve
+    // add any other real routes you have in /pages
+  ]);
+
+  const paths = pageModules
+    .map((mod) => mod.path)
+    .filter((p) => !RESERVED.has(p))
+    .map((p) => ({
+      params: { catchall: p.substring(1).split("/") }, // "foo/bar" -> ["foo","bar"]
+    }));
+
+  return { paths, fallback: "blocking" };
+};
+
