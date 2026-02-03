@@ -41,32 +41,7 @@ a {
   }
 }
 
-.hero-image-fade {
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    rgba(0,0,0,1) 0%,
-    rgba(0,0,0,1) 65%,
-    rgba(0,0,0,0) 100%
-  );
 
-  mask-image: linear-gradient(
-    to bottom,
-    rgba(0,0,0,1) 0%,
-    rgba(0,0,0,1) 65%,
-    rgba(0,0,0,0) 100%
-  );
-}
-
-@media (max-width: 768px) {
-  .hero-image-fade {
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      rgba(0,0,0,1) 0%,
-      rgba(0,0,0,1) 55%,
-      rgba(0,0,0,0) 100%
-    );
-  }
-}
 
 .afr-mainlink {
   position: relative;

@@ -17,7 +17,7 @@ import { HTMLElementRefOf } from "@plasmicapp/react-web";
 //
 // You can also stop extending from DefaultHeaderProps altogether and have
 // total control over the props for your component.
-export interface HeaderProps extends DefaultHeaderProps {}
+export type HeaderProps = DefaultHeaderProps;
 
 function Header_(props: HeaderProps, ref: HTMLElementRefOf<"div">) {
   // Use PlasmicHeader to render this component as it was

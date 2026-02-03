@@ -17,7 +17,7 @@ import { HTMLElementRefOf } from "@plasmicapp/react-web";
 //
 // You can also stop extending from DefaultFooterProps altogether and have
 // total control over the props for your component.
-export interface FooterProps extends DefaultFooterProps {}
+export type FooterProps = DefaultFooterProps;
 
 function Footer_(props: FooterProps, ref: HTMLElementRefOf<"div">) {
   // Use PlasmicFooter to render this component as it was

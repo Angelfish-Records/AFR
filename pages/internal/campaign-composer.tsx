@@ -794,6 +794,7 @@ function IconBullets(props: {size?: number}) {
     title="Open Airtable campaign database"
     style={{display: 'inline-flex', alignItems: 'center'}}
   >
+    {/* eslint-disable-next-line @next/next/no-img-element */}
     <img
       src="https://www.angelfishrecords.com/gfx/airtable_logo.png"
       alt="Airtable"
