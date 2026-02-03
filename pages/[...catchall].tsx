@@ -5,15 +5,17 @@ import {
   ComponentRenderData,
   PlasmicRootProvider,
 } from "@plasmicapp/loader-nextjs";
-import type { GetServerSideProps } from "next";
+import type { GetServerSideProps, GetServerSidePropsContext } from "next";
 import Error from "next/error";
 import { useRouter } from "next/router";
 import { PLASMIC } from "@/plasmic-init";
 
-export default function PlasmicLoaderPage(props: {
+type Props = {
   plasmicData?: ComponentRenderData;
   queryCache?: Record<string, unknown>;
-}) {
+};
+
+export default function PlasmicLoaderPage(props: Props) {
   const { plasmicData, queryCache } = props;
   const router = useRouter();
 
@@ -37,14 +39,27 @@ export default function PlasmicLoaderPage(props: {
   );
 }
 
-function asPlasmicPath(catchall: unknown): string {
+function pathOnlyFromResolvedUrl(url: string): string {
+  const pathOnly = url.split("?")[0] || "/";
+  return pathOnly === "" ? "/" : pathOnly;
+}
+
+function plasmicPathFromContext(context: GetServerSidePropsContext): string {
+  // Works for BOTH:
+  // - the catchall page (/foo/bar) where context.params.catchall exists
+  // - delegated pages (/licensing, /artists, /) where params.catchall is undefined
+  if (typeof context.resolvedUrl === "string" && context.resolvedUrl.length > 0) {
+    return pathOnlyFromResolvedUrl(context.resolvedUrl);
+  }
+
+  const catchall = context.params?.catchall;
   if (typeof catchall === "string") return `/${catchall}`;
   if (Array.isArray(catchall)) return `/${catchall.join("/")}`;
   return "/";
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const plasmicPath = asPlasmicPath(context.params?.catchall);
+export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
+  const plasmicPath = plasmicPathFromContext(context);
 
   const plasmicData = await PLASMIC.maybeFetchComponentData(plasmicPath);
   if (!plasmicData) {
