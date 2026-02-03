@@ -1,0 +1,48 @@
+.
+├── emails
+│   └── PressPitchEmail.tsx
+├── middleware.ts
+├── next.config.mjs
+├── package-lock.json
+├── package.json
+├── pages
+│   ├── _app.tsx
+│   ├── _document.tsx
+│   ├── [[...catchall]].tsx
+│   ├── api
+│   │   ├── _internalAuth.ts
+│   │   ├── campaigns
+│   │   │   ├── drain.ts
+│   │   │   ├── enqueue.ts
+│   │   │   └── preview.ts
+│   │   ├── hello.ts
+│   │   ├── unsubscribe.ts
+│   │   └── webhooks
+│   │       └── resend.ts
+│   ├── fonts
+│   │   ├── GeistMonoVF.woff
+│   │   └── GeistVF.woff
+│   ├── internal
+│   │   └── campaign-composer.tsx
+│   └── plasmic-host.tsx
+├── plasmic-init.ts
+├── project-structure.txt
+├── public
+│   ├── android-chrome-192x192.png
+│   ├── android-chrome-512x512.png
+│   ├── apple-touch-icon.png
+│   ├── brand
+│   │   └── AFR_logo_circle_light_mini.png
+│   ├── favicon-16x16.png
+│   ├── favicon-32x32.png
+│   ├── favicon.ico
+│   ├── gfx
+│   │   └── airtable_logo.png
+│   └── site.webmanifest
+├── README.md
+├── styles
+│   ├── globals.css
+│   └── Home.module.css
+└── tsconfig.json
+
+12 directories, 34 files
