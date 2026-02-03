@@ -5,8 +5,7 @@ import {
   ComponentRenderData,
   PlasmicRootProvider,
 } from "@plasmicapp/loader-nextjs";
-import type { GetStaticPaths, GetStaticProps } from "next";
-
+import type { GetServerSideProps } from "next";
 import Error from "next/error";
 import { useRouter } from "next/router";
 import { PLASMIC } from "@/plasmic-init";
@@ -17,10 +16,13 @@ export default function PlasmicLoaderPage(props: {
 }) {
   const { plasmicData, queryCache } = props;
   const router = useRouter();
+
   if (!plasmicData || plasmicData.entryCompMetas.length === 0) {
     return <Error statusCode={404} />;
   }
+
   const pageMeta = plasmicData.entryCompMetas[0];
+
   return (
     <PlasmicRootProvider
       loader={PLASMIC}
@@ -35,16 +37,22 @@ export default function PlasmicLoaderPage(props: {
   );
 }
 
-export const getStaticProps: GetStaticProps = async (context) => {
-  const { catchall } = context.params ?? {};
-  const plasmicPath = typeof catchall === 'string' ? catchall : Array.isArray(catchall) ? `/${catchall.join('/')}` : '/';
+function asPlasmicPath(catchall: unknown): string {
+  if (typeof catchall === "string") return `/${catchall}`;
+  if (Array.isArray(catchall)) return `/${catchall.join("/")}`;
+  return "/";
+}
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const plasmicPath = asPlasmicPath(context.params?.catchall);
+
   const plasmicData = await PLASMIC.maybeFetchComponentData(plasmicPath);
   if (!plasmicData) {
-    // non-Plasmic catch-all
-    return { props: {} };
+    return { notFound: true };
   }
+
   const pageMeta = plasmicData.entryCompMetas[0];
-  // Cache the necessary data fetched for the page
+
   const queryCache = await extractPlasmicQueryData(
     <PlasmicRootProvider
       loader={PLASMIC}
@@ -55,30 +63,6 @@ export const getStaticProps: GetStaticProps = async (context) => {
       <PlasmicComponent component={pageMeta.displayName} />
     </PlasmicRootProvider>
   );
-  // Use revalidate if you want incremental static regeneration
-  return { props: { plasmicData, queryCache }, revalidate: 60 };
-}
 
-export const getStaticPaths: GetStaticPaths = async () => {
-  const pageModules = await PLASMIC.fetchPages();
-
-  // Routes that are implemented as real Next pages (or otherwise must not be
-  // claimed by the Plasmic catch-all), to avoid duplicate SSG paths.
-  const RESERVED = new Set<string>([
-    "/",            // homepage
-    "/licensing",
-    "/artists",
-    "/plasmic-host" // often present; harmless to reserve
-    // add any other real routes you have in /pages
-  ]);
-
-  const paths = pageModules
-    .map((mod) => mod.path)
-    .filter((p) => !RESERVED.has(p))
-    .map((p) => ({
-      params: { catchall: p.substring(1).split("/") }, // "foo/bar" -> ["foo","bar"]
-    }));
-
-  return { paths, fallback: "blocking" };
+  return { props: { plasmicData, queryCache } };
 };
-

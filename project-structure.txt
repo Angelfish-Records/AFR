@@ -1,4 +1,46 @@
 .
+├── components
+│   ├── Button.tsx
+│   ├── Footer.tsx
+│   ├── Header.tsx
+│   ├── plasmic
+│   │   ├── afr
+│   │   │   ├── icons
+│   │   │   │   ├── PlasmicIcon__ArrowDownSvg.tsx
+│   │   │   │   ├── PlasmicIcon__CheckSvg.tsx
+│   │   │   │   ├── PlasmicIcon__Icon.tsx
+│   │   │   │   ├── PlasmicIcon__Icon18.tsx
+│   │   │   │   ├── PlasmicIcon__Icon2.tsx
+│   │   │   │   ├── PlasmicIcon__Icon21.tsx
+│   │   │   │   ├── PlasmicIcon__Icon22.tsx
+│   │   │   │   ├── PlasmicIcon__Icon23.tsx
+│   │   │   │   ├── PlasmicIcon__Icon28.tsx
+│   │   │   │   ├── PlasmicIcon__Icon3.tsx
+│   │   │   │   ├── PlasmicIcon__Icon8.tsx
+│   │   │   │   ├── PlasmicIcon__InstagramSvgrepoComSvg.tsx
+│   │   │   │   ├── PlasmicIcon__TiktokSvgrepoComSvg.tsx
+│   │   │   │   └── PlasmicIcon__Youtube168SvgrepoComSvg.tsx
+│   │   │   ├── PlasmicArtists.module.css
+│   │   │   ├── PlasmicArtists.tsx
+│   │   │   ├── PlasmicButton.module.css
+│   │   │   ├── PlasmicButton.tsx
+│   │   │   ├── PlasmicFooter.module.css
+│   │   │   ├── PlasmicFooter.tsx
+│   │   │   ├── PlasmicGlobalVariant__Screen.tsx
+│   │   │   ├── PlasmicHeader.module.css
+│   │   │   ├── PlasmicHeader.tsx
+│   │   │   ├── PlasmicHomepage.module.css
+│   │   │   ├── PlasmicHomepage.tsx
+│   │   │   ├── PlasmicLicensing.module.css
+│   │   │   └── PlasmicLicensing.tsx
+│   │   ├── plasmic__default_style.module.css
+│   │   ├── plasmic-init.ts
+│   │   ├── plasmic-style-tokens.ts
+│   │   └── plasmic.module.css
+│   └── public
+│       └── plasmic
+│           └── afr
+│               └── images
 ├── emails
 │   └── PressPitchEmail.tsx
 ├── middleware.ts
@@ -8,7 +50,7 @@
 ├── pages
 │   ├── _app.tsx
 │   ├── _document.tsx
-│   ├── [[...catchall]].tsx
+│   ├── [...catchall].tsx
 │   ├── api
 │   │   ├── _internalAuth.ts
 │   │   ├── campaigns
@@ -19,13 +61,19 @@
 │   │   ├── unsubscribe.ts
 │   │   └── webhooks
 │   │       └── resend.ts
+│   ├── artists.tsx
 │   ├── fonts
 │   │   ├── GeistMonoVF.woff
 │   │   └── GeistVF.woff
+│   ├── index.tsx
 │   ├── internal
 │   │   └── campaign-composer.tsx
+│   ├── licensing.tsx
 │   └── plasmic-host.tsx
 ├── plasmic-init.ts
+├── plasmic-tokens.theo.json
+├── plasmic.json
+├── plasmic.lock
 ├── project-structure.txt
 ├── public
 │   ├── android-chrome-192x192.png
@@ -45,4 +93,4 @@
 │   └── Home.module.css
 └── tsconfig.json
 
-12 directories, 34 files
+20 directories, 74 files
