@@ -1,3 +1,4 @@
+import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
 
@@ -25,9 +26,12 @@ export default function CatalogueCard(props: Props) {
 
         <h2 className={styles.cardTitle}>{record.title}</h2>
 
-        {record.syncReadinessSummary ? (
-          <p className={styles.cardSummary}>{record.syncReadinessSummary}</p>
-        ) : null}
+        <div className={styles.cardReadinessRow}>
+          <CatalogueReadinessPills
+            summary={record.syncReadinessSummary}
+            compact={false}
+          />
+        </div>
 
         {record.shortLogline ? (
           <p className={styles.cardLogline}>{record.shortLogline}</p>

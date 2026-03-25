@@ -1,3 +1,4 @@
+import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
 
@@ -18,7 +19,7 @@ export default function CatalogueTable(props: Props) {
     <section className={styles.tableShell}>
       <div className={styles.tableHeaderRow}>
         <div>Track</div>
-        <div>Readiness</div>
+        <div>Sync Readiness</div>
         <div>Genre / Mood</div>
         <div>Duration</div>
       </div>
@@ -49,8 +50,11 @@ export default function CatalogueTable(props: Props) {
                 ) : null}
               </div>
 
-              <div className={styles.tableCellMuted}>
-                {record.syncReadinessSummary ?? "—"}
+              <div className={styles.tableReadinessCell}>
+                <CatalogueReadinessPills
+                  summary={record.syncReadinessSummary}
+                  compact
+                />
               </div>
 
               <div className={styles.tableCellMuted}>{metaText || "—"}</div>

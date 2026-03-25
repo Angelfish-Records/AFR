@@ -17,6 +17,13 @@ type AirtableListResponse<TFields extends AirtableRecordFields> = {
   offset?: string;
 };
 
+function compareRecordingIds(left: string, right: string): number {
+  return left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 async function listRecordingRows(): Promise<
   Array<AirtableRecord<RecordingAirtableFields>>
 > {
@@ -72,7 +79,9 @@ export async function listCatalogueRecords(): Promise<CatalogueRecord[]> {
 
   return rows
     .map(mapRecordingRecord)
-    .sort((left, right) => left.title.localeCompare(right.title));
+    .sort((left, right) =>
+      compareRecordingIds(left.recordingId, right.recordingId)
+    );
 }
 
 export async function getCatalogueRecordByRecordingId(
