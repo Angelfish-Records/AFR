@@ -3,44 +3,40 @@
 │   ├── Button.tsx
 │   ├── Footer.tsx
 │   ├── Header.tsx
-│   ├── plasmic
-│   │   ├── afr
-│   │   │   ├── icons
-│   │   │   │   ├── PlasmicIcon__ArrowDownSvg.tsx
-│   │   │   │   ├── PlasmicIcon__CheckSvg.tsx
-│   │   │   │   ├── PlasmicIcon__Icon.tsx
-│   │   │   │   ├── PlasmicIcon__Icon18.tsx
-│   │   │   │   ├── PlasmicIcon__Icon2.tsx
-│   │   │   │   ├── PlasmicIcon__Icon21.tsx
-│   │   │   │   ├── PlasmicIcon__Icon22.tsx
-│   │   │   │   ├── PlasmicIcon__Icon23.tsx
-│   │   │   │   ├── PlasmicIcon__Icon28.tsx
-│   │   │   │   ├── PlasmicIcon__Icon3.tsx
-│   │   │   │   ├── PlasmicIcon__Icon8.tsx
-│   │   │   │   ├── PlasmicIcon__InstagramSvgrepoComSvg.tsx
-│   │   │   │   ├── PlasmicIcon__TiktokSvgrepoComSvg.tsx
-│   │   │   │   └── PlasmicIcon__Youtube168SvgrepoComSvg.tsx
-│   │   │   ├── PlasmicArtists.module.css
-│   │   │   ├── PlasmicArtists.tsx
-│   │   │   ├── PlasmicButton.module.css
-│   │   │   ├── PlasmicButton.tsx
-│   │   │   ├── PlasmicFooter.module.css
-│   │   │   ├── PlasmicFooter.tsx
-│   │   │   ├── PlasmicGlobalVariant__Screen.tsx
-│   │   │   ├── PlasmicHeader.module.css
-│   │   │   ├── PlasmicHeader.tsx
-│   │   │   ├── PlasmicHomepage.module.css
-│   │   │   ├── PlasmicHomepage.tsx
-│   │   │   ├── PlasmicLicensing.module.css
-│   │   │   └── PlasmicLicensing.tsx
-│   │   ├── plasmic__default_style.module.css
-│   │   ├── plasmic-init.ts
-│   │   ├── plasmic-style-tokens.ts
-│   │   └── plasmic.module.css
-│   └── public
-│       └── plasmic
-│           └── afr
-│               └── images
+│   └── plasmic
+│       ├── afr
+│       │   ├── icons
+│       │   │   ├── PlasmicIcon__ArrowDownSvg.tsx
+│       │   │   ├── PlasmicIcon__CheckSvg.tsx
+│       │   │   ├── PlasmicIcon__Icon.tsx
+│       │   │   ├── PlasmicIcon__Icon18.tsx
+│       │   │   ├── PlasmicIcon__Icon2.tsx
+│       │   │   ├── PlasmicIcon__Icon21.tsx
+│       │   │   ├── PlasmicIcon__Icon22.tsx
+│       │   │   ├── PlasmicIcon__Icon23.tsx
+│       │   │   ├── PlasmicIcon__Icon28.tsx
+│       │   │   ├── PlasmicIcon__Icon3.tsx
+│       │   │   ├── PlasmicIcon__Icon8.tsx
+│       │   │   ├── PlasmicIcon__InstagramSvgrepoComSvg.tsx
+│       │   │   ├── PlasmicIcon__TiktokSvgrepoComSvg.tsx
+│       │   │   └── PlasmicIcon__Youtube168SvgrepoComSvg.tsx
+│       │   ├── PlasmicArtists.module.css
+│       │   ├── PlasmicArtists.tsx
+│       │   ├── PlasmicButton.module.css
+│       │   ├── PlasmicButton.tsx
+│       │   ├── PlasmicFooter.module.css
+│       │   ├── PlasmicFooter.tsx
+│       │   ├── PlasmicGlobalVariant__Screen.tsx
+│       │   ├── PlasmicHeader.module.css
+│       │   ├── PlasmicHeader.tsx
+│       │   ├── PlasmicHomepage.module.css
+│       │   ├── PlasmicHomepage.tsx
+│       │   ├── PlasmicLicensing.module.css
+│       │   └── PlasmicLicensing.tsx
+│       ├── plasmic__default_style.module.css
+│       ├── plasmic-init.ts
+│       ├── plasmic-style-tokens.ts
+│       └── plasmic.module.css
 ├── emails
 │   └── PressPitchEmail.tsx
 ├── middleware.ts
@@ -93,4 +89,4 @@
 │   └── Home.module.css
 └── tsconfig.json
 
-20 directories, 74 files
+16 directories, 74 files
