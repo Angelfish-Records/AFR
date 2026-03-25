@@ -1,4 +1,3 @@
-// middleware.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
@@ -16,16 +15,13 @@ function unauthorized(): NextResponse {
 }
 
 function normalizeHost(hostHeader: string | null): string {
-  if (!hostHeader) {
-    return "";
-  }
-
+  if (!hostHeader) return "";
   return hostHeader.toLowerCase().replace(/:\d+$/, "");
 }
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }
 
@@ -47,23 +43,17 @@ function shouldBypassCatalogueRewrite(pathname: string): boolean {
 function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   const { pathname } = req.nextUrl;
 
-  if (!isProtectedPath(pathname)) {
-    return null;
-  }
+  if (!isProtectedPath(pathname)) return null;
 
   const user = process.env.INTERNAL_BASIC_AUTH_USER;
   const pass = process.env.INTERNAL_BASIC_AUTH_PASS;
 
-  if (!user || !pass) {
-    return unauthorized();
-  }
+  if (!user || !pass) return unauthorized();
 
   const authHeader = req.headers.get("authorization") ?? "";
   const [scheme, encoded] = authHeader.split(" ");
 
-  if (scheme !== "Basic" || !encoded) {
-    return unauthorized();
-  }
+  if (scheme !== "Basic" || !encoded) return unauthorized();
 
   let decoded = "";
   try {
@@ -73,9 +63,7 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   }
 
   const separatorIndex = decoded.indexOf(":");
-  if (separatorIndex === -1) {
-    return unauthorized();
-  }
+  if (separatorIndex === -1) return unauthorized();
 
   const providedUser = decoded.slice(0, separatorIndex);
   const providedPass = decoded.slice(separatorIndex + 1);
@@ -90,13 +78,46 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   return response;
 }
 
-function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
-  const configuredHost =
-    process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
+/**
+ * Redirect main domain /catalogue → catalogue subdomain
+ */
+function applyCatalogueCanonicalRedirect(req: NextRequest): NextResponse | null {
+  const catalogueHost = process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
   const requestHost = normalizeHost(req.headers.get("host"));
   const { pathname, search } = req.nextUrl;
 
-  if (!configuredHost || requestHost !== configuredHost) {
+  if (!catalogueHost) return null;
+
+  const isOnCatalogueHost = requestHost === catalogueHost;
+  const isCataloguePath =
+    pathname === "/catalogue" || pathname.startsWith("/catalogue/");
+
+  // Only redirect when on main domain hitting catalogue paths
+  if (!isOnCatalogueHost && isCataloguePath) {
+    const nextPath =
+      pathname === "/catalogue"
+        ? "/"
+        : pathname.replace(/^\/catalogue/, "");
+
+    const redirectUrl = new URL(
+      `https://${catalogueHost}${nextPath}${search}`
+    );
+
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
+  return null;
+}
+
+/**
+ * Rewrite catalogue subdomain → internal /catalogue routes
+ */
+function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
+  const catalogueHost = process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
+  const requestHost = normalizeHost(req.headers.get("host"));
+  const { pathname, search } = req.nextUrl;
+
+  if (!catalogueHost || requestHost !== catalogueHost) {
     return null;
   }
 
@@ -105,23 +126,27 @@ function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
   }
 
   const rewriteUrl = req.nextUrl.clone();
+
   rewriteUrl.pathname =
     pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
+
   rewriteUrl.search = search;
 
   return NextResponse.rewrite(rewriteUrl);
 }
 
 export function middleware(req: NextRequest): NextResponse {
+  // 1. Internal auth (unchanged behaviour)
   const authResponse = applyInternalBasicAuth(req);
-  if (authResponse) {
-    return authResponse;
-  }
+  if (authResponse) return authResponse;
 
+  // 2. Canonical redirect (main domain → subdomain)
+  const redirectResponse = applyCatalogueCanonicalRedirect(req);
+  if (redirectResponse) return redirectResponse;
+
+  // 3. Subdomain rewrite
   const rewriteResponse = applyCatalogueSubdomainRewrite(req);
-  if (rewriteResponse) {
-    return rewriteResponse;
-  }
+  if (rewriteResponse) return rewriteResponse;
 
   return NextResponse.next();
 }

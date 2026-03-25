@@ -1,18 +1,19 @@
-import Link from "next/link";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
 
 type Props = {
   record: CatalogueRecordListItem;
+  onSelect: (recordingId: string) => void;
 };
 
 export default function CatalogueCard(props: Props) {
-  const { record } = props;
+  const { record, onSelect } = props;
 
   return (
-    <Link
-      href={`/catalogue/${encodeURIComponent(record.recordingId)}`}
-      className={styles.card}
+    <button
+      type="button"
+      className={styles.cardButton}
+      onClick={() => onSelect(record.recordingId)}
     >
       <div className={styles.cardBody}>
         <div className={styles.cardTopRow}>
@@ -46,6 +47,6 @@ export default function CatalogueCard(props: Props) {
           ))}
         </div>
       </div>
-    </Link>
+    </button>
   );
 }
