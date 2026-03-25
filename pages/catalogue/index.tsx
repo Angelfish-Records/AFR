@@ -4,6 +4,7 @@ import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
 import CatalogueHeader from "@/components/catalogue/CatalogueHeader";
 import CatalogueLayout from "@/components/catalogue/CatalogueLayout";
+import { toCatalogueListItem } from "@/lib/catalogue/api";
 import { hasCatalogueAccess } from "@/lib/catalogue/access";
 import { listCatalogueRecords } from "@/lib/catalogue/queries";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
@@ -47,20 +48,9 @@ export const getServerSideProps: GetServerSideProps<Props> = async (context) => 
 
   const records = await listCatalogueRecords();
 
-  const listItems: CatalogueRecordListItem[] = records.map((record) => ({
-    id: record.id,
-    recordingId: record.recordingId,
-    title: record.title,
-    syncReadinessSummary: record.syncReadinessSummary,
-    duration: record.duration,
-    genreLabels: record.genreLabels,
-    moodTags: record.moodTags,
-    shortLogline: record.shortLogline,
-  }));
-
   return {
     props: {
-      records: listItems,
+      records: records.map(toCatalogueListItem),
     },
   };
 };

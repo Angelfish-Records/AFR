@@ -1,56 +1,131 @@
 // middleware.ts
-import type { NextRequest } from 'next/server'
-import { NextResponse } from 'next/server'
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-const PROTECTED_PREFIXES = ['/internal', '/api/campaigns']
+const PROTECTED_PREFIXES = ["/internal", "/api/campaigns"];
 
-function unauthorized() {
-  return new NextResponse('Authentication required.', {
+function unauthorized(): NextResponse {
+  return new NextResponse("Authentication required.", {
     status: 401,
     headers: {
-      'WWW-Authenticate': 'Basic realm="AFR Internal", charset="UTF-8"',
-      // mild hardening
-      'Cache-Control': 'no-store',
-      'X-Robots-Tag': 'noindex, nofollow',
+      "WWW-Authenticate": 'Basic realm="AFR Internal", charset="UTF-8"',
+      "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex, nofollow",
     },
-  })
+  });
 }
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
-
-  const isProtected = PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  if (!isProtected) return NextResponse.next()
-
-  const user = process.env.INTERNAL_BASIC_AUTH_USER
-  const pass = process.env.INTERNAL_BASIC_AUTH_PASS
-
-  // Fail-closed if env isn't set in prod.
-  if (!user || !pass) return unauthorized()
-
-  const auth = req.headers.get('authorization') || ''
-  const [scheme, encoded] = auth.split(' ')
-
-  if (scheme !== 'Basic' || !encoded) return unauthorized()
-
-  let decoded = ''
-  try {
-    decoded = atob(encoded)
-  } catch {
-    return unauthorized()
+function normalizeHost(hostHeader: string | null): string {
+  if (!hostHeader) {
+    return "";
   }
 
-  const [u, p] = decoded.split(':')
-  if (u !== user || p !== pass) return unauthorized()
-
-  // Optional: add headers so nothing gets cached between users.
-  const res = NextResponse.next()
-  res.headers.set('Cache-Control', 'no-store')
-  res.headers.set('X-Robots-Tag', 'noindex, nofollow')
-  return res
+  return hostHeader.toLowerCase().replace(/:\d+$/, "");
 }
 
-// Limit where the middleware runs (keeps perf sane).
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function shouldBypassCatalogueRewrite(pathname: string): boolean {
+  return (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/robots.txt") ||
+    pathname.startsWith("/sitemap") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/fonts") ||
+    pathname.startsWith("/public") ||
+    pathname.startsWith("/catalogue") ||
+    /\.[a-z0-9]+$/i.test(pathname)
+  );
+}
+
+function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
+  const { pathname } = req.nextUrl;
+
+  if (!isProtectedPath(pathname)) {
+    return null;
+  }
+
+  const user = process.env.INTERNAL_BASIC_AUTH_USER;
+  const pass = process.env.INTERNAL_BASIC_AUTH_PASS;
+
+  if (!user || !pass) {
+    return unauthorized();
+  }
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  const [scheme, encoded] = authHeader.split(" ");
+
+  if (scheme !== "Basic" || !encoded) {
+    return unauthorized();
+  }
+
+  let decoded = "";
+  try {
+    decoded = atob(encoded);
+  } catch {
+    return unauthorized();
+  }
+
+  const separatorIndex = decoded.indexOf(":");
+  if (separatorIndex === -1) {
+    return unauthorized();
+  }
+
+  const providedUser = decoded.slice(0, separatorIndex);
+  const providedPass = decoded.slice(separatorIndex + 1);
+
+  if (providedUser !== user || providedPass !== pass) {
+    return unauthorized();
+  }
+
+  const response = NextResponse.next();
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return response;
+}
+
+function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
+  const configuredHost =
+    process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
+  const requestHost = normalizeHost(req.headers.get("host"));
+  const { pathname, search } = req.nextUrl;
+
+  if (!configuredHost || requestHost !== configuredHost) {
+    return null;
+  }
+
+  if (shouldBypassCatalogueRewrite(pathname)) {
+    return null;
+  }
+
+  const rewriteUrl = req.nextUrl.clone();
+  rewriteUrl.pathname =
+    pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
+  rewriteUrl.search = search;
+
+  return NextResponse.rewrite(rewriteUrl);
+}
+
+export function middleware(req: NextRequest): NextResponse {
+  const authResponse = applyInternalBasicAuth(req);
+  if (authResponse) {
+    return authResponse;
+  }
+
+  const rewriteResponse = applyCatalogueSubdomainRewrite(req);
+  if (rewriteResponse) {
+    return rewriteResponse;
+  }
+
+  return NextResponse.next();
+}
+
 export const config = {
-  matcher: ['/internal/:path*', '/api/campaigns/:path*'],
-}
+  matcher: ["/:path*"],
+};

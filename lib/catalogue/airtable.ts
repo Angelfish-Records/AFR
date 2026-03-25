@@ -52,3 +52,7 @@ export async function airtableGet<TResponse>(params: {
 
   return (await response.json()) as TResponse;
 }
+
+export function escapeAirtableFormulaString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}

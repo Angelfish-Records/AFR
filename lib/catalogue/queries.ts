@@ -1,4 +1,8 @@
-import { airtableGet, getAirtableConfig } from "@/lib/catalogue/airtable";
+import {
+  airtableGet,
+  escapeAirtableFormulaString,
+  getAirtableConfig,
+} from "@/lib/catalogue/airtable";
 import { DEFAULT_CATALOGUE_PAGE_SIZE } from "@/lib/catalogue/constants";
 import { mapRecordingRecord } from "@/lib/catalogue/mappers";
 import type {
@@ -38,6 +42,31 @@ async function listRecordingRows(): Promise<
   return accumulated;
 }
 
+async function findRecordingRowByRecordingId(
+  recordingId: string
+): Promise<AirtableRecord<RecordingAirtableFields> | null> {
+  const { baseId, recordingsTableId, recordingsViewId } = getAirtableConfig();
+
+  const normalizedRecordingId = recordingId.trim();
+
+  if (normalizedRecordingId.length === 0) {
+    return null;
+  }
+
+  const escapedRecordingId = escapeAirtableFormulaString(normalizedRecordingId);
+
+  const response = await airtableGet<AirtableListResponse<RecordingAirtableFields>>({
+    path: `${baseId}/${encodeURIComponent(recordingsTableId)}`,
+    searchParams: {
+      view: recordingsViewId,
+      maxRecords: "1",
+      filterByFormula: `{Recording ID}="${escapedRecordingId}"`,
+    },
+  });
+
+  return response.records[0] ?? null;
+}
+
 export async function listCatalogueRecords(): Promise<CatalogueRecord[]> {
   const rows = await listRecordingRows();
 
@@ -49,11 +78,11 @@ export async function listCatalogueRecords(): Promise<CatalogueRecord[]> {
 export async function getCatalogueRecordByRecordingId(
   recordingId: string
 ): Promise<CatalogueRecord | null> {
-  const normalized = recordingId.trim().toLowerCase();
-  const records = await listCatalogueRecords();
+  const row = await findRecordingRowByRecordingId(recordingId);
 
-  const match =
-    records.find((record) => record.recordingId.toLowerCase() === normalized) ?? null;
+  if (!row) {
+    return null;
+  }
 
-  return match;
+  return mapRecordingRecord(row);
 }
