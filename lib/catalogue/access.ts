@@ -1,6 +1,8 @@
 import type { GetServerSidePropsContext, NextApiRequest } from "next";
 import { validateCatalogueShareToken } from "@/lib/catalogue/shareLinks";
 
+export type CatalogueAccessState = "granted" | "missing" | "invalid";
+
 function normalizeToken(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
     return null;
@@ -68,28 +70,32 @@ function getApiRequestShareToken(req: NextApiRequest): string | null {
   );
 }
 
-export function isCatalogueAccessEnabled(): boolean {
-  return true;
-}
-
-export async function hasCatalogueAccess(
+export async function getCataloguePageAccessState(
   context: GetServerSidePropsContext
-): Promise<boolean> {
+): Promise<CatalogueAccessState> {
   const shareToken = getPageRequestShareToken(context);
 
   if (shareToken) {
     const valid = await validateCatalogueShareToken(shareToken, { touch: true });
     if (valid) {
-      return true;
+      return "granted";
     }
+
+    const configuredFallbackToken = getConfiguredFallbackToken();
+    if (configuredFallbackToken && shareToken === configuredFallbackToken) {
+      return "granted";
+    }
+
+    return "invalid";
   }
 
-  const configuredFallbackToken = getConfiguredFallbackToken();
-  if (!configuredFallbackToken) {
-    return false;
-  }
+  return "missing";
+}
 
-  return shareToken === configuredFallbackToken;
+export async function hasCatalogueAccess(
+  context: GetServerSidePropsContext
+): Promise<boolean> {
+  return (await getCataloguePageAccessState(context)) === "granted";
 }
 
 export async function hasCatalogueApiAccess(req: NextApiRequest): Promise<boolean> {
@@ -100,12 +106,12 @@ export async function hasCatalogueApiAccess(req: NextApiRequest): Promise<boolea
     if (valid) {
       return true;
     }
+
+    const configuredFallbackToken = getConfiguredFallbackToken();
+    if (configuredFallbackToken && shareToken === configuredFallbackToken) {
+      return true;
+    }
   }
 
-  const configuredFallbackToken = getConfiguredFallbackToken();
-  if (!configuredFallbackToken) {
-    return false;
-  }
-
-  return shareToken === configuredFallbackToken;
+  return false;
 }

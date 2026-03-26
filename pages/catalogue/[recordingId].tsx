@@ -1,5 +1,5 @@
 import type { GetServerSideProps } from "next";
-import { hasCatalogueAccess } from "@/lib/catalogue/access";
+import { getCataloguePageAccessState } from "@/lib/catalogue/access";
 
 type Props = Record<string, never>;
 
@@ -8,8 +8,15 @@ export default function CatalogueDetailRedirectPage() {
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
-  if (!(await hasCatalogueAccess(context))) {
-    return { notFound: true };
+  const accessState = await getCataloguePageAccessState(context);
+
+  if (accessState !== "granted") {
+    return {
+      redirect: {
+        destination: "/",
+        permanent: false,
+      },
+    };
   }
 
   const rawRecordingId = context.params?.recordingId;
