@@ -9,8 +9,8 @@ type PreviewResponse =
       ok: true;
       playbackUrl: string;
       expiresAt: number;
-      previewStartSeconds: number;
-      previewEndSeconds: number;
+      clipStartSeconds: number;
+      clipLengthSeconds: number;
     }
   | {
       ok: false;
@@ -22,7 +22,8 @@ type Props = {
   accessToken?: string | null;
 };
 
-type PreviewStatus = "idle" | "loading" | "playing" | "paused" | "error";
+type PreviewStatus = "idle" | "loading" | "playing-full" | "playing-clip" | "paused" | "error";
+type PreviewMode = "full" | "clip";
 
 type PreviewPlayEventDetail = {
   recordingId: string;
@@ -36,8 +37,8 @@ export default function CataloguePreviewButton(props: Props) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const hlsRef = React.useRef<Hls | null>(null);
   const sourceUrlRef = React.useRef<string | null>(null);
-  const previewStartRef = React.useRef<number>(0);
-  const previewEndRef = React.useRef<number | null>(null);
+  const clipStartRef = React.useRef<number>(0);
+  const clipEndRef = React.useRef<number | null>(null);
 
   const [status, setStatus] = React.useState<PreviewStatus>("idle");
 
@@ -168,47 +169,50 @@ export default function CataloguePreviewButton(props: Props) {
       );
     }
 
-    previewStartRef.current = payload.previewStartSeconds;
-    previewEndRef.current = payload.previewEndSeconds;
+    clipStartRef.current = payload.clipStartSeconds;
+    clipEndRef.current = payload.clipStartSeconds + payload.clipLengthSeconds;
     await attachSource(payload.playbackUrl);
   }, [accessToken, attachSource, recordingId]);
 
-  const handleTogglePlayback = React.useCallback(async () => {
-    const audio = audioRef.current;
-    if (!audio) {
-      return;
-    }
-
-    if (status === "loading") {
-      return;
-    }
-
-    if (status === "playing") {
-      pauseAudio();
-      setStatus("paused");
-      return;
-    }
-
-    try {
-      setStatus("loading");
-
-      if (!sourceUrlRef.current) {
-        await fetchPreview();
+  const startPlayback = React.useCallback(
+    async (mode: PreviewMode) => {
+      const audio = audioRef.current;
+      if (!audio || status === "loading") {
+        return;
       }
 
-      window.dispatchEvent(
-        new CustomEvent<PreviewPlayEventDetail>(PREVIEW_PLAY_EVENT, {
-          detail: { recordingId },
-        })
-      );
+      const isPlayingTargetMode =
+        (mode === "full" && status === "playing-full") ||
+        (mode === "clip" && status === "playing-clip");
 
-      audio.currentTime = previewStartRef.current;
-      await audio.play();
-      setStatus("playing");
-    } catch {
-      setStatus("error");
-    }
-  }, [fetchPreview, pauseAudio, recordingId, status]);
+      if (isPlayingTargetMode) {
+        pauseAudio();
+        setStatus("paused");
+        return;
+      }
+
+      try {
+        setStatus("loading");
+
+        if (!sourceUrlRef.current) {
+          await fetchPreview();
+        }
+
+        window.dispatchEvent(
+          new CustomEvent<PreviewPlayEventDetail>(PREVIEW_PLAY_EVENT, {
+            detail: { recordingId },
+          })
+        );
+
+        audio.currentTime = mode === "full" ? 0 : clipStartRef.current;
+        await audio.play();
+        setStatus(mode === "full" ? "playing-full" : "playing-clip");
+      } catch {
+        setStatus("error");
+      }
+    },
+    [fetchPreview, pauseAudio, recordingId, status]
+  );
 
   React.useEffect(() => {
     const audio = audioRef.current;
@@ -217,9 +221,13 @@ export default function CataloguePreviewButton(props: Props) {
     }
 
     const onTimeUpdate = () => {
-      const previewEnd = previewEndRef.current;
+      if (status !== "playing-clip") {
+        return;
+      }
 
-      if (previewEnd !== null && audio.currentTime >= previewEnd) {
+      const clipEnd = clipEndRef.current;
+
+      if (clipEnd !== null && audio.currentTime >= clipEnd) {
         audio.pause();
         setStatus("paused");
       }
@@ -229,26 +237,20 @@ export default function CataloguePreviewButton(props: Props) {
       setStatus((current) => (current === "loading" ? current : "paused"));
     };
 
-    const onPlay = () => {
-      setStatus("playing");
-    };
-
     const onEnded = () => {
       setStatus("paused");
     };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("pause", onPause);
-    audio.addEventListener("play", onPlay);
     audio.addEventListener("ended", onEnded);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("pause", onPause);
-      audio.removeEventListener("play", onPlay);
       audio.removeEventListener("ended", onEnded);
     };
-  }, []);
+  }, [status]);
 
   React.useEffect(() => {
     const onOtherPreviewPlay = (event: Event) => {
@@ -261,7 +263,11 @@ export default function CataloguePreviewButton(props: Props) {
 
       pauseAudio();
       setStatus((current) =>
-        current === "playing" || current === "loading" ? "paused" : current
+        current === "playing-full" ||
+        current === "playing-clip" ||
+        current === "loading"
+          ? "paused"
+          : current
       );
     };
 
@@ -279,30 +285,55 @@ export default function CataloguePreviewButton(props: Props) {
     };
   }, [pauseAudio, teardownHls]);
 
-  const label =
+  const fullLabel =
     status === "loading"
       ? "Loading"
-      : status === "playing"
+      : status === "playing-full"
       ? "Pause"
       : status === "error"
       ? "Retry"
-      : "Play";
+      : "Full";
+
+  const clipLabel =
+    status === "loading"
+      ? "Loading"
+      : status === "playing-clip"
+      ? "Pause"
+      : status === "error"
+      ? "Retry"
+      : "Clip";
 
   return (
     <>
-      <button
-        type="button"
-        className={`${styles.previewButton} ${
-          status === "playing" ? styles.previewButtonActive : ""
-        }`}
-        onClick={handleTogglePlayback}
-        aria-label={`${label} preview for ${recordingId}`}
-      >
-        <span className={styles.previewButtonIcon}>
-          {status === "playing" ? "❚❚" : "▶"}
-        </span>
-        <span className={styles.previewButtonLabel}>{label}</span>
-      </button>
+      <div className={styles.previewButtonGroup}>
+        <button
+          type="button"
+          className={`${styles.previewButton} ${
+            status === "playing-full" ? styles.previewButtonActive : ""
+          }`}
+          onClick={() => void startPlayback("full")}
+          aria-label={`${fullLabel} full track for ${recordingId}`}
+        >
+          <span className={styles.previewButtonIcon}>
+            {status === "playing-full" ? "❚❚" : "▶"}
+          </span>
+          <span className={styles.previewButtonLabel}>{fullLabel}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`${styles.previewButton} ${styles.previewButtonSecondary} ${
+            status === "playing-clip" ? styles.previewButtonActive : ""
+          }`}
+          onClick={() => void startPlayback("clip")}
+          aria-label={`${clipLabel} 30 second clip for ${recordingId}`}
+        >
+          <span className={styles.previewButtonIcon}>
+            {status === "playing-clip" ? "❚❚" : "✦"}
+          </span>
+          <span className={styles.previewButtonLabel}>{clipLabel}</span>
+        </button>
+      </div>
 
       <audio ref={audioRef} preload="metadata" style={{ display: "none" }} />
     </>

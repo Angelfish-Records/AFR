@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { importPKCS8, SignJWT } from "jose";
 import crypto from "crypto";
 import { hasCatalogueApiAccess } from "@/lib/catalogue/access";
+import { getCatalogueRecordByRecordingId } from "@/lib/catalogue/queries";
 
 function mustEnv(...names: string[]): string {
   for (const n of names) {
@@ -53,8 +54,8 @@ type PreviewOkResponse = {
   ok: true;
   playbackUrl: string;
   expiresAt: number;
-  previewStartSeconds: number;
-  previewEndSeconds: number;
+  clipStartSeconds: number;
+  clipLengthSeconds: number;
 };
 
 type PreviewErrorResponse = {
@@ -87,6 +88,13 @@ export default async function handler(
   }
 
   try {
+    const catalogueRecord = await getCatalogueRecordByRecordingId(recordingId);
+
+    if (!catalogueRecord) {
+      res.status(404).json({ ok: false, error: "Catalogue record not found" });
+      return;
+    }
+
     const artistSiteBaseUrl = mustEnv("ARTIST_SITE_BASE_URL");
 
     const lookupResponse = await fetch(
@@ -148,8 +156,8 @@ export default async function handler(
       ok: true,
       playbackUrl,
       expiresAt,
-      previewStartSeconds: 0,
-      previewEndSeconds: 30,
+      clipStartSeconds: catalogueRecord.previewStartSeconds ?? 0,
+      clipLengthSeconds: 30,
     });
   } catch {
     res.status(500).json({

@@ -21,6 +21,7 @@ export type CatalogueRecord = {
   lastReviewed: string | null;
   lyricsPdfLink: string | null;
   chainOfTitlePdfLink: string | null;
+  previewStartSeconds: number | null;
 };
 
 export type CatalogueRecordListItem = Pick<
@@ -82,4 +83,5 @@ export type RecordingAirtableFields = {
   "Last Reviewed"?: AirtableCellValue;
   "Lyrics PDF Link"?: AirtableCellValue;
   "Chain-of-Title PDF Link"?: AirtableCellValue;
+  "Preview Start Seconds"?: AirtableCellValue;
 };

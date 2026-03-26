@@ -19,6 +19,24 @@ function asString(value: AirtableCellValue): string | null {
   return null;
 }
 
+function asNumber(value: AirtableCellValue): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 function asStringArray(value: AirtableCellValue): string[] {
   if (Array.isArray(value)) {
     return value
@@ -102,6 +120,12 @@ export function mapRecordingRecord(
     record.id
   );
 
+  const previewStartSecondsRaw = asNumber(fields["Preview Start Seconds"]);
+  const previewStartSeconds =
+    previewStartSecondsRaw !== null && previewStartSecondsRaw >= 0
+      ? previewStartSecondsRaw
+      : null;
+
   return {
     id: record.id,
     recordingId,
@@ -127,5 +151,6 @@ export function mapRecordingRecord(
     lastReviewed: formatDateForDisplay(asString(fields["Last Reviewed"])),
     lyricsPdfLink: asUrl(fields["Lyrics PDF Link"]),
     chainOfTitlePdfLink: asUrl(fields["Chain-of-Title PDF Link"]),
+    previewStartSeconds,
   };
 }
