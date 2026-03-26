@@ -42,7 +42,8 @@ export default function CatalogueIndexSurface(props: Props) {
   const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(null);
 
   const activeRecordingId = getSingleQueryValue(router.query.recordingId);
-  const token = getSingleQueryValue(router.query.t);
+  const shareToken =
+    getSingleQueryValue(router.query.st) ?? getSingleQueryValue(router.query.t);
 
   const activeListItem = useMemo(() => {
     if (!activeRecordingId) {
@@ -58,8 +59,8 @@ export default function CatalogueIndexSurface(props: Props) {
     async (recordingId: string) => {
       const nextQuery: Record<string, string> = {};
 
-      if (token) {
-        nextQuery.t = token;
+      if (shareToken) {
+        nextQuery.st = shareToken;
       }
 
       nextQuery.recordingId = recordingId;
@@ -73,14 +74,14 @@ export default function CatalogueIndexSurface(props: Props) {
         { shallow: true, scroll: false }
       );
     },
-    [router, token]
+    [router, shareToken]
   );
 
   const closeDrawer = useCallback(async () => {
     const nextQuery: Record<string, string> = {};
 
-    if (token) {
-      nextQuery.t = token;
+    if (shareToken) {
+      nextQuery.st = shareToken;
     }
 
     await router.push(
@@ -95,7 +96,7 @@ export default function CatalogueIndexSurface(props: Props) {
     setActiveRecord(null);
     setDetailErrorMessage(null);
     setIsLoadingDetail(false);
-  }, [router, token]);
+  }, [router, shareToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,8 +118,8 @@ export default function CatalogueIndexSurface(props: Props) {
           window.location.origin
         );
 
-        if (token) {
-          url.searchParams.set("t", token);
+        if (shareToken) {
+          url.searchParams.set("st", shareToken);
         }
 
         const response = await fetch(url.toString(), {
@@ -157,7 +158,7 @@ export default function CatalogueIndexSurface(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activeRecordingId, token]);
+  }, [activeRecordingId, shareToken]);
 
   return (
     <CatalogueLayout>
@@ -179,7 +180,7 @@ export default function CatalogueIndexSurface(props: Props) {
           records={records}
           activeRecordingId={activeRecordingId}
           onSelect={openRecord}
-          accessToken={token}
+          accessToken={shareToken}
         />
       ) : (
         <CatalogueGrid records={records} onSelect={openRecord} />

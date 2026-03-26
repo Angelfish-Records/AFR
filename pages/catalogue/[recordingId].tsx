@@ -8,7 +8,7 @@ export default function CatalogueDetailRedirectPage() {
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
-  if (!hasCatalogueAccess(context)) {
+  if (!(await hasCatalogueAccess(context))) {
     return { notFound: true };
   }
 
@@ -18,13 +18,18 @@ export const getServerSideProps: GetServerSideProps<Props> = async (context) => 
     return { notFound: true };
   }
 
-  const token = typeof context.query.t === "string" ? context.query.t : null;
-  const searchParams = new URLSearchParams();
+  const shareToken =
+    typeof context.query.st === "string"
+      ? context.query.st
+      : typeof context.query.t === "string"
+      ? context.query.t
+      : null;
 
+  const searchParams = new URLSearchParams();
   searchParams.set("recordingId", rawRecordingId);
 
-  if (token) {
-    searchParams.set("t", token);
+  if (shareToken) {
+    searchParams.set("st", shareToken);
   }
 
   return {

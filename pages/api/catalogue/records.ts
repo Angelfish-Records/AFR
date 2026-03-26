@@ -17,7 +17,7 @@ export default async function handler(
     return;
   }
 
-  if (!hasCatalogueApiAccess(req)) {
+  if (!(await hasCatalogueApiAccess(req))) {
     res.status(404).json({ error: "Not found" });
     return;
   }

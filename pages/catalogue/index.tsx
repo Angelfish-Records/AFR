@@ -16,7 +16,7 @@ export default function CatalogueIndexPage(
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
-  if (!hasCatalogueAccess(context)) {
+  if (!(await hasCatalogueAccess(context))) {
     return { notFound: true };
   }
 

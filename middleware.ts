@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const PROTECTED_PREFIXES = ["/internal", "/api/campaigns"];
+const PROTECTED_PREFIXES = ["/internal", "/api/campaigns", "/api/catalogue/admin"];
 
 function unauthorized(): NextResponse {
   return new NextResponse("Authentication required.", {
@@ -78,9 +78,6 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   return response;
 }
 
-/**
- * Redirect main domain /catalogue → catalogue subdomain
- */
 function applyCatalogueCanonicalRedirect(req: NextRequest): NextResponse | null {
   const catalogueHost = process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
   const requestHost = normalizeHost(req.headers.get("host"));
@@ -92,26 +89,19 @@ function applyCatalogueCanonicalRedirect(req: NextRequest): NextResponse | null 
   const isCataloguePath =
     pathname === "/catalogue" || pathname.startsWith("/catalogue/");
 
-  // Only redirect when on main domain hitting catalogue paths
   if (!isOnCatalogueHost && isCataloguePath) {
     const nextPath =
       pathname === "/catalogue"
         ? "/"
         : pathname.replace(/^\/catalogue/, "");
 
-    const redirectUrl = new URL(
-      `https://${catalogueHost}${nextPath}${search}`
-    );
-
+    const redirectUrl = new URL(`https://${catalogueHost}${nextPath}${search}`);
     return NextResponse.redirect(redirectUrl, 308);
   }
 
   return null;
 }
 
-/**
- * Rewrite catalogue subdomain → internal /catalogue routes
- */
 function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
   const catalogueHost = process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
   const requestHost = normalizeHost(req.headers.get("host"));
@@ -126,25 +116,19 @@ function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
   }
 
   const rewriteUrl = req.nextUrl.clone();
-
-  rewriteUrl.pathname =
-    pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
-
+  rewriteUrl.pathname = pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
   rewriteUrl.search = search;
 
   return NextResponse.rewrite(rewriteUrl);
 }
 
 export function middleware(req: NextRequest): NextResponse {
-  // 1. Internal auth (unchanged behaviour)
   const authResponse = applyInternalBasicAuth(req);
   if (authResponse) return authResponse;
 
-  // 2. Canonical redirect (main domain → subdomain)
   const redirectResponse = applyCatalogueCanonicalRedirect(req);
   if (redirectResponse) return redirectResponse;
 
-  // 3. Subdomain rewrite
   const rewriteResponse = applyCatalogueSubdomainRewrite(req);
   if (rewriteResponse) return rewriteResponse;
 

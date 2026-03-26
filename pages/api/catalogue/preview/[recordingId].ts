@@ -17,8 +17,7 @@ function mustEnv(...names: string[]): string {
 
 function normalizePemMaybe(input: string): string {
   const raw = (input ?? "").trim();
-  const looksLikePem =
-    raw.includes("-----BEGIN ") && raw.includes("-----END ");
+  const looksLikePem = raw.includes("-----BEGIN ") && raw.includes("-----END ");
 
   if (looksLikePem) {
     return raw.replace(/\\n/g, "\n");
@@ -67,7 +66,7 @@ type PreviewResponse = PreviewOkResponse | PreviewErrorResponse;
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<PreviewResponse>
+  res: NextApiResponse<PreviewResponse>,
 ): Promise<void> {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -75,7 +74,7 @@ export default async function handler(
     return;
   }
 
-  if (!hasCatalogueApiAccess(req)) {
+  if (!(await hasCatalogueApiAccess(req))) {
     res.status(404).json({ ok: false, error: "Not found" });
     return;
   }
@@ -105,7 +104,7 @@ export default async function handler(
           "Content-Type": "application/json",
         },
         cache: "no-store",
-      }
+      },
     );
 
     const lookupPayload =
