@@ -179,6 +179,7 @@ export default function CatalogueIndexSurface(props: Props) {
           records={records}
           activeRecordingId={activeRecordingId}
           onSelect={openRecord}
+          accessToken={token}
         />
       ) : (
         <CatalogueGrid records={records} onSelect={openRecord} />

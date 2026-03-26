@@ -91,7 +91,7 @@
 
 .tableHeaderRow {
   display: grid;
-  grid-template-columns: minmax(240px, 1.45fr) minmax(340px, 1.6fr) minmax(180px, 1fr) 88px;
+  grid-template-columns: minmax(240px, 1.3fr) 112px minmax(320px, 1.6fr) minmax(180px, 1fr) 88px;
   gap: 16px;
   padding: 16px 20px;
   font-size: 0.8rem;
@@ -101,7 +101,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1240px) {
   .tableHeaderRow {
     display: none;
   }
@@ -114,15 +114,11 @@
 .tableRowButton {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(240px, 1.45fr) minmax(340px, 1.6fr) minmax(180px, 1fr) 88px;
+  grid-template-columns: minmax(240px, 1.3fr) 112px minmax(320px, 1.6fr) minmax(180px, 1fr) 88px;
   gap: 16px;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  padding: 16px 20px;
+  align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 20px;
   transition:
     background 160ms ease,
     border-color 160ms ease,
@@ -141,11 +137,23 @@
   background: rgba(255, 255, 255, 0.07);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1240px) {
   .tableRowButton {
     grid-template-columns: 1fr;
     gap: 10px;
   }
+}
+
+.tableTrackButton {
+  appearance: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 
 .tableTrackCell {
@@ -176,6 +184,52 @@
   color: rgba(255, 255, 255, 0.62);
 }
 
+.tablePreviewCell {
+  display: flex;
+  align-items: center;
+}
+
+.previewButton {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 88px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.previewButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.previewButtonActive {
+  background: rgba(118, 191, 255, 0.14);
+  border-color: rgba(118, 191, 255, 0.22);
+  color: rgba(197, 229, 255, 0.98);
+}
+
+.previewButtonIcon {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.previewButtonLabel {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
 .tableReadinessCell {
   align-self: center;
   min-width: 0;
@@ -195,7 +249,7 @@
   text-align: right;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1240px) {
   .tableDurationCell {
     text-align: left;
   }

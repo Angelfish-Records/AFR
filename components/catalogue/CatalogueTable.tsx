@@ -1,3 +1,4 @@
+import CataloguePreviewButton from "@/components/catalogue/CataloguePreviewButton";
 import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
@@ -6,6 +7,7 @@ type Props = {
   records: CatalogueRecordListItem[];
   activeRecordingId: string | null;
   onSelect: (recordingId: string) => void;
+  accessToken?: string | null;
 };
 
 function joinCompact(values: string[], maxItems: number): string {
@@ -13,13 +15,14 @@ function joinCompact(values: string[], maxItems: number): string {
 }
 
 export default function CatalogueTable(props: Props) {
-  const { records, activeRecordingId, onSelect } = props;
+  const { records, activeRecordingId, onSelect, accessToken = null } = props;
 
   return (
     <section className={styles.tableShell}>
       <div className={styles.tableHeaderRow}>
         <div>Track</div>
-        <div>Sync Readiness</div>
+        <div>Preview</div>
+        <div>Readiness</div>
         <div>Genre / Mood</div>
         <div>Duration</div>
       </div>
@@ -32,22 +35,33 @@ export default function CatalogueTable(props: Props) {
           const isActive = activeRecordingId === record.recordingId;
 
           return (
-            <button
+            <div
               key={record.id}
-              type="button"
               className={`${styles.tableRowButton} ${
                 isActive ? styles.tableRowButtonActive : ""
               }`}
-              onClick={() => onSelect(record.recordingId)}
             >
-              <div className={styles.tableTrackCell}>
-                <div className={styles.tableTrackTopLine}>
-                  <span className={styles.tableRecordingId}>{record.recordingId}</span>
+              <button
+                type="button"
+                className={styles.tableTrackButton}
+                onClick={() => onSelect(record.recordingId)}
+              >
+                <div className={styles.tableTrackCell}>
+                  <div className={styles.tableTrackTopLine}>
+                    <span className={styles.tableRecordingId}>{record.recordingId}</span>
+                  </div>
+                  <div className={styles.tableTrackTitle}>{record.title}</div>
+                  {record.shortLogline ? (
+                    <div className={styles.tableTrackLogline}>{record.shortLogline}</div>
+                  ) : null}
                 </div>
-                <div className={styles.tableTrackTitle}>{record.title}</div>
-                {record.shortLogline ? (
-                  <div className={styles.tableTrackLogline}>{record.shortLogline}</div>
-                ) : null}
+              </button>
+
+              <div className={styles.tablePreviewCell}>
+                <CataloguePreviewButton
+                  recordingId={record.recordingId}
+                  accessToken={accessToken}
+                />
               </div>
 
               <div className={styles.tableReadinessCell}>
@@ -60,7 +74,7 @@ export default function CatalogueTable(props: Props) {
               <div className={styles.tableCellMuted}>{metaText || "—"}</div>
 
               <div className={styles.tableDurationCell}>{record.duration ?? "—"}</div>
-            </button>
+            </div>
           );
         })}
       </div>
