@@ -1,6 +1,8 @@
+// components/catalogue/CatalogueDrawer.tsx
 import { useEffect } from "react";
 import CatalogueDetailSection from "@/components/catalogue/CatalogueDetailSection";
 import CatalogueMetaRow from "@/components/catalogue/CatalogueMetaRow";
+import CataloguePlaybackTransport from "@/components/catalogue/CataloguePlaybackTransport";
 import type { CatalogueRecord } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
 
@@ -14,7 +16,8 @@ type Props = {
 };
 
 export default function CatalogueDrawer(props: Props) {
-  const { record, recordingId, isOpen, isLoading, errorMessage, onClose } = props;
+  const { record, recordingId, isOpen, isLoading, errorMessage, onClose } =
+    props;
 
   useEffect(() => {
     if (!isOpen) {
@@ -65,7 +68,9 @@ export default function CatalogueDrawer(props: Props) {
 
         <div className={styles.drawerBody}>
           {isLoading ? (
-            <div className={styles.drawerStateBlock}>Loading track details…</div>
+            <div className={styles.drawerStateBlock}>
+              Loading track details…
+            </div>
           ) : null}
 
           {!isLoading && errorMessage ? (
@@ -75,13 +80,20 @@ export default function CatalogueDrawer(props: Props) {
           {!isLoading && !errorMessage && record ? (
             <>
               <header className={styles.detailHero}>
-                <p className={styles.detailKicker}>{record.recordingId}</p>
-                <h1 className={styles.detailTitle}>{record.title}</h1>
+                {" "}
+                <p className={styles.detailKicker}>{record.recordingId}</p>{" "}
+                <h1 className={styles.detailTitle}>{record.title}</h1>{" "}
                 {(record.shortLogline || record.syncReadinessSummary) && (
                   <p className={styles.detailLead}>
-                    {record.shortLogline ?? record.syncReadinessSummary}
+                    {" "}
+                    {record.shortLogline ?? record.syncReadinessSummary}{" "}
                   </p>
-                )}
+                )}{" "}
+                <CataloguePlaybackTransport
+                  recordingId={record.recordingId}
+                  duration={record.duration}
+                  previewStartSeconds={record.previewStartSeconds}
+                />{" "}
               </header>
 
               <CatalogueDetailSection title="Overview">
@@ -97,7 +109,10 @@ export default function CatalogueDrawer(props: Props) {
                   <CatalogueMetaRow label="Duration" value={record.duration} />
                   <CatalogueMetaRow label="Language" value={record.language} />
                   <CatalogueMetaRow label="Genre" value={record.genreLabels} />
-                  <CatalogueMetaRow label="Mood / tags" value={record.moodTags} />
+                  <CatalogueMetaRow
+                    label="Mood / tags"
+                    value={record.moodTags}
+                  />
                   <CatalogueMetaRow
                     label="Release date"
                     value={record.releaseDateCurrent}
@@ -169,7 +184,10 @@ export default function CatalogueDrawer(props: Props) {
                     ) : null}
                   </div>
                 ) : (
-                  <p>No documentation links are currently available for this recording.</p>
+                  <p>
+                    No documentation links are currently available for this
+                    recording.
+                  </p>
                 )}
               </CatalogueDetailSection>
             </>

@@ -1,3 +1,4 @@
+// pages/api/catalogue/preview/[recordingId].ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import { importPKCS8, SignJWT } from "jose";
 import crypto from "crypto";

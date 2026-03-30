@@ -1,6 +1,8 @@
+// components/catalogue/CatalogueIndexSurface.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import CatalogueDrawer from "@/components/catalogue/CatalogueDrawer";
+import { CataloguePlaybackProvider } from "@/components/catalogue/CataloguePlaybackProvider";
 import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
 import CatalogueHeader from "@/components/catalogue/CatalogueHeader";
@@ -9,7 +11,10 @@ import CatalogueTable from "@/components/catalogue/CatalogueTable";
 import CatalogueViewToggle, {
   type CatalogueViewMode,
 } from "@/components/catalogue/CatalogueViewToggle";
-import type { CatalogueRecord, CatalogueRecordListItem } from "@/lib/catalogue/types";
+import type {
+  CatalogueRecord,
+  CatalogueRecordListItem,
+} from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
 
 type Props = {
@@ -20,12 +25,18 @@ type DetailApiResponse = {
   record: CatalogueRecord;
 };
 
-function getSingleQueryValue(value: string | string[] | undefined): string | null {
+function getSingleQueryValue(
+  value: string | string[] | undefined,
+): string | null {
   if (typeof value === "string" && value.trim().length > 0) {
     return value.trim();
   }
 
-  if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim().length > 0) {
+  if (
+    Array.isArray(value) &&
+    typeof value[0] === "string" &&
+    value[0].trim().length > 0
+  ) {
     return value[0].trim();
   }
 
@@ -37,9 +48,13 @@ export default function CatalogueIndexSurface(props: Props) {
   const router = useRouter();
 
   const [viewMode, setViewMode] = useState<CatalogueViewMode>("table");
-  const [activeRecord, setActiveRecord] = useState<CatalogueRecord | null>(null);
+  const [activeRecord, setActiveRecord] = useState<CatalogueRecord | null>(
+    null,
+  );
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(null);
+  const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(
+    null,
+  );
 
   const activeRecordingId = getSingleQueryValue(router.query.recordingId);
   const shareToken =
@@ -71,10 +86,10 @@ export default function CatalogueIndexSurface(props: Props) {
           query: nextQuery,
         },
         undefined,
-        { shallow: true, scroll: false }
+        { shallow: true, scroll: false },
       );
     },
-    [router, shareToken]
+    [router, shareToken],
   );
 
   const closeDrawer = useCallback(async () => {
@@ -90,7 +105,7 @@ export default function CatalogueIndexSurface(props: Props) {
         query: nextQuery,
       },
       undefined,
-      { shallow: true, scroll: false }
+      { shallow: true, scroll: false },
     );
 
     setActiveRecord(null);
@@ -115,7 +130,7 @@ export default function CatalogueIndexSurface(props: Props) {
       try {
         const url = new URL(
           `/api/catalogue/records/${encodeURIComponent(activeRecordingId)}`,
-          window.location.origin
+          window.location.origin,
         );
 
         if (shareToken) {
@@ -143,7 +158,7 @@ export default function CatalogueIndexSurface(props: Props) {
         if (!cancelled) {
           setActiveRecord(null);
           setDetailErrorMessage(
-            error instanceof Error ? error.message : "Failed to load record"
+            error instanceof Error ? error.message : "Failed to load record",
           );
         }
       } finally {
@@ -161,39 +176,40 @@ export default function CatalogueIndexSurface(props: Props) {
   }, [activeRecordingId, shareToken]);
 
   return (
-    <CatalogueLayout>
-      <div className={styles.surfaceHeaderRow}>
-        <CatalogueHeader
-          title="Sync Catalogue"
-          description="A curated selection of release-ready recordings available for sync consideration, presented as a self-contained catalogue surface within Angelfish Records."
-        />
-        <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
-      </div>
-
-      {records.length === 0 ? (
-        <CatalogueEmptyState
-          title="No catalogue records are currently available"
-          body="The configured Airtable view is returning no records yet. Once tracks are added to the dedicated sync view, they will appear here automatically."
-        />
-      ) : viewMode === "table" ? (
-        <CatalogueTable
-          records={records}
-          activeRecordingId={activeRecordingId}
-          onSelect={openRecord}
-          accessToken={shareToken}
-        />
-      ) : (
-        <CatalogueGrid records={records} onSelect={openRecord} />
-      )}
-
-      <CatalogueDrawer
-        record={activeRecord}
-        recordingId={activeRecordingId ?? activeListItem?.recordingId ?? null}
-        isOpen={Boolean(activeRecordingId)}
-        isLoading={isLoadingDetail}
-        errorMessage={detailErrorMessage}
-        onClose={closeDrawer}
-      />
-    </CatalogueLayout>
+    <CataloguePlaybackProvider accessToken={shareToken}>
+      {" "}
+      <CatalogueLayout>
+        {" "}
+        <div className={styles.surfaceHeaderRow}>
+          <CatalogueHeader
+            title="Sync Catalogue"
+            description="A curated selection of release-ready recordings available for sync consideration, presented as a self-contained catalogue surface within Angelfish Records."
+          />
+          <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
+        </div>
+        {records.length === 0 ? (
+          <CatalogueEmptyState
+            title="No catalogue records are currently available"
+            body="The configured Airtable view is returning no records yet. Once tracks are added to the dedicated sync view, they will appear here automatically."
+          />
+        ) : viewMode === "table" ? (
+          <CatalogueTable
+            records={records}
+            activeRecordingId={activeRecordingId}
+            onSelect={openRecord}
+          />
+        ) : (
+          <CatalogueGrid records={records} onSelect={openRecord} />
+        )}
+        <CatalogueDrawer
+          record={activeRecord}
+          recordingId={activeRecordingId ?? activeListItem?.recordingId ?? null}
+          isOpen={Boolean(activeRecordingId)}
+          isLoading={isLoadingDetail}
+          errorMessage={detailErrorMessage}
+          onClose={closeDrawer}
+        />{" "}
+      </CatalogueLayout>{" "}
+    </CataloguePlaybackProvider>
   );
 }

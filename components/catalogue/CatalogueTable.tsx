@@ -1,3 +1,4 @@
+// components/catalogue/CatalogueTable.tsx
 import CataloguePreviewButton from "@/components/catalogue/CataloguePreviewButton";
 import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
@@ -7,7 +8,6 @@ type Props = {
   records: CatalogueRecordListItem[];
   activeRecordingId: string | null;
   onSelect: (recordingId: string) => void;
-  accessToken?: string | null;
 };
 
 function joinCompact(values: string[], maxItems: number): string {
@@ -15,7 +15,7 @@ function joinCompact(values: string[], maxItems: number): string {
 }
 
 export default function CatalogueTable(props: Props) {
-  const { records, activeRecordingId, onSelect, accessToken = null } = props;
+  const { records, activeRecordingId, onSelect } = props;
 
   return (
     <section className={styles.tableShell}>
@@ -48,20 +48,21 @@ export default function CatalogueTable(props: Props) {
               >
                 <div className={styles.tableTrackCell}>
                   <div className={styles.tableTrackTopLine}>
-                    <span className={styles.tableRecordingId}>{record.recordingId}</span>
+                    <span className={styles.tableRecordingId}>
+                      {record.recordingId}
+                    </span>
                   </div>
                   <div className={styles.tableTrackTitle}>{record.title}</div>
                   {record.shortLogline ? (
-                    <div className={styles.tableTrackLogline}>{record.shortLogline}</div>
+                    <div className={styles.tableTrackLogline}>
+                      {record.shortLogline}
+                    </div>
                   ) : null}
                 </div>
               </button>
 
               <div className={styles.tablePreviewCell}>
-                <CataloguePreviewButton
-                  recordingId={record.recordingId}
-                  accessToken={accessToken}
-                />
+                <CataloguePreviewButton recordingId={record.recordingId} />
               </div>
 
               <div className={styles.tableReadinessCell}>
@@ -73,7 +74,9 @@ export default function CatalogueTable(props: Props) {
 
               <div className={styles.tableCellMuted}>{metaText || "—"}</div>
 
-              <div className={styles.tableDurationCell}>{record.duration ?? "—"}</div>
+              <div className={styles.tableDurationCell}>
+                {record.duration ?? "—"}
+              </div>
             </div>
           );
         })}
