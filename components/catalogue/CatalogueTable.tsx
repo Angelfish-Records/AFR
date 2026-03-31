@@ -13,7 +13,7 @@ type Props = {
 };
 
 function joinCompact(values: string[], maxItems: number): string {
-  return values.slice(0, maxItems).join(" • ");
+  return values.slice(0, maxItems).join(" / ");
 }
 
 export default function CatalogueTable(props: Props) {
@@ -40,7 +40,7 @@ export default function CatalogueTable(props: Props) {
         {records.map((record) => {
           const genreText = joinCompact(record.genreLabels, 2);
           const moodText = joinCompact(record.moodTags, 2);
-          const metaText = [genreText, moodText].filter(Boolean).join(" — ");
+          const metaText = [genreText, moodText].filter(Boolean).join(" • ");
           const isActive = activeRecordingId === record.recordingId;
           const isSelected = selectedRecordingIds.includes(record.recordingId);
 

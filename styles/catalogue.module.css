@@ -1,3 +1,8 @@
+.catalogueRoot {
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
 .pageShell {
   min-height: 100vh;
   background:

@@ -1,6 +1,9 @@
 import Head from "next/head";
 import type { ReactNode } from "react";
-import { CATALOGUE_DESCRIPTION, CATALOGUE_TITLE } from "@/lib/catalogue/constants";
+import {
+  CATALOGUE_DESCRIPTION,
+  CATALOGUE_TITLE,
+} from "@/lib/catalogue/constants";
 import styles from "@/styles/catalogue.module.css";
 
 type Props = {
@@ -25,7 +28,9 @@ export default function CatalogueLayout(props: Props) {
       </Head>
 
       <div className={styles.pageShell}>
-        <main className={styles.pageInner}>{children}</main>
+        <main className={`${styles.pageInner} ${styles.catalogueRoot}`}>
+          {children}
+        </main>
       </div>
     </>
   );
