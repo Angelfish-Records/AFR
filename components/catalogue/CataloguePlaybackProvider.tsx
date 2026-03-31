@@ -72,25 +72,39 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const hlsRef = React.useRef<Hls | null>(null);
   const sourceCacheRef = React.useRef<Map<string, PlaybackSource>>(new Map());
+  const attachedSourceRef = React.useRef<PlaybackSource | null>(null);
 
   const [state, setState] = React.useState<PlaybackState>(INITIAL_STATE);
 
   const teardownHls = React.useCallback(() => {
-    if (!hlsRef.current) {
-      return;
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.destroy();
+      } catch {
+        // ignore teardown errors
+      }
+
+      hlsRef.current = null;
     }
 
-    try {
-      hlsRef.current.destroy();
-    } catch {
-      // ignore teardown errors
+    const audio = audioRef.current;
+
+    if (audio) {
+      try {
+        audio.pause();
+      } catch {
+        // ignore pause errors
+      }
+
+      audio.removeAttribute("src");
+      audio.load();
     }
 
-    hlsRef.current = null;
+    attachedSourceRef.current = null;
   }, []);
 
   const attachSource = React.useCallback(
-    async (playbackUrl: string): Promise<void> => {
+    async (source: PlaybackSource): Promise<void> => {
       const audio = audioRef.current;
 
       if (!audio) {
@@ -118,7 +132,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         if (audio.canPlayType("application/vnd.apple.mpegurl")) {
           audio.addEventListener("canplay", onNativeReady);
           audio.addEventListener("error", onNativeError);
-          audio.src = playbackUrl;
+          audio.src = source.playbackUrl;
           audio.load();
           return;
         }
@@ -152,9 +166,11 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
 
         hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed);
         hls.on(Hls.Events.ERROR, onHlsError);
-        hls.loadSource(playbackUrl);
+        hls.loadSource(source.playbackUrl);
         hls.attachMedia(audio);
       });
+
+      attachedSourceRef.current = source;
     },
     [teardownHls],
   );
@@ -238,6 +254,11 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         throw new Error("Audio element unavailable");
       }
 
+      const isSameRecording = state.activeRecordingId === recordingId;
+      const isSameMode = state.activeMode === mode;
+      const isPausedSameTarget =
+        isSameRecording && isSameMode && state.status === "paused";
+
       setState((current) => ({
         ...current,
         activeRecordingId: recordingId,
@@ -249,15 +270,26 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       try {
         const source = await fetchSource(recordingId);
 
-        if (audio.src !== source.playbackUrl) {
-          await attachSource(source.playbackUrl);
+        const attachedSource = attachedSourceRef.current;
+        const hasSameAttachedSource =
+          attachedSource !== null &&
+          attachedSource.recordingId === recordingId &&
+          attachedSource.playbackUrl === source.playbackUrl;
+
+        if (!hasSameAttachedSource) {
+          await attachSource(source);
         }
 
         const clipStartSeconds = source.clipStartSeconds;
         const clipEndSeconds =
           source.clipStartSeconds + source.clipLengthSeconds;
 
-        audio.currentTime = mode === "full" ? 0 : clipStartSeconds;
+        if (mode === "clip") {
+          audio.currentTime = clipStartSeconds;
+        } else if (!isPausedSameTarget) {
+          audio.currentTime = 0;
+        }
+
         await audio.play();
 
         setState((current) => ({
@@ -280,7 +312,13 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         }));
       }
     },
-    [attachSource, fetchSource],
+    [
+      attachSource,
+      fetchSource,
+      state.activeMode,
+      state.activeRecordingId,
+      state.status,
+    ],
   );
 
   const toggle = React.useCallback(
