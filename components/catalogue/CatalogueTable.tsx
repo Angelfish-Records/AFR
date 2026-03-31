@@ -8,6 +8,8 @@ type Props = {
   records: CatalogueRecordListItem[];
   activeRecordingId: string | null;
   onSelect: (recordingId: string) => void;
+  selectedRecordingIds: string[];
+  onToggleSelected: (recordingId: string) => void;
 };
 
 function joinCompact(values: string[], maxItems: number): string {
@@ -15,11 +17,18 @@ function joinCompact(values: string[], maxItems: number): string {
 }
 
 export default function CatalogueTable(props: Props) {
-  const { records, activeRecordingId, onSelect } = props;
+  const {
+    records,
+    activeRecordingId,
+    onSelect,
+    selectedRecordingIds,
+    onToggleSelected,
+  } = props;
 
   return (
     <section className={styles.tableShell}>
       <div className={styles.tableHeaderRow}>
+        <div>Select</div>
         <div>Track</div>
         <div>Preview</div>
         <div>Readiness</div>
@@ -33,6 +42,7 @@ export default function CatalogueTable(props: Props) {
           const moodText = joinCompact(record.moodTags, 2);
           const metaText = [genreText, moodText].filter(Boolean).join(" — ");
           const isActive = activeRecordingId === record.recordingId;
+          const isSelected = selectedRecordingIds.includes(record.recordingId);
 
           return (
             <div
@@ -41,6 +51,19 @@ export default function CatalogueTable(props: Props) {
                 isActive ? styles.tableRowButtonActive : ""
               }`}
             >
+              <div className={styles.tableSelectCell}>
+                <label className={styles.selectionCheckboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelected(record.recordingId)}
+                    aria-label={`Select ${record.title} for print shortlist`}
+                    className={styles.selectionCheckbox}
+                  />
+                  <span className={styles.selectionCheckboxVisual} />
+                </label>
+              </div>
+
               <button
                 type="button"
                 className={styles.tableTrackButton}

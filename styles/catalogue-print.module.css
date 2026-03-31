@@ -1,0 +1,207 @@
+.printPage {
+  min-height: 100vh;
+  background: #eef1f5;
+  color: #121722;
+  padding: 24px;
+}
+
+.printToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.printButton {
+  appearance: none;
+  border: 1px solid rgba(18, 23, 34, 0.14);
+  background: #ffffff;
+  color: #121722;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.printSheet {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+  padding: 40px 40px 28px;
+}
+
+.printHeader {
+  margin-bottom: 28px;
+  border-bottom: 1px solid rgba(18, 23, 34, 0.1);
+  padding-bottom: 20px;
+}
+
+.printEyebrow {
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(18, 23, 34, 0.56);
+}
+
+.printTitle {
+  margin: 0 0 10px;
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.printIntro {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgba(18, 23, 34, 0.72);
+}
+
+.recordBlock {
+  padding: 24px 0;
+  border-bottom: 1px solid rgba(18, 23, 34, 0.1);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.recordBlock:last-child {
+  border-bottom: 0;
+}
+
+.recordHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.recordingId {
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(18, 23, 34, 0.5);
+}
+
+.recordTitle {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.recordLogline {
+  margin: 0;
+  max-width: 640px;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: rgba(18, 23, 34, 0.76);
+}
+
+.recordMetaTop {
+  min-width: 180px;
+  text-align: right;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: rgba(18, 23, 34, 0.68);
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(18, 23, 34, 0.06);
+  color: rgba(18, 23, 34, 0.86);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.muted {
+  color: rgba(18, 23, 34, 0.5);
+  font-size: 0.92rem;
+}
+
+.emptyPrintState {
+  padding: 24px 0 8px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgba(18, 23, 34, 0.68);
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+
+.metaItem {
+  break-inside: avoid;
+}
+
+.metaLabel {
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(18, 23, 34, 0.5);
+}
+
+.metaValue {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: rgba(18, 23, 34, 0.92);
+}
+
+@media (max-width: 760px) {
+  .printPage {
+    padding: 0;
+  }
+
+  .printSheet {
+    padding: 24px 20px;
+    box-shadow: none;
+  }
+
+  .recordHeader {
+    flex-direction: column;
+  }
+
+  .recordMetaTop {
+    text-align: left;
+    min-width: 0;
+  }
+
+  .metaGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .printPage {
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .printToolbar {
+    display: none;
+  }
+
+  .printSheet {
+    width: 100%;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .recordBlock {
+    page-break-inside: avoid;
+  }
+}

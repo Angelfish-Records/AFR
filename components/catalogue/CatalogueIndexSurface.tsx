@@ -7,6 +7,7 @@ import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
 import CatalogueHeader from "@/components/catalogue/CatalogueHeader";
 import CatalogueLayout from "@/components/catalogue/CatalogueLayout";
+import CatalogueShortlistBar from "@/components/catalogue/CatalogueShortlistBar";
 import CatalogueTable from "@/components/catalogue/CatalogueTable";
 import CatalogueViewToggle, {
   type CatalogueViewMode,
@@ -55,6 +56,9 @@ export default function CatalogueIndexSurface(props: Props) {
   const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(
     null,
   );
+  const [selectedRecordingIds, setSelectedRecordingIds] = useState<string[]>(
+    [],
+  );
 
   const activeRecordingId = getSingleQueryValue(router.query.recordingId);
   const shareToken =
@@ -69,6 +73,18 @@ export default function CatalogueIndexSurface(props: Props) {
       records.find((record) => record.recordingId === activeRecordingId) ?? null
     );
   }, [activeRecordingId, records]);
+
+  const toggleSelectedRecording = useCallback((recordingId: string) => {
+    setSelectedRecordingIds((current) =>
+      current.includes(recordingId)
+        ? current.filter((value) => value !== recordingId)
+        : [...current, recordingId],
+    );
+  }, []);
+
+  const clearSelectedRecordings = useCallback(() => {
+    setSelectedRecordingIds([]);
+  }, []);
 
   const openRecord = useCallback(
     async (recordingId: string) => {
@@ -197,16 +213,29 @@ export default function CatalogueIndexSurface(props: Props) {
             records={records}
             activeRecordingId={activeRecordingId}
             onSelect={openRecord}
+            selectedRecordingIds={selectedRecordingIds}
+            onToggleSelected={toggleSelectedRecording}
           />
         ) : (
-          <CatalogueGrid records={records} onSelect={openRecord} />
+          <CatalogueGrid
+            records={records}
+            onSelect={openRecord}
+            selectedRecordingIds={selectedRecordingIds}
+            onToggleSelected={toggleSelectedRecording}
+          />
         )}
+        <CatalogueShortlistBar
+          selectedRecordingIds={selectedRecordingIds}
+          shareToken={shareToken}
+          onClear={clearSelectedRecordings}
+        />
         <CatalogueDrawer
           record={activeRecord}
           recordingId={activeRecordingId ?? activeListItem?.recordingId ?? null}
           isOpen={Boolean(activeRecordingId)}
           isLoading={isLoadingDetail}
           errorMessage={detailErrorMessage}
+          shareToken={shareToken}
           onClose={closeDrawer}
         />{" "}
       </CatalogueLayout>{" "}

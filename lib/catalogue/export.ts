@@ -1,4 +1,5 @@
 import type { CatalogueRecord } from "@/lib/catalogue/types";
+import { getCatalogueRecordByRecordingId } from "@/lib/catalogue/queries";
 
 export type CatalogueExportRecord = {
   recordingId: string;
@@ -63,7 +64,7 @@ function formatPreviewLabel(previewStartSeconds: number | null): string | null {
 }
 
 export function mapCatalogueRecordToExportRecord(
-  record: CatalogueRecord
+  record: CatalogueRecord,
 ): CatalogueExportRecord {
   return {
     recordingId: record.recordingId,
@@ -108,7 +109,21 @@ export function mapCatalogueRecordToExportRecord(
 }
 
 export function mapCatalogueRecordsToExportRecords(
-  records: CatalogueRecord[]
+  records: CatalogueRecord[],
 ): CatalogueExportRecord[] {
   return records.map(mapCatalogueRecordToExportRecord);
+}
+
+export async function getExportRecordsByRecordingIds(
+  recordingIds: string[],
+): Promise<CatalogueExportRecord[]> {
+  const records = await Promise.all(
+    recordingIds.map((recordingId) =>
+      getCatalogueRecordByRecordingId(recordingId),
+    ),
+  );
+
+  return records
+    .filter((record): record is CatalogueRecord => record !== null)
+    .map(mapCatalogueRecordToExportRecord);
 }

@@ -1,5 +1,6 @@
 // components/catalogue/CatalogueDrawer.tsx
-import { useEffect } from "react";
+import Link from "next/link";
+import { useEffect, useMemo } from "react";
 import CatalogueDetailSection from "@/components/catalogue/CatalogueDetailSection";
 import CatalogueMetaRow from "@/components/catalogue/CatalogueMetaRow";
 import CataloguePlaybackTransport from "@/components/catalogue/CataloguePlaybackTransport";
@@ -12,12 +13,20 @@ type Props = {
   isOpen: boolean;
   isLoading: boolean;
   errorMessage: string | null;
+  shareToken?: string | null;
   onClose: () => void;
 };
 
 export default function CatalogueDrawer(props: Props) {
-  const { record, recordingId, isOpen, isLoading, errorMessage, onClose } =
-    props;
+  const {
+    record,
+    recordingId,
+    isOpen,
+    isLoading,
+    errorMessage,
+    shareToken = null,
+    onClose,
+  } = props;
 
   useEffect(() => {
     if (!isOpen) {
@@ -33,6 +42,21 @@ export default function CatalogueDrawer(props: Props) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
+
+  const singleTrackPrintHref = useMemo(() => {
+    if (!recordingId) {
+      return null;
+    }
+
+    const params = new URLSearchParams();
+    params.set("ids", recordingId);
+
+    if (shareToken) {
+      params.set("st", shareToken);
+    }
+
+    return `/print?${params.toString()}`;
+  }, [recordingId, shareToken]);
 
   return (
     <>
@@ -80,20 +104,35 @@ export default function CatalogueDrawer(props: Props) {
           {!isLoading && !errorMessage && record ? (
             <>
               <header className={styles.detailHero}>
-                {" "}
-                <p className={styles.detailKicker}>{record.recordingId}</p>{" "}
-                <h1 className={styles.detailTitle}>{record.title}</h1>{" "}
+                <div className={styles.detailHeroTopRow}>
+                  <div>
+                    <p className={styles.detailKicker}>{record.recordingId}</p>
+                    <h1 className={styles.detailTitle}>{record.title}</h1>
+                  </div>
+
+                  {singleTrackPrintHref ? (
+                    <Link
+                      href={singleTrackPrintHref}
+                      className={styles.drawerPrintButton}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Print one-sheet
+                    </Link>
+                  ) : null}
+                </div>
+
                 {(record.shortLogline || record.syncReadinessSummary) && (
                   <p className={styles.detailLead}>
-                    {" "}
-                    {record.shortLogline ?? record.syncReadinessSummary}{" "}
+                    {record.shortLogline ?? record.syncReadinessSummary}
                   </p>
-                )}{" "}
+                )}
+
                 <CataloguePlaybackTransport
                   recordingId={record.recordingId}
                   duration={record.duration}
                   previewStartSeconds={record.previewStartSeconds}
-                />{" "}
+                />
               </header>
 
               <CatalogueDetailSection title="Overview">
