@@ -1,11 +1,11 @@
 // components/catalogue/CatalogueIndexSurface.tsx
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import CatalogueDrawer from "@/components/catalogue/CatalogueDrawer";
 import { CataloguePlaybackProvider } from "@/components/catalogue/CataloguePlaybackProvider";
 import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
-import CatalogueHeader from "@/components/catalogue/CatalogueHeader";
 import CatalogueLayout from "@/components/catalogue/CatalogueLayout";
 import CatalogueShortlistBar from "@/components/catalogue/CatalogueShortlistBar";
 import CatalogueTable from "@/components/catalogue/CatalogueTable";
@@ -193,15 +193,26 @@ export default function CatalogueIndexSurface(props: Props) {
 
   return (
     <CataloguePlaybackProvider accessToken={shareToken}>
-      {" "}
       <CatalogueLayout>
-        {" "}
-        <div className={styles.surfaceHeaderRow}>
-          <CatalogueHeader
-            title="Sync Catalogue"
-            description="A curated selection of release-ready recordings available for sync consideration, presented as a self-contained catalogue surface within Angelfish Records."
+        <div className={styles.logoHeader}>
+          <Image
+            src="/brand/AFR_logo_suiboku_dark_text.jpg"
+            alt="Angelfish Records"
+            width={100}
+            height={132}
+            priority
+            className={styles.logoImage}
           />
-          <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
+        </div>
+        <div className={styles.surfaceHeaderRow}>
+          <div className={styles.surfaceControlRow}>
+            <CatalogueShortlistBar
+              selectedRecordingIds={selectedRecordingIds}
+              shareToken={shareToken}
+              onClear={clearSelectedRecordings}
+            />
+            <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
         {records.length === 0 ? (
           <CatalogueEmptyState
@@ -224,11 +235,6 @@ export default function CatalogueIndexSurface(props: Props) {
             onToggleSelected={toggleSelectedRecording}
           />
         )}
-        <CatalogueShortlistBar
-          selectedRecordingIds={selectedRecordingIds}
-          shareToken={shareToken}
-          onClear={clearSelectedRecordings}
-        />
         <CatalogueDrawer
           record={activeRecord}
           recordingId={activeRecordingId ?? activeListItem?.recordingId ?? null}
@@ -237,8 +243,8 @@ export default function CatalogueIndexSurface(props: Props) {
           errorMessage={detailErrorMessage}
           shareToken={shareToken}
           onClose={closeDrawer}
-        />{" "}
-      </CatalogueLayout>{" "}
+        />
+      </CatalogueLayout>
     </CataloguePlaybackProvider>
   );
 }

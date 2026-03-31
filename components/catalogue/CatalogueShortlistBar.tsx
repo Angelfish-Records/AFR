@@ -7,12 +7,28 @@ type Props = {
   onClear: () => void;
 };
 
-export default function CatalogueShortlistBar(props: Props) {
-  const { selectedRecordingIds, shareToken = null, onClear } = props;
+function PrintIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={styles.iconActionSvg}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 9V4h10v5" />
+      <path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2" />
+      <path d="M7 14h10v6H7z" />
+      <path d="M17 11h.01" />
+    </svg>
+  );
+}
 
-  if (selectedRecordingIds.length === 0) {
-    return null;
-  }
+export default function CatalogueShortlistBar(props: Props) {
+  const { selectedRecordingIds, shareToken = null } = props;
 
   const params = new URLSearchParams();
   params.set("ids", selectedRecordingIds.join(","));
@@ -22,31 +38,30 @@ export default function CatalogueShortlistBar(props: Props) {
   }
 
   const href = `/print?${params.toString()}`;
+  const isDisabled = selectedRecordingIds.length === 0;
+
+  if (isDisabled) {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label="Print shortlist"
+        className={`${styles.iconActionButton} ${styles.iconActionButtonDisabled}`}
+      >
+        <PrintIcon />
+      </button>
+    );
+  }
 
   return (
-    <div className={styles.shortlistBar}>
-      <div className={styles.shortlistBarMeta}>
-        <div className={styles.shortlistBarTitle}>
-          {selectedRecordingIds.length} track{selectedRecordingIds.length === 1 ? "" : "s"} selected
-        </div>
-        <div className={styles.shortlistBarBody}>
-          Build a clean print-ready shortlist for discussion, markup, or Save as PDF.
-        </div>
-      </div>
-
-      <div className={styles.shortlistBarActions}>
-        <button
-          type="button"
-          onClick={onClear}
-          className={styles.shortlistSecondaryButton}
-        >
-          Clear
-        </button>
-
-        <Link href={href} className={styles.shortlistPrimaryButton}>
-          Print shortlist
-        </Link>
-      </div>
-    </div>
+    <Link
+      href={href}
+      aria-label={`Print shortlist of ${selectedRecordingIds.length} selected track${
+        selectedRecordingIds.length === 1 ? "" : "s"
+      }`}
+      className={styles.iconActionButton}
+    >
+      <PrintIcon />
+    </Link>
   );
 }

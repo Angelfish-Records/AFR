@@ -113,11 +113,26 @@ export default function CatalogueDrawer(props: Props) {
                   {singleTrackPrintHref ? (
                     <Link
                       href={singleTrackPrintHref}
-                      className={styles.drawerPrintButton}
+                      className={styles.iconActionButton}
                       target="_blank"
                       rel="noreferrer"
+                      aria-label={`Print one-sheet for ${record.title}`}
                     >
-                      Print one-sheet
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className={styles.iconActionSvg}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M7 9V4h10v5" />
+                        <path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2" />
+                        <path d="M7 14h10v6H7z" />
+                        <path d="M17 11h.01" />
+                      </svg>
                     </Link>
                   ) : null}
                 </div>
