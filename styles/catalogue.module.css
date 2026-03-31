@@ -26,25 +26,44 @@
 }
 
 .surfaceHeaderRow {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   margin-bottom: 24px;
+  gap: 12px;
 }
 
-.surfaceControlRow {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+.surfaceControlLeft {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.surfaceControlRight {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.surfaceHeaderTitle {
+  text-align: center;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 @media (max-width: 860px) {
   .surfaceHeaderRow {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .surfaceControlLeft,
+  .surfaceControlRight {
     justify-content: center;
   }
 
-  .surfaceControlRow {
-    width: 100%;
-    justify-content: center;
+  .surfaceHeaderTitle {
+    order: -1;
   }
 }
 

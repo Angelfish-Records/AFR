@@ -196,7 +196,7 @@ export default function CatalogueIndexSurface(props: Props) {
       <CatalogueLayout>
         <div className={styles.logoHeader}>
           <Image
-            src="/brand/AFR_logo_suiboku_dark_text.jpg"
+            src="/brand/AFR_logo_suiboku_light_text.png"
             alt="Angelfish Records"
             width={100}
             height={132}
@@ -205,12 +205,17 @@ export default function CatalogueIndexSurface(props: Props) {
           />
         </div>
         <div className={styles.surfaceHeaderRow}>
-          <div className={styles.surfaceControlRow}>
+          <div className={styles.surfaceControlLeft}>
             <CatalogueShortlistBar
               selectedRecordingIds={selectedRecordingIds}
               shareToken={shareToken}
               onClear={clearSelectedRecordings}
             />
+          </div>
+
+          <div className={styles.surfaceHeaderTitle}>SYNC CATALOGUE</div>
+
+          <div className={styles.surfaceControlRight}>
             <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>
