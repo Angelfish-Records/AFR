@@ -57,26 +57,6 @@ function asStringArray(value: AirtableCellValue): string[] {
     .filter((item) => item.length > 0);
 }
 
-function asJoinedString(
-  value: AirtableCellValue,
-  separator = " • ",
-): string | null {
-  if (Array.isArray(value)) {
-    const values = value
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-
-    if (values.length === 0) {
-      return null;
-    }
-
-    return Array.from(new Set(values)).join(separator);
-  }
-
-  return asString(value);
-}
-
 function asAttachmentArray(value: AirtableCellValue): AirtableAttachment[] {
   if (!Array.isArray(value)) {
     return [];
@@ -166,10 +146,6 @@ export function mapRecordingRecord(
     ),
     isrc: asString(fields.ISRC),
     masterOwner: asString(fields["Master Owner"]),
-    masterSplitSummary: asJoinedString(fields["Master Split [Rights Source]"]),
-    compositionPublishingSplitSummary: asJoinedString(
-      fields["Composition/Publishing Split [Rights Source]"],
-    ),
     duration: asString(fields.Duration),
     language: asString(fields.Language),
     genreLabels: asStringArray(fields.Genre),

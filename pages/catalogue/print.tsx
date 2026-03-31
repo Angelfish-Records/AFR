@@ -126,20 +126,6 @@ export default function CataloguePrintPage(
                   </div>
                 </div>
                 <div className={styles.metaItem}>
-                  <div className={styles.metaLabel}>Master split</div>
-                  <div className={styles.metaValue}>
-                    {record.rights.masterSplitSummary ?? "—"}
-                  </div>
-                </div>
-                <div className={styles.metaItem}>
-                  <div className={styles.metaLabel}>
-                    Composition / publishing split
-                  </div>
-                  <div className={styles.metaValue}>
-                    {record.rights.compositionPublishingSplitSummary ?? "—"}
-                  </div>
-                </div>
-                <div className={styles.metaItem}>
                   <div className={styles.metaLabel}>Rights administrator</div>
                   <div className={styles.metaValue}>
                     {record.rights.rightsAdministrator ?? "—"}

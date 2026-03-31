@@ -9,8 +9,6 @@ export type CatalogueRecord = {
   releaseDateCurrent: string | null;
   isrc: string | null;
   masterOwner: string | null;
-  masterSplitSummary: string | null;
-  compositionPublishingSplitSummary: string | null;
   duration: string | null;
   language: string | null;
   genreLabels: string[];
@@ -70,8 +68,6 @@ export type RecordingAirtableFields = {
   "Release Date (Current)"?: AirtableCellValue;
   ISRC?: AirtableCellValue;
   "Master Owner"?: AirtableCellValue;
-  "Master Split [Rights Source]"?: AirtableCellValue;
-  "Composition/Publishing Split [Rights Source]"?: AirtableCellValue;
   Duration?: AirtableCellValue;
   Language?: AirtableCellValue;
   Genre?: AirtableCellValue;

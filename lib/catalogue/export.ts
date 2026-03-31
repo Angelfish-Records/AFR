@@ -25,8 +25,6 @@ export type CatalogueExportRecord = {
     coverage: string | null;
     knownLegalRisks: string | null;
     masterOwner: string | null;
-    masterSplitSummary: string | null;
-    compositionPublishingSplitSummary: string | null;
     rightsAdministrator: string | null;
   };
   identifiers: {
@@ -89,9 +87,6 @@ export function mapCatalogueRecordToExportRecord(
       coverage: record.rightsCoverage,
       knownLegalRisks: record.knownLegalRisks,
       masterOwner: record.masterOwner,
-      masterSplitSummary: record.masterSplitSummary,
-      compositionPublishingSplitSummary:
-        record.compositionPublishingSplitSummary,
       rightsAdministrator: record.rightsAdministrator,
     },
     identifiers: {

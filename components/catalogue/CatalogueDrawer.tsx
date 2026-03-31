@@ -190,14 +190,6 @@ export default function CatalogueDrawer(props: Props) {
                     value={record.masterOwner}
                   />
                   <CatalogueMetaRow
-                    label="Master split"
-                    value={record.masterSplitSummary}
-                  />
-                  <CatalogueMetaRow
-                    label="Composition / publishing split"
-                    value={record.compositionPublishingSplitSummary}
-                  />
-                  <CatalogueMetaRow
                     label="Rights administrator"
                     value={record.rightsAdministrator}
                   />

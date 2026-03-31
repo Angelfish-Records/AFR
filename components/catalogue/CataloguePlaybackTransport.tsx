@@ -96,7 +96,7 @@ export default function CataloguePlaybackTransport(props: Props) {
 
       {previewStartSeconds !== null ? (
         <div className={styles.transportFootnote}>
-          Impact moment preview starts at {formatSeconds(previewStartSeconds)}.
+          Clip starts at {formatSeconds(previewStartSeconds)}.
         </div>
       ) : null}
     </div>
