@@ -44,6 +44,7 @@ type CataloguePlaybackContextValue = {
   play: (recordingId: string, mode: PlaybackMode) => Promise<void>;
   pause: () => void;
   toggle: (recordingId: string, mode: PlaybackMode) => Promise<void>;
+  seekTo: (timeSeconds: number) => void;
 };
 
 const CataloguePlaybackContext =
@@ -155,7 +156,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         hls.attachMedia(audio);
       });
     },
-    [teardownHls]
+    [teardownHls],
   );
 
   const fetchSource = React.useCallback(
@@ -190,7 +191,9 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
 
       if (!response.ok || !payload.ok) {
         throw new Error(
-          response.ok && !payload.ok ? payload.error : "Failed to load playback"
+          response.ok && !payload.ok
+            ? payload.error
+            : "Failed to load playback",
         );
       }
 
@@ -205,7 +208,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       sourceCacheRef.current.set(recordingId, source);
       return source;
     },
-    [accessToken]
+    [accessToken],
   );
 
   const pause = React.useCallback(() => {
@@ -277,7 +280,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         }));
       }
     },
-    [attachSource, fetchSource]
+    [attachSource, fetchSource],
   );
 
   const toggle = React.useCallback(
@@ -292,7 +295,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
 
       await play(recordingId, mode);
     },
-    [pause, play, state.activeMode, state.activeRecordingId, state.status]
+    [pause, play, state.activeMode, state.activeRecordingId, state.status],
   );
 
   const isRecordingActive = React.useCallback(
@@ -307,8 +310,31 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
 
       return state.activeMode === mode;
     },
-    [state.activeMode, state.activeRecordingId]
+    [state.activeMode, state.activeRecordingId],
   );
+
+  const seekTo = React.useCallback((timeSeconds: number): void => {
+    const audio = audioRef.current;
+
+    if (!audio || !Number.isFinite(timeSeconds)) {
+      return;
+    }
+
+    const durationSeconds = Number.isFinite(audio.duration)
+      ? audio.duration
+      : null;
+    const safeTarget =
+      durationSeconds !== null
+        ? Math.min(Math.max(timeSeconds, 0), durationSeconds)
+        : Math.max(timeSeconds, 0);
+
+    audio.currentTime = safeTarget;
+
+    setState((current) => ({
+      ...current,
+      currentTimeSeconds: safeTarget,
+    }));
+  }, []);
 
   React.useEffect(() => {
     const audio = audioRef.current;
@@ -340,7 +366,9 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         return {
           ...current,
           currentTimeSeconds: audio.currentTime,
-          durationSeconds: Number.isFinite(audio.duration) ? audio.duration : null,
+          durationSeconds: Number.isFinite(audio.duration)
+            ? audio.duration
+            : null,
         };
       });
     };
@@ -393,8 +421,9 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       play,
       pause,
       toggle,
+      seekTo,
     }),
-    [isRecordingActive, pause, play, state, toggle]
+    [isRecordingActive, pause, play, seekTo, state, toggle],
   );
 
   return (
@@ -409,7 +438,9 @@ export function useCataloguePlayback(): CataloguePlaybackContextValue {
   const value = React.useContext(CataloguePlaybackContext);
 
   if (!value) {
-    throw new Error("useCataloguePlayback must be used within CataloguePlaybackProvider");
+    throw new Error(
+      "useCataloguePlayback must be used within CataloguePlaybackProvider",
+    );
   }
 
   return value;
