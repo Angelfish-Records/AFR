@@ -182,10 +182,6 @@ export default function CatalogueDrawer(props: Props) {
                     value={record.rightsCoverage}
                   />
                   <CatalogueMetaRow
-                    label="Geo restrictions"
-                    value={record.geoRestrictions}
-                  />
-                  <CatalogueMetaRow
                     label="Known legal risks"
                     value={record.knownLegalRisks}
                   />

@@ -23,7 +23,6 @@ export type CatalogueExportRecord = {
   };
   rights: {
     coverage: string | null;
-    geoRestrictions: string | null;
     knownLegalRisks: string | null;
     masterOwner: string | null;
     masterSplitSummary: string | null;
@@ -88,7 +87,6 @@ export function mapCatalogueRecordToExportRecord(
     },
     rights: {
       coverage: record.rightsCoverage,
-      geoRestrictions: record.geoRestrictions,
       knownLegalRisks: record.knownLegalRisks,
       masterOwner: record.masterOwner,
       masterSplitSummary: record.masterSplitSummary,

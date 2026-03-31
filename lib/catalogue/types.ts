@@ -5,7 +5,6 @@ export type CatalogueRecord = {
   syncReadinessSummary: string | null;
   recordingType: string | null;
   rightsCoverage: string | null;
-  geoRestrictions: string | null;
   knownLegalRisks: string | null;
   releaseDateCurrent: string | null;
   isrc: string | null;
@@ -67,7 +66,6 @@ export type RecordingAirtableFields = {
   "Sync Readiness Summary"?: AirtableCellValue;
   "Recording Type"?: AirtableCellValue;
   "Rights Coverage"?: AirtableCellValue;
-  "Geo Restrictions"?: AirtableCellValue;
   "Known Legal Risks"?: AirtableCellValue;
   "Release Date (Current)"?: AirtableCellValue;
   ISRC?: AirtableCellValue;

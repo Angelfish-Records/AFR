@@ -133,7 +133,6 @@ export function mapRecordingRecord(
     syncReadinessSummary: asString(fields["Sync Readiness Summary"]),
     recordingType: asString(fields["Recording Type"]),
     rightsCoverage: asString(fields["Rights Coverage"]),
-    geoRestrictions: asString(fields["Geo Restrictions"]),
     knownLegalRisks: asString(fields["Known Legal Risks"]),
     releaseDateCurrent: formatDateForDisplay(asString(fields["Release Date (Current)"])),
     isrc: asString(fields.ISRC),
