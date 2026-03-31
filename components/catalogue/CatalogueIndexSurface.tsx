@@ -205,17 +205,16 @@ export default function CatalogueIndexSurface(props: Props) {
           />
         </div>
         <div className={styles.surfaceHeaderRow}>
-          <div className={styles.surfaceControlLeft}>
+          <div className={styles.surfaceControlLeft} aria-hidden="true" />
+
+          <div className={styles.surfaceHeaderTitle}>SYNC CATALOGUE</div>
+
+          <div className={styles.surfaceControlRight}>
             <CatalogueShortlistBar
               selectedRecordingIds={selectedRecordingIds}
               shareToken={shareToken}
               onClear={clearSelectedRecordings}
             />
-          </div>
-
-          <div className={styles.surfaceHeaderTitle}>SYNC CATALOGUE</div>
-
-          <div className={styles.surfaceControlRight}>
             <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>
