@@ -66,6 +66,21 @@ const INITIAL_STATE: PlaybackState = {
   errorMessage: null,
 };
 
+function hasUsableMediaSource(audio: HTMLAudioElement): boolean {
+  const currentSrc = audio.currentSrc?.trim() ?? "";
+  const src = audio.src?.trim() ?? "";
+
+  if (!currentSrc && !src) {
+    return false;
+  }
+
+  if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+    return false;
+  }
+
+  return true;
+}
+
 export function CataloguePlaybackProvider(props: ProviderProps) {
   const { accessToken = null, children } = props;
 
@@ -114,22 +129,21 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       teardownHls();
 
       await new Promise<void>((resolve, reject) => {
-        const cleanupNativeListeners = () => {
-          audio.removeEventListener("canplay", onNativeReady);
-          audio.removeEventListener("error", onNativeError);
-        };
-
-        const onNativeReady = () => {
-          cleanupNativeListeners();
-          resolve();
-        };
-
-        const onNativeError = () => {
-          cleanupNativeListeners();
-          reject(new Error("Failed to load playback"));
-        };
-
         if (audio.canPlayType("application/vnd.apple.mpegurl")) {
+          const onNativeReady = () => {
+            audio.removeEventListener("canplay", onNativeReady);
+            audio.removeEventListener("error", onNativeError);
+            attachedSourceRef.current = source;
+            resolve();
+          };
+
+          const onNativeError = () => {
+            audio.removeEventListener("canplay", onNativeReady);
+            audio.removeEventListener("error", onNativeError);
+            attachedSourceRef.current = null;
+            reject(new Error("Failed to load playback"));
+          };
+
           audio.addEventListener("canplay", onNativeReady);
           audio.addEventListener("error", onNativeError);
           audio.src = source.playbackUrl;
@@ -152,6 +166,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
 
         const onManifestParsed = () => {
           cleanupHlsListeners();
+          attachedSourceRef.current = source;
           resolve();
         };
 
@@ -161,6 +176,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
           }
 
           cleanupHlsListeners();
+          attachedSourceRef.current = null;
           reject(new Error("Failed to load playback"));
         };
 
@@ -169,8 +185,6 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         hls.loadSource(source.playbackUrl);
         hls.attachMedia(audio);
       });
-
-      attachedSourceRef.current = source;
     },
     [teardownHls],
   );
@@ -276,7 +290,10 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
           attachedSource.recordingId === recordingId &&
           attachedSource.playbackUrl === source.playbackUrl;
 
-        if (!hasSameAttachedSource) {
+        const canReuseAttachedSource =
+          hasSameAttachedSource && hasUsableMediaSource(audio);
+
+        if (!canReuseAttachedSource) {
           await attachSource(source);
         }
 
@@ -432,16 +449,28 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       }));
     };
 
+    const onError = () => {
+      attachedSourceRef.current = null;
+
+      setState((current) => ({
+        ...current,
+        status: "error",
+        errorMessage: "Playback source became unavailable",
+      }));
+    };
+
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("playing", onPlaying);
     audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onError);
     };
   }, []);
 
