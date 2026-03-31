@@ -1,3 +1,4 @@
+// lib/catalogue/mappers.ts
 import type {
   AirtableAttachment,
   AirtableCellValue,
@@ -56,6 +57,26 @@ function asStringArray(value: AirtableCellValue): string[] {
     .filter((item) => item.length > 0);
 }
 
+function asJoinedString(
+  value: AirtableCellValue,
+  separator = " • ",
+): string | null {
+  if (Array.isArray(value)) {
+    const values = value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    if (values.length === 0) {
+      return null;
+    }
+
+    return Array.from(new Set(values)).join(separator);
+  }
+
+  return asString(value);
+}
+
 function asAttachmentArray(value: AirtableCellValue): AirtableAttachment[] {
   if (!Array.isArray(value)) {
     return [];
@@ -97,27 +118,33 @@ function formatDateForDisplay(raw: string | null): string | null {
 function requireString(
   value: AirtableCellValue,
   fieldName: string,
-  recordId: string
+  recordId: string,
 ): string {
   const stringValue = asString(value);
 
   if (!stringValue) {
-    throw new Error(`Missing required field "${fieldName}" on record ${recordId}`);
+    throw new Error(
+      `Missing required field "${fieldName}" on record ${recordId}`,
+    );
   }
 
   return stringValue;
 }
 
 export function mapRecordingRecord(
-  record: AirtableRecord<RecordingAirtableFields>
+  record: AirtableRecord<RecordingAirtableFields>,
 ): CatalogueRecord {
   const { fields } = record;
 
-  const recordingId = requireString(fields["Recording ID"], "Recording ID", record.id);
+  const recordingId = requireString(
+    fields["Recording ID"],
+    "Recording ID",
+    record.id,
+  );
   const title = requireString(
     fields["Recording Title (Display)"],
     "Recording Title (Display)",
-    record.id
+    record.id,
   );
 
   const previewStartSecondsRaw = asNumber(fields["Preview Start Seconds"]);
@@ -134,12 +161,14 @@ export function mapRecordingRecord(
     recordingType: asString(fields["Recording Type"]),
     rightsCoverage: asString(fields["Rights Coverage"]),
     knownLegalRisks: asString(fields["Known Legal Risks"]),
-    releaseDateCurrent: formatDateForDisplay(asString(fields["Release Date (Current)"])),
+    releaseDateCurrent: formatDateForDisplay(
+      asString(fields["Release Date (Current)"]),
+    ),
     isrc: asString(fields.ISRC),
     masterOwner: asString(fields["Master Owner"]),
-    masterSplitSummary: asString(fields["Master Split [Rights Source]"]),
-    compositionPublishingSplitSummary: asString(
-      fields["Composition/Publishing Split [Rights Source]"]
+    masterSplitSummary: asJoinedString(fields["Master Split [Rights Source]"]),
+    compositionPublishingSplitSummary: asJoinedString(
+      fields["Composition/Publishing Split [Rights Source]"],
     ),
     duration: asString(fields.Duration),
     language: asString(fields.Language),

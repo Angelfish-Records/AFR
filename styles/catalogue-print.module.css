@@ -161,7 +161,7 @@
   color: rgba(18, 23, 34, 0.92);
 }
 
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   .printPage {
     padding: 0;
   }
@@ -185,10 +185,18 @@
   }
 }
 
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
 @media print {
   .printPage {
     background: #ffffff;
     padding: 0;
+    color: #000000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .printToolbar {
@@ -197,11 +205,82 @@
 
   .printSheet {
     width: 100%;
+    max-width: none;
     box-shadow: none;
     padding: 0;
   }
 
+  .printHeader {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+  }
+
+  .printTitle {
+    font-size: 1.6rem;
+  }
+
+  .printIntro {
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
   .recordBlock {
+    padding: 16px 0;
+    break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .recordHeader {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .recordTitle {
+    font-size: 1.2rem;
+    line-height: 1.08;
+  }
+
+  .recordLogline {
+    max-width: none;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .recordMetaTop {
+    min-width: 140px;
+    text-align: right;
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .pillRow {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .pill {
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+  }
+
+  .metaGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+  }
+
+  .metaLabel {
+    margin-bottom: 2px;
+    font-size: 0.7rem;
+  }
+
+  .metaValue {
+    font-size: 0.84rem;
+    line-height: 1.35;
   }
 }

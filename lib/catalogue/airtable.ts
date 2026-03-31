@@ -1,3 +1,4 @@
+// lib/catalogue/airtable.ts
 const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
 
 function getRequiredEnv(name: string): string {
