@@ -40,7 +40,7 @@ export default function CatalogueTable(props: Props) {
         {records.map((record) => {
           const genreText = joinCompact(record.genreLabels, 3);
           const moodText = joinCompact(record.moodTags, 4);
-          const metaText = [genreText, moodText].filter(Boolean).join(" — ");
+          const metaText = [genreText, moodText].filter(Boolean).join(" · ");
           const isActive = activeRecordingId === record.recordingId;
           const isSelected = selectedRecordingIds.includes(record.recordingId);
 
