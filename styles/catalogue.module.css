@@ -1,5 +1,5 @@
 .catalogueRoot {
-  font-size: 0.88rem;
+  font-size: 0.94rem;
   line-height: 1.45;
 }
 
@@ -52,7 +52,7 @@
 
 .surfaceHeaderTitle {
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.78em;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
@@ -85,7 +85,7 @@
 
 .eyebrow {
   margin: 0 0 10px;
-  font-size: 0.82rem;
+  font-size: 0.82em;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.6);
@@ -93,7 +93,7 @@
 
 .heroTitle {
   margin: 0 0 12px;
-  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-size: clamp(2em, 4vw, 3.5em);
   line-height: 1.02;
   letter-spacing: -0.03em;
 }
@@ -101,7 +101,7 @@
 .heroDescription {
   margin: 0;
   max-width: 760px;
-  font-size: 1.03rem;
+  font-size: 1.03em;
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.74);
 }
@@ -147,7 +147,7 @@
     minmax(180px, 1fr) 88px;
   gap: 16px;
   padding: 16px 20px;
-  font-size: 0.8rem;
+  font-size: 0.8em;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
@@ -224,21 +224,21 @@
 }
 
 .tableRecordingId {
-  font-size: 0.78rem;
+  font-size: 0.78em;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
 }
 
 .tableTrackTitle {
-  font-size: 1.02rem;
+  font-size: 1.02em;
   line-height: 1.3;
   color: rgba(255, 255, 255, 0.96);
   margin-bottom: 4px;
 }
 
 .tableTrackLogline {
-  font-size: 0.9rem;
+  font-size: 0.9em;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.62);
 }
@@ -328,12 +328,12 @@
 }
 
 .previewButtonIcon {
-  font-size: 0.78rem;
+  font-size: 0.78em;
   line-height: 1;
 }
 
 .previewButtonLabel {
-  font-size: 0.8rem;
+  font-size: 0.8em;
   line-height: 1;
 }
 
@@ -343,14 +343,14 @@
 }
 
 .tableCellMuted {
-  font-size: 0.92rem;
+  font-size: 0.92em;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.76);
   align-self: center;
 }
 
 .tableDurationCell {
-  font-size: 0.92rem;
+  font-size: 0.92em;
   color: rgba(255, 255, 255, 0.9);
   align-self: center;
   text-align: right;
@@ -379,7 +379,7 @@
   min-height: 28px;
   padding: 5px 10px;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.8em;
   line-height: 1.2;
   white-space: nowrap;
   border: 1px solid transparent;
@@ -388,7 +388,7 @@
 .readinessPillsCompact .readinessPill {
   min-height: 24px;
   padding: 4px 9px;
-  font-size: 0.76rem;
+  font-size: 0.76em;
 }
 
 .readinessPillA {
@@ -489,7 +489,7 @@
 }
 
 .cardKicker {
-  font-size: 0.78rem;
+  font-size: 0.78em;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.58);
@@ -501,13 +501,13 @@
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  font-size: 0.82rem;
+  font-size: 0.82em;
   color: rgba(255, 255, 255, 0.82);
 }
 
 .cardTitle {
   margin: 0 0 12px;
-  font-size: 1.3rem;
+  font-size: 1.3em;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -522,7 +522,7 @@
 
 .cardLogline {
   margin: 0 0 14px;
-  font-size: 0.92rem;
+  font-size: 0.92em;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.66);
 }
@@ -539,7 +539,7 @@
   align-items: center;
   border-radius: 999px;
   padding: 6px 10px;
-  font-size: 0.82rem;
+  font-size: 0.82em;
 }
 
 .tag {
@@ -603,7 +603,7 @@
 
 .drawerEyebrow {
   margin: 0 0 8px;
-  font-size: 0.76rem;
+  font-size: 0.76em;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.52);
@@ -611,7 +611,7 @@
 
 .drawerTitle {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.25em;
   line-height: 1.2;
 }
 
@@ -661,7 +661,7 @@
 
 .detailKicker {
   margin: 0 0 10px;
-  font-size: 0.82rem;
+  font-size: 0.82em;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.56);
@@ -669,7 +669,7 @@
 
 .detailTitle {
   margin: 0 0 12px;
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(2em, 4vw, 3em);
   line-height: 1.02;
   letter-spacing: -0.03em;
 }
@@ -677,7 +677,7 @@
 .detailLead {
   margin: 0;
   max-width: 780px;
-  font-size: 1.02rem;
+  font-size: 1.02em;
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.74);
 }
@@ -718,7 +718,7 @@
 }
 
 .transportStatus {
-  font-size: 0.82rem;
+  font-size: 0.82em;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.68);
 }
@@ -727,7 +727,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.82rem;
+  font-size: 0.82em;
   line-height: 1.2;
   color: rgba(255, 255, 255, 0.54);
 }
@@ -808,7 +808,7 @@
 
 .transportFootnote {
   margin-top: 10px;
-  font-size: 0.8rem;
+  font-size: 0.8em;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.52);
 }
@@ -821,7 +821,7 @@
 
 .sectionTitle {
   margin: 0 0 14px;
-  font-size: 1.1rem;
+  font-size: 1.1em;
   letter-spacing: -0.01em;
 }
 
@@ -849,13 +849,13 @@
 
 .metaLabel {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.92em;
   color: rgba(255, 255, 255, 0.56);
 }
 
 .metaValue {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.98em;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.9);
 }
@@ -890,7 +890,7 @@
 
 .emptyStateTitle {
   margin: 0 0 8px;
-  font-size: 1.15rem;
+  font-size: 1.15em;
 }
 
 .emptyStateBody {
@@ -916,14 +916,14 @@
 
 .accessMessageTitle {
   margin: 0 0 12px;
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(2em, 4vw, 3em);
   line-height: 1.02;
   letter-spacing: -0.03em;
 }
 
 .accessMessageBody {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1em;
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.72);
 }
