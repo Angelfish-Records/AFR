@@ -28,7 +28,7 @@ export default function CatalogueTable(props: Props) {
   return (
     <section className={styles.tableShell}>
       <div className={styles.tableHeaderRow}>
-        <div>Select</div>
+        <div aria-hidden="true" />
         <div>Track</div>
         <div>Preview</div>
         <div>Readiness</div>
@@ -38,9 +38,9 @@ export default function CatalogueTable(props: Props) {
 
       <div className={styles.tableBody}>
         {records.map((record) => {
-          const genreText = joinCompact(record.genreLabels, 2);
-          const moodText = joinCompact(record.moodTags, 2);
-          const metaText = [genreText, moodText].filter(Boolean).join(" • ");
+          const genreText = joinCompact(record.genreLabels, 3);
+          const moodText = joinCompact(record.moodTags, 4);
+          const metaText = [genreText, moodText].filter(Boolean).join(" — ");
           const isActive = activeRecordingId === record.recordingId;
           const isSelected = selectedRecordingIds.includes(record.recordingId);
 
