@@ -22,7 +22,7 @@ export default function CatalogueGrid(props: Props) {
       {records.map((record) => {
         const genreText = joinCompact(record.genreLabels, 2);
         const moodText = joinCompact(record.moodTags, 2);
-        const metaText = [genreText, moodText].filter(Boolean).join(" — ");
+        const metaText = [genreText, moodText].filter(Boolean).join(" · ");
         const isSelected = selectedRecordingIds.includes(record.recordingId);
 
         return (
