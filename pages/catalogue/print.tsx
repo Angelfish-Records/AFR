@@ -59,6 +59,11 @@ export default function CataloguePrintPage(
                 <div>
                   <div className={styles.recordingId}>{record.recordingId}</div>
                   <h2 className={styles.recordTitle}>{record.title}</h2>
+                  {record.artistName ? (
+                    <div className={styles.recordArtist}>
+                      {record.artistName}
+                    </div>
+                  ) : null}
                   {record.logline ? (
                     <p className={styles.recordLogline}>{record.logline}</p>
                   ) : null}

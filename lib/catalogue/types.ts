@@ -2,6 +2,7 @@ export type CatalogueRecord = {
   id: string;
   recordingId: string;
   title: string;
+  artistName: string | null;
   syncReadinessSummary: string | null;
   recordingType: string | null;
   rightsCoverage: string | null;
@@ -26,6 +27,7 @@ export type CatalogueRecordListItem = Pick<
   | "id"
   | "recordingId"
   | "title"
+  | "artistName"
   | "syncReadinessSummary"
   | "duration"
   | "genreLabels"
@@ -61,6 +63,7 @@ export type AirtableRecord<TFields extends AirtableRecordFields> = {
 export type RecordingAirtableFields = {
   "Recording ID"?: AirtableCellValue;
   "Recording Title (Display)"?: AirtableCellValue;
+  "Artist (Derived)"?: AirtableCellValue;
   "Sync Readiness Summary"?: AirtableCellValue;
   "Recording Type"?: AirtableCellValue;
   "Rights Coverage"?: AirtableCellValue;

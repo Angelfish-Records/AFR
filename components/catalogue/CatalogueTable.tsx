@@ -76,6 +76,11 @@ export default function CatalogueTable(props: Props) {
                     </span>
                   </div>
                   <div className={styles.tableTrackTitle}>{record.title}</div>
+                  {record.artistName ? (
+                    <div className={styles.tableTrackArtist}>
+                      {record.artistName}
+                    </div>
+                  ) : null}
                   {record.shortLogline ? (
                     <div className={styles.tableTrackLogline}>
                       {record.shortLogline}

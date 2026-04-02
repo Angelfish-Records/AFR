@@ -4,6 +4,7 @@ import { getCatalogueRecordByRecordingId } from "@/lib/catalogue/queries";
 export type CatalogueExportRecord = {
   recordingId: string;
   title: string;
+  artistName: string | null;
   subtitle: string | null;
   logline: string | null;
   readiness: {
@@ -66,6 +67,7 @@ export function mapCatalogueRecordToExportRecord(
   return {
     recordingId: record.recordingId,
     title: record.title,
+    artistName: record.artistName,
     subtitle: record.recordingType,
     logline: record.shortLogline,
     readiness: {

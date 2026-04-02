@@ -61,6 +61,10 @@ export default function CatalogueGrid(props: Props) {
 
                 <h2 className={styles.cardTitle}>{record.title}</h2>
 
+                {record.artistName ? (
+                  <div className={styles.cardArtist}>{record.artistName}</div>
+                ) : null}
+
                 <div className={styles.cardReadinessRow}>
                   <CatalogueReadinessPills
                     summary={record.syncReadinessSummary}

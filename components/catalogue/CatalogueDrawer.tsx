@@ -108,6 +108,9 @@ export default function CatalogueDrawer(props: Props) {
                   <div>
                     <p className={styles.detailKicker}>{record.recordingId}</p>
                     <h1 className={styles.detailTitle}>{record.title}</h1>
+                    {record.artistName ? (
+                      <p className={styles.detailArtist}>{record.artistName}</p>
+                    ) : null}
                   </div>
 
                   {singleTrackPrintHref ? (

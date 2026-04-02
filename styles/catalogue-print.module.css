@@ -85,9 +85,18 @@
 }
 
 .recordTitle {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 1.5rem;
   line-height: 1.1;
+}
+
+.recordArtist {
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(18, 23, 34, 0.56);
 }
 
 .recordLogline {
@@ -242,6 +251,11 @@
   .recordTitle {
     font-size: 1.2rem;
     line-height: 1.08;
+  }
+
+  .recordArtist {
+    font-size: 0.72rem;
+    margin-bottom: 6px;
   }
 
   .recordLogline {

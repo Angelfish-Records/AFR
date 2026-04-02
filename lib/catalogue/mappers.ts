@@ -57,6 +57,26 @@ function asStringArray(value: AirtableCellValue): string[] {
     .filter((item) => item.length > 0);
 }
 
+function asJoinedString(
+  value: AirtableCellValue,
+  separator = " • ",
+): string | null {
+  if (Array.isArray(value)) {
+    const values = value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    if (values.length === 0) {
+      return null;
+    }
+
+    return Array.from(new Set(values)).join(separator);
+  }
+
+  return asString(value);
+}
+
 function asAttachmentArray(value: AirtableCellValue): AirtableAttachment[] {
   if (!Array.isArray(value)) {
     return [];
@@ -137,6 +157,7 @@ export function mapRecordingRecord(
     id: record.id,
     recordingId,
     title,
+    artistName: asJoinedString(fields["Artist (Derived)"]),
     syncReadinessSummary: asString(fields["Sync Readiness Summary"]),
     recordingType: asString(fields["Recording Type"]),
     rightsCoverage: asString(fields["Rights Coverage"]),
