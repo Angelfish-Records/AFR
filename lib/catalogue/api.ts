@@ -14,6 +14,7 @@ export function toCatalogueListItem(record: CatalogueRecord): CatalogueRecordLis
     id: record.id,
     recordingId: record.recordingId,
     title: record.title,
+    artistName: record.artistName,
     syncReadinessSummary: record.syncReadinessSummary,
     duration: record.duration,
     genreLabels: record.genreLabels,
