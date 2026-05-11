@@ -1,7 +1,12 @@
+// middleware.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const PROTECTED_PREFIXES = ["/internal", "/api/campaigns", "/api/catalogue/admin"];
+const PROTECTED_PREFIXES = [
+  "/internal",
+  "/api/campaigns",
+  "/api/catalogue/admin",
+];
 
 function unauthorized(): NextResponse {
   return new NextResponse("Authentication required.", {
@@ -21,7 +26,7 @@ function normalizeHost(hostHeader: string | null): string {
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
 
@@ -45,10 +50,21 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
 
   if (!isProtectedPath(pathname)) return null;
 
-  const user = process.env.INTERNAL_BASIC_AUTH_USER;
-  const pass = process.env.INTERNAL_BASIC_AUTH_PASS;
+  const credentials = [
+    {
+      user: process.env.INTERNAL_BASIC_AUTH_USER,
+      pass: process.env.INTERNAL_BASIC_AUTH_PASS,
+    },
+    {
+      user: process.env.INTERNAL_BASIC_AUTH_USER_2,
+      pass: process.env.INTERNAL_BASIC_AUTH_PASS_2,
+    },
+  ].filter(
+    (pair): pair is { user: string; pass: string } =>
+      Boolean(pair.user) && Boolean(pair.pass),
+  );
 
-  if (!user || !pass) return unauthorized();
+  if (credentials.length === 0) return unauthorized();
 
   const authHeader = req.headers.get("authorization") ?? "";
   const [scheme, encoded] = authHeader.split(" ");
@@ -68,7 +84,11 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   const providedUser = decoded.slice(0, separatorIndex);
   const providedPass = decoded.slice(separatorIndex + 1);
 
-  if (providedUser !== user || providedPass !== pass) {
+  const matched = credentials.some(
+    (pair) => providedUser === pair.user && providedPass === pair.pass,
+  );
+
+  if (!matched) {
     return unauthorized();
   }
 
@@ -78,8 +98,11 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   return response;
 }
 
-function applyCatalogueCanonicalRedirect(req: NextRequest): NextResponse | null {
-  const catalogueHost = process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
+function applyCatalogueCanonicalRedirect(
+  req: NextRequest,
+): NextResponse | null {
+  const catalogueHost =
+    process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
   const requestHost = normalizeHost(req.headers.get("host"));
   const { pathname, search } = req.nextUrl;
 
@@ -91,9 +114,7 @@ function applyCatalogueCanonicalRedirect(req: NextRequest): NextResponse | null 
 
   if (!isOnCatalogueHost && isCataloguePath) {
     const nextPath =
-      pathname === "/catalogue"
-        ? "/"
-        : pathname.replace(/^\/catalogue/, "");
+      pathname === "/catalogue" ? "/" : pathname.replace(/^\/catalogue/, "");
 
     const redirectUrl = new URL(`https://${catalogueHost}${nextPath}${search}`);
     return NextResponse.redirect(redirectUrl, 308);
@@ -103,7 +124,8 @@ function applyCatalogueCanonicalRedirect(req: NextRequest): NextResponse | null 
 }
 
 function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
-  const catalogueHost = process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
+  const catalogueHost =
+    process.env.CATALOGUE_SUBDOMAIN_HOST?.trim().toLowerCase();
   const requestHost = normalizeHost(req.headers.get("host"));
   const { pathname, search } = req.nextUrl;
 
@@ -116,7 +138,8 @@ function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
   }
 
   const rewriteUrl = req.nextUrl.clone();
-  rewriteUrl.pathname = pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
+  rewriteUrl.pathname =
+    pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
   rewriteUrl.search = search;
 
   return NextResponse.rewrite(rewriteUrl);
