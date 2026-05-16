@@ -13,7 +13,7 @@
 
 html {
   width: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 body {
@@ -21,10 +21,9 @@ body {
   overflow-x: hidden;
 }
 
-body:not(.afr-homepage-active) [class*="PlasmicArtists_root"],
-body:not(.afr-homepage-active) [class*="PlasmicLicensing_root"] {
-  height: auto;
-  min-height: 100vh;
+body:not(.afr-homepage-active) [class*="root"] {
+  height: auto !important;
+  min-height: 100vh !important;
 }
 
 body {
