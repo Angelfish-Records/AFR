@@ -41,8 +41,14 @@ export default function HomeVisualiserBackground() {
   const [webglFailed, setWebglFailed] = React.useState(false);
 
   React.useEffect(() => {
+    document.body.classList.add("afr-homepage-active");
+
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return () => {
+        document.body.classList.remove("afr-homepage-active");
+      };
+    }
 
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -156,9 +162,9 @@ export default function HomeVisualiserBackground() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
 
       theme.dispose(gl);
+      document.body.classList.remove("afr-homepage-active");
     };
   }, []);
-
   return (
     <div
       className={

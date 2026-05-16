@@ -21,6 +21,12 @@ body {
   overflow-x: hidden;
 }
 
+body:not(.afr-homepage-active) [class*="PlasmicArtists_root"],
+body:not(.afr-homepage-active) [class*="PlasmicLicensing_root"] {
+  height: auto;
+  min-height: 100vh;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
