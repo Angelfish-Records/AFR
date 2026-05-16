@@ -125,51 +125,8 @@ void main() {
   col = mix(col, vein, thickness);
     col += hl * edge * (0.26 + 0.22 * front);
 
-    float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
+  float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
   col *= 0.84 + 0.16 * mott;
-
-  // Fragmented soft lightning: narrow distance-to-curve strokes, not clouds.
-  vec2 boltP = p * 1.65;
-  float boltT = uTime * 0.72;
-
-  float lightning = 0.0;
-  float lightningGlow = 0.0;
-
-  for (int i = 0; i < 3; i++) {
-    float fi = float(i);
-
-    vec2 q = boltP;
-    q.x += boltT * (0.16 + fi * 0.045) + fi * 1.73;
-    q.y += sin(q.x * (2.4 + fi * 0.7) + boltT * (1.1 + fi * 0.2)) * 0.13;
-    q.y += sin(q.x * (6.7 + fi * 1.2) - boltT * (1.8 + fi * 0.35)) * 0.035;
-
-    // Keep only sparse broken horizontal fragments.
-    float cell = floor(q.x * 3.2);
-    float gateNoise = hash(vec2(cell, fi * 17.0 + floor(boltT * 1.35)));
-    float fragmentGate = step(0.72, gateNoise);
-
-    float localX = fract(q.x * 3.2);
-    float taper = smoothstep(0.04, 0.18, localX) * smoothstep(0.96, 0.68, localX);
-
-    float dist = abs(q.y);
-    float core = smoothstep(0.018, 0.0035, dist);
-    float glow = smoothstep(0.090, 0.010, dist);
-
-    float branch =
-      smoothstep(0.010, 0.0025, abs(q.y - 0.105 * sin(q.x * 9.0 + boltT * 2.4)))
-      * step(0.84, hash(vec2(cell + 9.0, fi * 23.0)));
-
-    float flicker = 0.62 + 0.38 * hash(vec2(cell, floor(uTime * 9.0) + fi));
-
-    lightning += (core + branch * 0.72) * fragmentGate * taper * flicker;
-    lightningGlow += glow * fragmentGate * taper * flicker;
-  }
-
-  float lightningMask =
-    smoothstep(0.28, 0.74, fbm(p * 0.85 + vec2(-boltT * 0.05, boltT * 0.035)));
-
-  vec3 spellGold = vec3(1.00, 0.84, 0.30);
-  col += spellGold * (lightning * 0.42 + lightningGlow * 0.10) * lightningMask;
 
   float r = length(p);
   float vig = smoothstep(1.35, 0.18, r);
