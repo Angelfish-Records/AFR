@@ -115,6 +115,13 @@ void main() {
 
   float thickness = smoothstep(0.16, 0.58, veins) * (0.42 + 0.38 * e);
 
+  // Gold-bearing bloom mask.
+  // Selects only some regions so the palette still feels predominantly red.
+  float bloomNoise = fbm(a * 1.9 + vec2(t * 0.12, -t * 0.08));
+  float goldBloom = smoothstep(0.62, 0.88, bloomNoise);
+  goldBloom *= smoothstep(0.30, 0.82, thickness);
+  goldBloom *= 0.28 + 0.55 * front;
+
   float edge = smoothstep(0.30, 0.90, abs(veinBase - 0.5));
   edge *= 0.045 + 0.075 * e;
 
@@ -129,13 +136,19 @@ void main() {
   float body = smoothstep(0.22, 0.98, fbm(a * 1.05 - vec2(t * 0.18, t * 0.14)));
 
   vec3 col = mix(deep, skin, body);
+
+  // Primary red vascular structure.
   col = mix(col, vein, thickness);
+
+  // Secondary gold infusion.
+  // Not highlights — actual pigment migration into selected blooms.
+  col = mix(col, mix(vein, hl, 0.72), goldBloom * (0.22 + 0.28 * e));
 
   float caustic =
     smoothstep(0.965, 1.0, sin((a.x + a.y * 0.42) * 18.0 + t * 8.0) * 0.5 + 0.5) *
     smoothstep(0.72, 1.0, fbm(a * 2.4 + vec2(t * 0.22, -t * 0.16)));
 
-  col += hl * edge * (0.22 + 0.18 * front);
+  col += hl * edge * (0.30 + 0.24 * front);
   col += hl * caustic * (0.018 + 0.030 * e);
 
   float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
