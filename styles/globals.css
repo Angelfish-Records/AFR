@@ -100,7 +100,11 @@ a.outbound:hover::after {
 
 .home-visualiser-bg {
   position: fixed;
-  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100svh;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
@@ -112,6 +116,28 @@ a.outbound:hover::after {
     ),
     radial-gradient(circle at 38% 52%, rgba(19, 49, 96, 0.74), transparent 42%),
     linear-gradient(135deg, #020617 0%, #071426 46%, #00030a 100%);
+}
+
+@supports (height: 100dvh) {
+  .home-visualiser-bg {
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-visualiser-bg {
+    height: 120vh;
+    min-height: 120svh;
+    transform: translateY(-10vh);
+  }
+
+  .home-visualiser-bg canvas {
+    height: 120%;
+  }
+
+  .home-visualiser-veil {
+    height: 120%;
+  }
 }
 
 .home-visualiser-bg--fallback {

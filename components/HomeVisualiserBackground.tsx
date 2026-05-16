@@ -104,7 +104,6 @@ export default function HomeVisualiserBackground() {
       }
 
       lastFrameTime = now;
-      resizeCanvas();
 
       const time = now * 0.001;
 

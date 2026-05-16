@@ -111,16 +111,19 @@ void main() {
   float edge = smoothstep(0.30, 0.90, abs(veinBase - 0.5));
   edge *= 0.045 + 0.075 * e;
 
-  vec3 deep = vec3(0.010, 0.016, 0.036);
-  vec3 skin = vec3(0.032, 0.060, 0.120);
-  vec3 vein = vec3(0.160, 0.310, 0.560);
-  vec3 hl = vec3(0.640, 0.800, 1.000);
+   // Launch-brand derived palette:
+  // #bb4c5f becomes buried claret / rose-oxide tissue.
+  // #f1e568 becomes restrained pollen-gold signal glints.
+  vec3 deep = vec3(0.018, 0.010, 0.018);
+  vec3 skin = vec3(0.120, 0.040, 0.060);
+  vec3 vein = vec3(0.420, 0.145, 0.205);
+  vec3 hl = vec3(0.780, 0.700, 0.360);
 
   float body = smoothstep(0.22, 0.98, fbm(a * 1.05 - vec2(t * 0.18, t * 0.14)));
 
   vec3 col = mix(deep, skin, body);
   col = mix(col, vein, thickness);
-  col += hl * edge * (0.45 + 0.38 * front);
+    col += hl * edge * (0.26 + 0.22 * front);
 
   float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
   col *= 0.84 + 0.16 * mott;
@@ -129,7 +132,7 @@ void main() {
   float vig = smoothstep(1.35, 0.18, r);
   col *= 0.44 + 0.76 * vig;
 
-  col *= 0.82 + 0.20 * e;
+    col *= 0.88 + 0.18 * e;
 
   fragColor = vec4(col, 1.0);
 }
