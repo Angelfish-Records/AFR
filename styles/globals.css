@@ -21,11 +21,6 @@ body {
   overflow-x: hidden;
 }
 
-body:not(.afr-homepage-active) [class*="root"] {
-  height: auto !important;
-  min-height: 100vh !important;
-}
-
 body {
   color: var(--foreground);
   background: var(--background);
@@ -164,7 +159,7 @@ a.outbound:hover::after {
     linear-gradient(135deg, #020617 0%, #071426 46%, #00030a 100%);
 }
 
-.home-visualiser-bg canvas {
+.home-visualiser-bg > canvas {
   position: absolute;
   inset: 0;
   width: 100%;
