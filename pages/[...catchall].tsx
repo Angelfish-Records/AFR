@@ -1,20 +1,20 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
+import type { GetServerSideProps, GetServerSidePropsContext } from "next";
+import Error from "next/error";
+import { useRouter } from "next/router";
 import {
   PlasmicComponent,
   extractPlasmicQueryData,
   ComponentRenderData,
   PlasmicRootProvider,
 } from "@plasmicapp/loader-nextjs";
+import { PLASMIC } from "@/plasmic-init";
 
 const HomeVisualiserBackground = dynamic(
   () => import("@/components/HomeVisualiserBackground"),
   { ssr: false },
 );
-import type { GetServerSideProps, GetServerSidePropsContext } from "next";
-import Error from "next/error";
-import { useRouter } from "next/router";
-import { PLASMIC } from "@/plasmic-init";
 
 type Props = {
   plasmicData?: ComponentRenderData;
