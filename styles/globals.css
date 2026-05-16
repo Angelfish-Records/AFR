@@ -79,9 +79,9 @@ a {
 }
 
 a.outbound {
-  color: #d9bd8a;
+  color: #bb4c5f;
   text-decoration: none;
-  border-bottom: 1px dotted #d9bd8a;
+  border-bottom: 1px dotted #bb4c5f;
 }
 
 a.outbound::after {
