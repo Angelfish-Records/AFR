@@ -96,11 +96,18 @@ void main() {
     adv *= 0.86;
   }
 
-  float U = fbm(a * 1.45 + vec2(0.0, t * 0.85));
-  float V = fbm(a * 1.45 + vec2(12.3, -t * 0.82));
+    // Very cheap water-bias: slow lateral swell plus faint refractive banding.
+  // This keeps the organic vein field, but makes it feel suspended/underwater
+  // rather than cloudlike.
+  float swellA = sin((a.y * 5.8) + t * 2.1) * 0.018;
+  float swellB = sin((a.y * 11.0) - t * 3.4) * 0.007;
+  vec2 waterA = a + vec2(swellA + swellB, 0.0);
+
+  float U = fbm(waterA * 1.38 + vec2(t * 0.10, t * 0.62));
+  float V = fbm(waterA * 1.38 + vec2(12.3 - t * 0.08, -t * 0.58));
 
   float diff = abs(U - V);
-  float front = smoothstep(0.09, 0.34, diff);
+  float front = smoothstep(0.08, 0.31, diff);
 
   float veinBase = ridged(a * 2.1 + vec2(t * 0.28, -t * 0.18));
   float veins = smoothstep(0.44 - 0.06 * e, 0.94, veinBase);
@@ -123,7 +130,13 @@ void main() {
 
   vec3 col = mix(deep, skin, body);
   col = mix(col, vein, thickness);
-    col += hl * edge * (0.26 + 0.22 * front);
+
+  float caustic =
+    smoothstep(0.965, 1.0, sin((a.x + a.y * 0.42) * 18.0 + t * 8.0) * 0.5 + 0.5) *
+    smoothstep(0.72, 1.0, fbm(a * 2.4 + vec2(t * 0.22, -t * 0.16)));
+
+  col += hl * edge * (0.22 + 0.18 * front);
+  col += hl * caustic * (0.018 + 0.030 * e);
 
   float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
   col *= 0.84 + 0.16 * mott;
