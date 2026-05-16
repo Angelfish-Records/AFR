@@ -32,22 +32,27 @@ export default function PlasmicLoaderPage(props: Props) {
   const pageMeta = plasmicData.entryCompMetas[0];
   const isHomepage = pageMeta.path === "/";
 
+  const plasmicPage = (
+    <PlasmicRootProvider
+      loader={PLASMIC}
+      prefetchedData={plasmicData}
+      prefetchedQueryData={queryCache}
+      pageRoute={pageMeta.path}
+      pageParams={pageMeta.params}
+      pageQuery={router.query}
+    >
+      <PlasmicComponent component={pageMeta.displayName} />
+    </PlasmicRootProvider>
+  );
+
+  if (!isHomepage) {
+    return plasmicPage;
+  }
+
   return (
     <>
-      {isHomepage ? <HomeVisualiserBackground /> : null}
-
-      <div className={isHomepage ? "plasmic-homepage-shell" : undefined}>
-        <PlasmicRootProvider
-          loader={PLASMIC}
-          prefetchedData={plasmicData}
-          prefetchedQueryData={queryCache}
-          pageRoute={pageMeta.path}
-          pageParams={pageMeta.params}
-          pageQuery={router.query}
-        >
-          <PlasmicComponent component={pageMeta.displayName} />
-        </PlasmicRootProvider>
-      </div>
+      <HomeVisualiserBackground />
+      <div className="plasmic-homepage-shell">{plasmicPage}</div>
     </>
   );
 }
