@@ -125,8 +125,35 @@ void main() {
   col = mix(col, vein, thickness);
     col += hl * edge * (0.26 + 0.22 * front);
 
-  float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
+    float mott = fbm(a * 3.0 + vec2(-t * 0.42, t * 0.31));
   col *= 0.84 + 0.16 * mott;
+
+  // Sparse golden spell-thread: faster than the red field, thin enough to feel
+  // like signal discharge rather than a new background layer.
+  vec2 sparkP = p * 2.25;
+  float sparkT = uTime * 0.34;
+
+  vec2 sparkFlow = flow(sparkP * 0.82, sparkT * 0.18);
+  sparkP += sparkFlow * 0.34;
+  sparkP.x += sparkT * 0.18;
+  sparkP.y += sin(sparkP.x * 2.7 + sparkT) * 0.10;
+
+  float threadField =
+    ridged(sparkP * 1.35 + vec2(sparkT * 0.72, -sparkT * 0.38));
+
+  float threadCore = smoothstep(0.965, 0.995, threadField);
+  float threadGlow = smoothstep(0.900, 0.985, threadField) * 0.28;
+
+  float threadMask =
+    smoothstep(0.46, 0.88, fbm(p * 1.15 + vec2(-sparkT * 0.10, sparkT * 0.06)));
+
+  float flicker =
+    0.72
+    + 0.18 * sin(uTime * 2.7)
+    + 0.10 * sin(uTime * 6.1 + fbm(p * 4.0) * 6.2831);
+
+  vec3 spellGold = vec3(0.95, 0.82, 0.34);
+  col += spellGold * (threadCore * 0.34 + threadGlow * 0.16) * threadMask * flicker;
 
   float r = length(p);
   float vig = smoothstep(1.35, 0.18, r);
