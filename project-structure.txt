@@ -1,6 +1,26 @@
 .
 ├── components
 │   ├── Button.tsx
+│   ├── catalogue
+│   │   ├── admin
+│   │   │   └── CatalogueShareAdmin.tsx
+│   │   ├── CatalogueAccessRequired.tsx
+│   │   ├── CatalogueCard.tsx
+│   │   ├── CatalogueDetailSection.tsx
+│   │   ├── CatalogueDrawer.tsx
+│   │   ├── CatalogueEmptyState.tsx
+│   │   ├── CatalogueGrid.tsx
+│   │   ├── CatalogueHeader.tsx
+│   │   ├── CatalogueIndexSurface.tsx
+│   │   ├── CatalogueLayout.tsx
+│   │   ├── CatalogueMetaRow.tsx
+│   │   ├── CataloguePlaybackProvider.tsx
+│   │   ├── CataloguePlaybackTransport.tsx
+│   │   ├── CataloguePreviewButton.tsx
+│   │   ├── CatalogueReadinessPills.tsx
+│   │   ├── CatalogueShortlistBar.tsx
+│   │   ├── CatalogueTable.tsx
+│   │   └── CatalogueViewToggle.tsx
 │   ├── Footer.tsx
 │   ├── Header.tsx
 │   └── plasmic
@@ -39,6 +59,18 @@
 │       └── plasmic.module.css
 ├── emails
 │   └── PressPitchEmail.tsx
+├── lib
+│   └── catalogue
+│       ├── access.ts
+│       ├── airtable.ts
+│       ├── api.ts
+│       ├── constants.ts
+│       ├── export.ts
+│       ├── mappers.ts
+│       ├── queries.ts
+│       ├── shareLinks.ts
+│       ├── shareLinkTypes.ts
+│       └── types.ts
 ├── middleware.ts
 ├── next.config.mjs
 ├── package-lock.json
@@ -53,17 +85,33 @@
 │   │   │   ├── drain.ts
 │   │   │   ├── enqueue.ts
 │   │   │   └── preview.ts
+│   │   ├── catalogue
+│   │   │   ├── admin
+│   │   │   │   └── share-links
+│   │   │   │       ├── [id].ts
+│   │   │   │       └── index.ts
+│   │   │   ├── preview
+│   │   │   │   └── [recordingId].ts
+│   │   │   ├── records
+│   │   │   │   └── [recordingId].ts
+│   │   │   └── records.ts
 │   │   ├── hello.ts
 │   │   ├── unsubscribe.ts
 │   │   └── webhooks
 │   │       └── resend.ts
 │   ├── artists.tsx
+│   ├── catalogue
+│   │   ├── [recordingId].tsx
+│   │   ├── index.tsx
+│   │   └── print.tsx
 │   ├── fonts
 │   │   ├── GeistMonoVF.woff
 │   │   └── GeistVF.woff
 │   ├── index.tsx
 │   ├── internal
-│   │   └── campaign-composer.tsx
+│   │   ├── campaign-composer.tsx
+│   │   └── catalogue
+│   │       └── index.tsx
 │   ├── licensing.tsx
 │   └── plasmic-host.tsx
 ├── plasmic-init.ts
@@ -76,7 +124,8 @@
 │   ├── android-chrome-512x512.png
 │   ├── apple-touch-icon.png
 │   ├── brand
-│   │   └── AFR_logo_circle_light_mini.png
+│   │   ├── AFR_logo_circle_light_mini.png
+│   │   └── AFR_logo_suiboku_light_text.png
 │   ├── favicon-16x16.png
 │   ├── favicon-32x32.png
 │   ├── favicon.ico
@@ -85,8 +134,11 @@
 │   └── site.webmanifest
 ├── README.md
 ├── styles
+│   ├── catalogue-admin.module.css
+│   ├── catalogue-print.module.css
+│   ├── catalogue.module.css
 │   ├── globals.css
 │   └── Home.module.css
 └── tsconfig.json
 
-16 directories, 74 files
+27 directories, 115 files

@@ -1,10 +1,16 @@
 import * as React from "react";
+import dynamic from "next/dynamic";
 import {
   PlasmicComponent,
   extractPlasmicQueryData,
   ComponentRenderData,
   PlasmicRootProvider,
 } from "@plasmicapp/loader-nextjs";
+
+const HomeVisualiserBackground = dynamic(
+  () => import("@/components/HomeVisualiserBackground"),
+  { ssr: false },
+);
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
 import Error from "next/error";
 import { useRouter } from "next/router";
@@ -24,21 +30,27 @@ export default function PlasmicLoaderPage(props: Props) {
   }
 
   const pageMeta = plasmicData.entryCompMetas[0];
+  const isHomepage = pageMeta.path === "/";
 
   return (
-    <PlasmicRootProvider
-      loader={PLASMIC}
-      prefetchedData={plasmicData}
-      prefetchedQueryData={queryCache}
-      pageRoute={pageMeta.path}
-      pageParams={pageMeta.params}
-      pageQuery={router.query}
-    >
-      <PlasmicComponent component={pageMeta.displayName} />
-    </PlasmicRootProvider>
+    <>
+      {isHomepage ? <HomeVisualiserBackground /> : null}
+
+      <div className={isHomepage ? "plasmic-homepage-shell" : undefined}>
+        <PlasmicRootProvider
+          loader={PLASMIC}
+          prefetchedData={plasmicData}
+          prefetchedQueryData={queryCache}
+          pageRoute={pageMeta.path}
+          pageParams={pageMeta.params}
+          pageQuery={router.query}
+        >
+          <PlasmicComponent component={pageMeta.displayName} />
+        </PlasmicRootProvider>
+      </div>
+    </>
   );
 }
-
 function pathOnlyFromResolvedUrl(url: string): string {
   const pathOnly = url.split("?")[0] || "/";
   return pathOnly === "" ? "/" : pathOnly;
@@ -48,7 +60,10 @@ function plasmicPathFromContext(context: GetServerSidePropsContext): string {
   // Works for BOTH:
   // - the catchall page (/foo/bar) where context.params.catchall exists
   // - delegated pages (/licensing, /artists, /) where params.catchall is undefined
-  if (typeof context.resolvedUrl === "string" && context.resolvedUrl.length > 0) {
+  if (
+    typeof context.resolvedUrl === "string" &&
+    context.resolvedUrl.length > 0
+  ) {
     return pathOnlyFromResolvedUrl(context.resolvedUrl);
   }
 
@@ -58,7 +73,9 @@ function plasmicPathFromContext(context: GetServerSidePropsContext): string {
   return "/";
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
+export const getServerSideProps: GetServerSideProps<Props> = async (
+  context,
+) => {
   const plasmicPath = plasmicPathFromContext(context);
 
   const plasmicData = await PLASMIC.maybeFetchComponentData(plasmicPath);
@@ -76,7 +93,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (context) => 
       pageParams={pageMeta.params}
     >
       <PlasmicComponent component={pageMeta.displayName} />
-    </PlasmicRootProvider>
+    </PlasmicRootProvider>,
   );
 
   return { props: { plasmicData, queryCache } };
