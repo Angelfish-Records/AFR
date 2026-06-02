@@ -258,6 +258,7 @@ type PressContactFields = {
   Name?: string;
   "First Name"?: string;
   Surname?: string;
+  Identifier?: string;
   "One-line hook"?: string;
   "Custom paragraph"?: string;
   Approach?: string;
@@ -374,6 +375,7 @@ export default async function handler(
           "Outlet Region",
           "Approach",
           "Priority",
+          "Identifier",
           "One-line hook",
           "Custom paragraph",
         ],
@@ -480,6 +482,7 @@ export default async function handler(
             lastName: (c.fields["Surname"] ?? "").toString(),
             fullName: (c.fields["Name"] ?? "").toString(),
             outlet: firstOutletId ? (outletNameById[firstOutletId] ?? "") : "",
+            identifier: (c.fields.Identifier ?? "").toString(),
             oneLineHook: (c.fields["One-line hook"] ?? "").toString(),
             customParagraph: (c.fields["Custom paragraph"] ?? "").toString(),
           };
