@@ -195,7 +195,7 @@ async function airtableCreateSingle(args: {
 
 type PressContactFields = {
   Email?: string
-  Outlets?: string[]
+  Outlet?: string[]
   'Outlet Type'?: string[] // lookup array from Outlets.Type
   'Outlet Region'?: string[] // lookup array from Outlets.Region
   'Name'?: string
@@ -281,7 +281,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           'First Name',
           'Surname',
           'Email',
-          'Outlets',
+          'Outlet',
           'Outlet Type',
           'Outlet Region',
           'One-line hook',
@@ -293,7 +293,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let outletNameById: Record<string, string> = {}
       if (outletsTable) {
         const outletIds = Array.from(
-          new Set(sampleContacts.flatMap((c) => (Array.isArray(c.fields.Outlets) ? c.fields.Outlets : [])))
+          new Set(sampleContacts.flatMap((c) => (Array.isArray(c.fields.Outlet) ? c.fields.Outlet : [])))
         ).slice(0, 50)
 
         if (outletIds.length) {
@@ -344,7 +344,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const sample = sampleContacts
         .filter((c) => !!c.fields.Email)
         .map((c) => {
-          const firstOutletId = Array.isArray(c.fields.Outlets) ? c.fields.Outlets[0] : undefined
+          const firstOutletId = Array.isArray(c.fields.Outlet) ? c.fields.Outlet[0] : undefined
           return {
             id: c.id,
             email: (c.fields.Email ?? '').toString(),
