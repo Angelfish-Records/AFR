@@ -198,9 +198,9 @@ type PressContactFields = {
   Outlets?: string[]
   'Outlet Type'?: string[] // lookup array from Outlets.Type
   'Outlet Region'?: string[] // lookup array from Outlets.Region
-  'Full name'?: string
-  'First name'?: string
-  'Last name'?: string
+  'Name'?: string
+  'First Name'?: string
+  'Surname'?: string
   'One-line hook'?: string
   'Custom paragraph'?: string
 }
@@ -277,9 +277,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         table: contactsTable,
         filterByFormula: contactsFilter,
         fields: [
-          'Full name',
-          'First name',
-          'Last name',
+          'Name',
+          'First Name',
+          'Surname',
           'Email',
           'Outlets',
           'Outlet Type',
@@ -348,9 +348,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return {
             id: c.id,
             email: (c.fields.Email ?? '').toString(),
-            firstName: (c.fields['First name'] ?? '').toString(),
-            lastName: (c.fields['Last name'] ?? '').toString(),
-            fullName: (c.fields['Full name'] ?? '').toString(),
+            firstName: (c.fields['First Name'] ?? '').toString(),
+            lastName: (c.fields['Surname'] ?? '').toString(),
+            fullName: (c.fields['Name'] ?? '').toString(),
             outlet: firstOutletId ? outletNameById[firstOutletId] ?? '' : '',
             oneLineHook: (c.fields['One-line hook'] ?? '').toString(),
             customParagraph: (c.fields['Custom paragraph'] ?? '').toString(),

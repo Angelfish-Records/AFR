@@ -27,9 +27,9 @@ type SendFields = {
 }
 
 type ContactFields = {
-  'Full name'?: string
-  'First name'?: string
-  'Last name'?: string
+  'Name'?: string
+  'First Name'?: string
+  'Surname'?: string
   Email?: string
   'One-line hook'?: string
   'Custom paragraph'?: string
@@ -470,7 +470,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         baseId,
         table: contactsTable,
         filterByFormula: `OR(${or})`,
-        fields: ['Full name', 'First name', 'Last name', 'Email', 'One-line hook', 'Custom paragraph'],
+        fields: ['Name', 'First Name', 'Surname', 'Email', 'One-line hook', 'Custom paragraph'],
         maxRecords: Math.min(100, contactIds.length),
       })
       for (const c of contacts) contactById[c.id] = c.fields
@@ -500,9 +500,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const contactId = Array.isArray(s.fields.Contact) && s.fields.Contact.length ? s.fields.Contact[0] : undefined
       const cf = contactId ? contactById[contactId] : undefined
 
-      const firstName = asString(cf?.['First name'])
-      const lastName = asString(cf?.['Last name'])
-      const fullName = asString(cf?.['Full name']) || [firstName, lastName].filter(Boolean).join(' ').trim()
+      const firstName = asString(cf?.['First Name'])
+      const lastName = asString(cf?.['Surname'])
+      const fullName = asString(cf?.['Name']) || [firstName, lastName].filter(Boolean).join(' ').trim()
       const oneLineHook = asString(cf?.['One-line hook'])
       const customParagraph = asString(cf?.['Custom paragraph'])
 
