@@ -196,7 +196,7 @@ export default function CatalogueIndexSurface(props: Props) {
       <CatalogueLayout>
         <div className={styles.logoHeader}>
           <Image
-            src="/brand/AFR_logo_suiboku_light_text.png"
+            src="/brand/AFR-logo-white-horizontal.png"
             alt="Angelfish Records"
             width={100}
             height={132}
