@@ -259,6 +259,7 @@ type PressContactFields = {
   "First Name"?: string;
   Surname?: string;
   Identifier?: string;
+  "Personal URL"?: string;
   "One-line hook"?: string;
   "Custom paragraph"?: string;
   Approach?: string;
@@ -376,6 +377,7 @@ export default async function handler(
           "Approach",
           "Priority",
           "Identifier",
+          "Personal URL",
           "One-line hook",
           "Custom paragraph",
         ],
@@ -483,6 +485,7 @@ export default async function handler(
             fullName: (c.fields["Name"] ?? "").toString(),
             outlet: firstOutletId ? (outletNameById[firstOutletId] ?? "") : "",
             identifier: (c.fields.Identifier ?? "").toString(),
+            personalUrl: (c.fields["Personal URL"] ?? "").toString(),
             oneLineHook: (c.fields["One-line hook"] ?? "").toString(),
             customParagraph: (c.fields["Custom paragraph"] ?? "").toString(),
           };
@@ -537,7 +540,19 @@ export default async function handler(
     const outletRegion = normalizeFilterValue(
       (body as { outletRegion?: unknown }).outletRegion,
     );
-    const contactsFilter = buildContactsFilter({ outletType, outletRegion });
+    const approach = normalizeFilterValue(
+      (body as { approach?: unknown }).approach,
+    );
+    const priority = normalizeFilterValue(
+      (body as { priority?: unknown }).priority,
+    );
+
+    const contactsFilter = buildContactsFilter({
+      outletType,
+      outletRegion,
+      approach,
+      priority,
+    });
 
     if (!subjectTemplate || !bodyTemplate) {
       return jsonError(

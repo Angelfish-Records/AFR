@@ -32,6 +32,7 @@ type ContactFields = {
   Surname?: string;
   Email?: string;
   Identifier?: string;
+  "Personal URL"?: string;
   "One-line hook"?: string;
   "Custom paragraph"?: string;
 };
@@ -237,6 +238,22 @@ function isValidEmailLoose(s: string): boolean {
   if (at <= 0 || at !== x.lastIndexOf("@")) return false;
   const dot = x.lastIndexOf(".");
   return dot > at + 1 && dot < x.length - 1;
+}
+
+function normalizePersonalUrl(value: unknown): string | null {
+  const raw = asString(value).trim();
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function templateUsesPersonalUrl(template: string): boolean {
+  return /\{\{\s*personal_url\s*\}\}/i.test(template);
 }
 
 function stringifyError(e: unknown): string {
@@ -468,6 +485,10 @@ export default async function handler(
     if (!subjectTemplate || !bodyTemplate)
       return jsonError(res, 400, "Campaign is missing subject/body templates");
 
+    const campaignUsesPersonalUrl =
+      templateUsesPersonalUrl(subjectTemplate) ||
+      templateUsesPersonalUrl(bodyTemplate);
+
     // Set to Sending as a coarse-grained lock (best-effort)
     try {
       await airtablePatchRecords({
@@ -584,6 +605,7 @@ export default async function handler(
           "Surname",
           "Email",
           "Identifier",
+          "Personal URL",
           "One-line hook",
           "Custom paragraph",
         ],
@@ -631,8 +653,18 @@ export default async function handler(
         asString(cf?.["Name"]) ||
         [firstName, lastName].filter(Boolean).join(" ").trim();
       const identifier = asString(cf?.Identifier);
+      const personalUrl = normalizePersonalUrl(cf?.["Personal URL"]);
       const oneLineHook = asString(cf?.["One-line hook"]);
       const customParagraph = asString(cf?.["Custom paragraph"]);
+
+      if (campaignUsesPersonalUrl && !personalUrl) {
+        invalid.push({
+          sendId: s.id,
+          reason:
+            "Campaign uses {{personal_url}} but Press Contacts.Personal URL is missing or invalid (HTTPS required)",
+        });
+        continue;
+      }
 
       // Unsubscribe URL: only if we can bind to a real Press Contact record
       const unsubscribeUrl =
@@ -656,6 +688,7 @@ export default async function handler(
         email: to,
         outlet: "",
         identifier,
+        personal_url: personalUrl ?? "",
         one_line_hook: oneLineHook,
         custom_paragraph: customParagraph,
         campaign_name: campaignPitch,

@@ -10,6 +10,7 @@ type SampleContact = {
   fullName: string;
   outlet: string;
   identifier: string;
+  personalUrl: string;
   oneLineHook: string;
   customParagraph: string;
 };
@@ -199,6 +200,7 @@ We could say something tailored to you and your outlet right now. {{custom_parag
       email: c?.email ?? "",
       outlet: c?.outlet ?? "",
       identifier: c?.identifier ?? "",
+      personal_url: c?.personalUrl ?? "",
       one_line_hook: c?.oneLineHook ?? "",
       custom_paragraph: c?.customParagraph ?? "",
     };
@@ -1354,7 +1356,7 @@ We could say something tailored to you and your outlet right now. {{custom_parag
               Tokens supported:{" "}
               <code>
                 {
-                  "{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{identifier}} {{one_line_hook}} {{custom_paragraph}}"
+                  "{{first_name}} {{last_name}} {{full_name}} {{email}} {{outlet}} {{identifier}} {{personal_url}} {{one_line_hook}} {{custom_paragraph}}"
                 }
               </code>
             </div>
