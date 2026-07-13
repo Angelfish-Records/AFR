@@ -1,41 +1,30 @@
 // pages/api/campaigns/drain.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
+import { sql } from "@vercel/postgres";
 import { Resend } from "resend";
 import { render as renderEmail } from "@react-email/render";
 import PressPitchEmail from "../../../emails/PressPitchEmail";
 import * as React from "react";
 import { requireInternalBasicAuth } from "../_internalAuth";
-
-type AirtableListResp<TFields> = {
-  records: Array<{ id: string; fields: TFields }>;
-  offset?: string;
-};
-
-type SendFields = {
-  Recipient?: string;
-  "From address"?: string;
-  "Reply-to"?: string;
-  "Resend message id"?: string;
-  "Delivery status"?: string;
-  "Sent at"?: string;
-  "Last event at"?: string;
-  Notes?: string;
-  "Personalised paragraph used"?: string;
-  Contact?: string[];
-  Pitch?: unknown;
-};
-
-type ContactFields = {
-  Name?: string;
-  "First Name"?: string;
-  Surname?: string;
-  Email?: string;
-  Identifier?: string;
-  "Personal URL"?: string;
-  "One-line hook"?: string;
-  "Custom paragraph"?: string;
-};
+import {
+  airtableListAll,
+  airtablePatchRecords,
+  escapeAirtableString,
+  mustEnv,
+} from "@/lib/campaigns/airtable";
+import {
+  isValidEmailLoose,
+  normalizeEmail,
+} from "@/lib/campaigns/senders";
+import {
+  asString,
+  jsonRecordValue,
+  mergeTemplate,
+  stringifyError,
+  templateUsesPersonalUrl,
+} from "@/lib/campaigns/templates";
+import { mintUnsubscribeToken } from "@/lib/campaigns/unsubscribeTokens";
 
 type CampaignFields = {
   "Email subject template"?: string;
@@ -48,15 +37,49 @@ type CampaignFields = {
   "Sent at"?: string;
 };
 
-function must(v: string | undefined, name: string): string {
-  if (!v) throw new Error(`Missing ${name}`);
-  return v;
-}
+type DispatchRow = {
+  id: string;
+  airtable_campaign_id: string;
+  campaign_pitch: string;
+  audience_key: string;
+  from_address: string;
+  reply_to: string;
+  status: string;
+  sent_count: number;
+  failed_count: number;
+};
 
-function publicSiteUrl(): string {
-  const raw = must(process.env.PUBLIC_SITE_URL, "PUBLIC_SITE_URL").trim();
-  return raw.replace(/\/+$/, ""); // strip trailing slash
-}
+type RecipientRow = {
+  id: string;
+  airtable_contact_id: string;
+  recipient_email: string;
+  from_address: string;
+  reply_to: string;
+  template_vars: unknown;
+  personalised_snapshot: string;
+};
+
+type CountRow = {
+  queued_count: number;
+  sent_count: number;
+  failed_count: number;
+};
+
+type ResendIdRow = {
+  id: string;
+};
+
+type Payload = {
+  recipientId: string;
+  contactId: string;
+  to: string;
+  from: string;
+  replyTo: string;
+  subject: string;
+  text: string;
+  html: string;
+  unsubscribeUrl?: string;
+};
 
 function jsonError(
   res: NextApiResponse,
@@ -67,261 +90,17 @@ function jsonError(
   return res.status(status).json({ error: msg, ...(extra ? { extra } : {}) });
 }
 
-function isObj(x: unknown): x is Record<string, unknown> {
-  return !!x && typeof x === "object";
-}
-
-function asString(v: unknown): string {
-  return typeof v === "string" ? v : "";
-}
-
 function isoNow(): string {
   return new Date().toISOString();
 }
 
-function escapeAirtableString(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((r) => setTimeout(r, ms));
-}
-
-function parseRetryAfterMs(headers: Headers): number | null {
-  const ra = headers.get("retry-after");
-  if (!ra) return null;
-  const asInt = Number(ra);
-  if (Number.isFinite(asInt) && asInt >= 0)
-    return Math.min(30_000, Math.floor(asInt * 1000));
-  const asDate = Date.parse(ra);
-  if (Number.isFinite(asDate))
-    return Math.min(30_000, Math.max(0, asDate - Date.now()));
-  return null;
-}
-
-async function airtableRequest<T>(
-  token: string,
-  url: string,
-  init?: RequestInit,
-): Promise<
-  | { ok: true; json: T }
-  | { ok: false; status: number; body: string; headers: Headers }
-> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    return { ok: false, status: res.status, body, headers: res.headers };
-  }
-  const json = (await res.json()) as T;
-  return { ok: true, json };
-}
-
-async function airtableRequestWithRetry<T>(
-  token: string,
-  url: string,
-  init?: RequestInit,
-): Promise<
-  | { ok: true; json: T }
-  | { ok: false; status: number; body: string; headers: Headers }
-> {
-  let attempt = 0;
-  let last: {
-    ok: false;
-    status: number;
-    body: string;
-    headers: Headers;
-  } | null = null;
-
-  while (attempt < 4) {
-    attempt++;
-    const resp = await airtableRequest<T>(token, url, init);
-    if (resp.ok) return resp;
-
-    last = resp;
-    const retryable =
-      resp.status === 429 ||
-      resp.status === 502 ||
-      resp.status === 503 ||
-      resp.status === 504;
-    if (!retryable) return resp;
-
-    const raMs = parseRetryAfterMs(resp.headers);
-    const backoff = Math.min(8000, 400 * Math.pow(2, attempt - 1));
-    await sleep(raMs ?? backoff);
-  }
-
-  return (
-    last ?? { ok: false, status: 500, body: "unknown", headers: new Headers() }
-  );
-}
-
-async function airtableList<TFields>(args: {
-  token: string;
-  baseId: string;
-  table: string;
-  filterByFormula?: string;
-  fields?: string[];
-  maxRecords?: number;
-  pageSize?: number;
-}): Promise<Array<{ id: string; fields: TFields }>> {
-  const {
-    token,
-    baseId,
-    table,
-    filterByFormula,
-    fields,
-    maxRecords = 100,
-    pageSize = 100,
-  } = args;
-  const params = new URLSearchParams();
-  params.set("pageSize", String(Math.min(100, pageSize)));
-  params.set("maxRecords", String(Math.min(100, maxRecords)));
-  if (filterByFormula) params.set("filterByFormula", filterByFormula);
-  if (fields?.length) for (const f of fields) params.append("fields[]", f);
-
-  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?${params.toString()}`;
-  const resp = await airtableRequestWithRetry<AirtableListResp<TFields>>(
-    token,
-    url,
-  );
-  if (!resp.ok)
-    throw new Error(`Airtable list failed: ${resp.status} ${resp.body}`);
-  return resp.json.records;
-}
-
-async function airtablePatchRecords(args: {
-  token: string;
-  baseId: string;
-  table: string;
-  records: Array<{ id: string; fields: Record<string, unknown> }>;
-}): Promise<void> {
-  const { token, baseId, table, records } = args;
-
-  for (let i = 0; i < records.length; i += 10) {
-    const chunk = records.slice(i, i + 10);
-    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`;
-    const resp = await airtableRequestWithRetry<unknown>(token, url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ records: chunk }),
-    });
-    if (!resp.ok)
-      throw new Error(`Airtable patch failed: ${resp.status} ${resp.body}`);
-  }
-}
-
-function mergeTemplate(tpl: string, vars: Record<string, string>): string {
-  return tpl.replace(
-    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
-    (_m, k: string) => vars[k] ?? "",
-  );
+function publicSiteUrl(): string {
+  const raw = mustEnv(process.env.PUBLIC_SITE_URL, "PUBLIC_SITE_URL").trim();
+  return raw.replace(/\/+$/, "");
 }
 
 function sha256Hex(s: string): string {
   return crypto.createHash("sha256").update(s).digest("hex");
-}
-
-function normalizeEmail(s: string): string {
-  return s.trim().toLowerCase();
-}
-
-function isValidEmailLoose(s: string): boolean {
-  const x = s.trim();
-  if (x.length < 3 || x.length > 254) return false;
-  const at = x.indexOf("@");
-  if (at <= 0 || at !== x.lastIndexOf("@")) return false;
-  const dot = x.lastIndexOf(".");
-  return dot > at + 1 && dot < x.length - 1;
-}
-
-function normalizePersonalUrl(value: unknown): string | null {
-  const raw = asString(value).trim();
-  if (!raw) return null;
-
-  try {
-    const url = new URL(raw);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-function templateUsesPersonalUrl(template: string): boolean {
-  return /\{\{\s*personal_url\s*\}\}/i.test(template);
-}
-
-function stringifyError(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  if (typeof e === "string") return e;
-  try {
-    return JSON.stringify(e);
-  } catch {
-    return String(e);
-  }
-}
-
-type Payload = {
-  to: string;
-  from: string;
-  replyTo: string;
-  subject: string;
-  text: string;
-  html: string;
-  personalisedSnapshot: string;
-  sendId: string;
-  unsubscribeUrl?: string;
-};
-
-async function countQueuedForPitch(args: {
-  token: string;
-  baseId: string;
-  sendsTable: string;
-  campaignPitch: string;
-}): Promise<number> {
-  const { token, baseId, sendsTable, campaignPitch } = args;
-  let offset: string | undefined;
-  let count = 0;
-
-  const pitchEsc = escapeAirtableString(campaignPitch);
-  const filter = `AND(FIND("${pitchEsc}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`;
-
-  while (true) {
-    const params = new URLSearchParams();
-    params.set("pageSize", "100");
-    params.set("filterByFormula", filter);
-    if (offset) params.set("offset", offset);
-
-    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(sendsTable)}?${params.toString()}`;
-    const r = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const j = (await r.json().catch(() => null)) as unknown;
-    if (!r.ok)
-      throw new Error(
-        `Airtable count failed: ${r.status} ${JSON.stringify(j)}`,
-      );
-
-    const records =
-      isObj(j) && Array.isArray((j as { records?: unknown }).records)
-        ? ((j as { records: unknown }).records as unknown[])
-        : [];
-
-    count += records.length;
-
-    const next =
-      isObj(j) && typeof (j as { offset?: unknown }).offset === "string"
-        ? (j as { offset: string }).offset
-        : undefined;
-
-    if (!next) return count;
-    offset = next;
-  }
 }
 
 function clampInt(n: number, min: number, max: number): number {
@@ -339,49 +118,196 @@ function computeNextPollMs(args: {
   return 1400;
 }
 
-/** ---- Unsubscribe token minting ---- */
-function base64urlEncode(buf: Buffer): string {
-  return buf
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function hmacSha256(secret: string, msg: string): Buffer {
-  return crypto.createHmac("sha256", secret).update(msg).digest();
+async function refreshDispatchCounts(dispatchId: string): Promise<CountRow> {
+  const result = await sql<CountRow>`
+    with counts as (
+      select
+        count(*) filter (where status in ('queued', 'sending'))::int as queued_count,
+        count(*) filter (where status = 'sent')::int as sent_count,
+        count(*) filter (where status in ('failed', 'bounced', 'complained'))::int as failed_count
+      from campaign_dispatch_recipients
+      where dispatch_id = ${dispatchId}::uuid
+    )
+    update campaign_dispatches d
+    set
+      queued_count = counts.queued_count,
+      sent_count = counts.sent_count,
+      failed_count = counts.failed_count,
+      updated_at = now()
+    from counts
+    where d.id = ${dispatchId}::uuid
+    returning counts.queued_count, counts.sent_count, counts.failed_count
+  `;
+
+  return (
+    result.rows[0] ?? {
+      queued_count: 0,
+      sent_count: 0,
+      failed_count: 0,
+    }
+  );
 }
 
-type UnsubTokenPayload = {
-  v: 1;
-  cid: string;
-  em: string;
-  exp: number;
-  sid?: string;
-  camp?: string;
-};
-
-function mintUnsubscribeToken(args: {
-  secret: string;
-  contactId: string;
-  email: string;
+async function markDispatchCompleteIfDone(args: {
+  airtableToken: string;
+  baseId: string;
+  campaignsTable: string;
+  dispatchId: string;
   campaignId: string;
-  sendId: string;
-  ttlDays?: number;
-}): string {
-  const ttlDays = Math.max(1, Math.min(180, Math.floor(args.ttlDays ?? 60)));
-  const nowSec = Math.floor(Date.now() / 1000);
-  const p: UnsubTokenPayload = {
-    v: 1,
-    cid: args.contactId,
-    em: normalizeEmail(args.email),
-    exp: nowSec + ttlDays * 86400,
-    sid: args.sendId,
-    camp: args.campaignId,
-  };
-  const payloadB64 = base64urlEncode(Buffer.from(JSON.stringify(p), "utf8"));
-  const sigB64 = base64urlEncode(hmacSha256(args.secret, payloadB64));
-  return `${payloadB64}.${sigB64}`;
+  sentAtIso: string;
+  remainingQueued: number;
+}): Promise<void> {
+  const {
+    airtableToken,
+    baseId,
+    campaignsTable,
+    dispatchId,
+    campaignId,
+    sentAtIso,
+    remainingQueued,
+  } = args;
+
+  if (remainingQueued > 0) return;
+
+  await sql`
+    update campaign_dispatches
+    set status = 'complete',
+        locked_at = null,
+        completed_at = coalesce(completed_at, now()),
+        updated_at = now()
+    where id = ${dispatchId}::uuid
+  `;
+
+  try {
+    await airtablePatchRecords({
+      token: airtableToken,
+      baseId,
+      table: campaignsTable,
+      records: [
+        {
+          id: campaignId,
+          fields: {
+            Status: "Complete",
+            "Sent at": sentAtIso,
+          },
+        },
+      ],
+    });
+  } catch {
+    // Best effort only; Postgres is the dispatch source of truth.
+  }
+}
+
+async function fetchCampaignFields(args: {
+  airtableToken: string;
+  baseId: string;
+  campaignsTable: string;
+  campaignId: string;
+}): Promise<CampaignFields> {
+  const { airtableToken, baseId, campaignsTable, campaignId } = args;
+
+  const camp = await airtableListAll<CampaignFields>({
+    token: airtableToken,
+    baseId,
+    table: campaignsTable,
+    filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
+    fields: [
+      "Campaign/Pitch",
+      "Email subject template",
+      "Email body template",
+      "Default CTA",
+      "Key links",
+      "Assets pack link",
+      "Status",
+      "Sent at",
+    ],
+    maxRecords: 1,
+  });
+
+  return camp[0]?.fields ?? {};
+}
+
+async function claimQueuedRecipients(args: {
+  dispatchId: string;
+  batchLimit: number;
+}): Promise<RecipientRow[]> {
+  const { dispatchId, batchLimit } = args;
+
+  const result = await sql<RecipientRow>`
+    with picked as (
+      select id
+      from campaign_dispatch_recipients
+      where dispatch_id = ${dispatchId}::uuid
+        and status = 'queued'
+      order by created_at asc
+      limit ${batchLimit}
+      for update skip locked
+    )
+    update campaign_dispatch_recipients r
+    set
+      status = 'sending',
+      attempts = attempts + 1,
+      last_attempt_at = now(),
+      updated_at = now()
+    from picked
+    where r.id = picked.id
+    returning
+      r.id::text,
+      r.airtable_contact_id,
+      r.recipient_email,
+      r.from_address,
+      r.reply_to,
+      r.template_vars,
+      r.personalised_snapshot
+  `;
+
+  return result.rows;
+}
+
+async function markRecipientsFailed(args: {
+  recipientIds: string[];
+  reason: string;
+}): Promise<void> {
+  const { recipientIds, reason } = args;
+
+  for (const recipientId of recipientIds) {
+    await sql`
+      update campaign_dispatch_recipients
+      set status = 'failed',
+          last_error = ${reason},
+          updated_at = now(),
+          last_event_at = now()
+      where id = ${recipientId}::uuid
+    `;
+  }
+}
+
+async function markRecipientsSent(args: {
+  payloads: Payload[];
+  resendIds: string[];
+  sentAtIso: string;
+}): Promise<void> {
+  const { payloads, resendIds, sentAtIso } = args;
+
+  for (let i = 0; i < payloads.length; i++) {
+    const payload = payloads[i];
+    const resendId = resendIds[i] ?? "";
+
+    await sql`
+      update campaign_dispatch_recipients
+      set
+        status = 'sent',
+        resend_message_id = ${resendId || null},
+        sent_at = ${sentAtIso},
+        last_event_at = ${sentAtIso},
+        updated_at = now()
+      where id = ${payload.recipientId}::uuid
+    `;
+  }
 }
 
 export default async function handler(
@@ -392,32 +318,23 @@ export default async function handler(
 
   try {
     if (!requireInternalBasicAuth(req, res)) return;
-    if (req.method !== "POST")
+    if (req.method !== "POST") {
       return res.status(405).send("Method Not Allowed");
+    }
 
-    const resendKey = must(
+    const resendKey = mustEnv(
       process.env.AFR_RESEND_API_KEY,
       "AFR_RESEND_API_KEY",
     );
-    const airtableToken = must(process.env.AIRTABLE_TOKEN, "AIRTABLE_TOKEN");
-    const baseId = must(process.env.AIRTABLE_BASE_ID, "AIRTABLE_BASE_ID");
-
-    const unsubscribeSecret = must(
+    const airtableToken = mustEnv(process.env.AIRTABLE_TOKEN, "AIRTABLE_TOKEN");
+    const baseId = mustEnv(process.env.AIRTABLE_BASE_ID, "AIRTABLE_BASE_ID");
+    const unsubscribeSecret = mustEnv(
       process.env.AFR_UNSUBSCRIBE_SECRET,
       "AFR_UNSUBSCRIBE_SECRET",
     );
-
-    const contactsTable = must(
-      process.env.AIRTABLE_PRESS_CONTACTS_TABLE,
-      "AIRTABLE_PRESS_CONTACTS_TABLE",
-    );
-    const campaignsTable = must(
+    const campaignsTable = mustEnv(
       process.env.AIRTABLE_CAMPAIGNS_TABLE,
       "AIRTABLE_CAMPAIGNS_TABLE",
-    );
-    const sendsTable = must(
-      process.env.AIRTABLE_SENDS_TABLE,
-      "AIRTABLE_SENDS_TABLE",
     );
 
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -432,64 +349,48 @@ export default async function handler(
       1,
       Math.min(100, typeof limitRaw === "number" ? Math.floor(limitRaw) : 50),
     );
-    const resend = new Resend(resendKey);
-    const nowIso = isoNow();
 
-    const siteUrl = publicSiteUrl();
-    const logoUrl = `${siteUrl}/brand/AFR_logo_circle_light_mini.png`;
+    const dispatchResult = await sql<DispatchRow>`
+      update campaign_dispatches
+      set
+        status = case when status = 'complete' then status else 'sending' end,
+        locked_at = now(),
+        updated_at = now()
+      where airtable_campaign_id = ${campaignId}
+        and (
+          ${force} = true
+          or locked_at is null
+          or locked_at < now() - interval '2 minutes'
+          or status in ('ready', 'queued')
+        )
+      returning
+        id::text,
+        airtable_campaign_id,
+        campaign_pitch,
+        audience_key,
+        from_address,
+        reply_to,
+        status,
+        sent_count,
+        failed_count
+    `;
 
-    // Fetch campaign by RECORD_ID (one record)
-    const camp = await airtableList<CampaignFields>({
-      token: airtableToken,
-      baseId,
-      table: campaignsTable,
-      filterByFormula: `RECORD_ID()="${escapeAirtableString(campaignId)}"`,
-      fields: [
-        "Campaign/Pitch",
-        "Email subject template",
-        "Email body template",
-        "Default CTA",
-        "Key links",
-        "Assets pack link",
-        "Status",
-        "Sent at",
-      ],
-      maxRecords: 1,
-    });
+    const dispatch = dispatchResult.rows[0];
 
-    const campaignFields = camp?.[0]?.fields ?? {};
-    const campaignPitch = asString(campaignFields["Campaign/Pitch"]).trim();
-    if (!campaignPitch)
-      return jsonError(
-        res,
-        400,
-        "Campaign missing Campaign/Pitch (primary field)",
-      );
-
-    const status = asString(campaignFields.Status).trim();
-    if (!force && status === "Sending") {
+    if (!dispatch) {
       return res.status(409).json({
-        error:
-          "Campaign already in Sending state (likely another drain running).",
+        error: "Campaign locked (another drain likely running) or no dispatch exists.",
         code: "CAMPAIGN_LOCKED",
         runId,
         campaignId,
-        campaignPitch,
       });
     }
 
-    const subjectTemplate = asString(
-      campaignFields["Email subject template"],
-    ).trim();
-    const bodyTemplate = asString(campaignFields["Email body template"]).trim();
-    if (!subjectTemplate || !bodyTemplate)
-      return jsonError(res, 400, "Campaign is missing subject/body templates");
+    const nowIso = isoNow();
+    const resend = new Resend(resendKey);
+    const siteUrl = publicSiteUrl();
+    const logoUrl = `${siteUrl}/brand/AFR_logo_circle_light_mini.png`;
 
-    const campaignUsesPersonalUrl =
-      templateUsesPersonalUrl(subjectTemplate) ||
-      templateUsesPersonalUrl(bodyTemplate);
-
-    // Set to Sending as a coarse-grained lock (best-effort)
     try {
       await airtablePatchRecords({
         token: airtableToken,
@@ -497,66 +398,57 @@ export default async function handler(
         table: campaignsTable,
         records: [{ id: campaignId, fields: { Status: "Sending" } }],
       });
-    } catch {}
+    } catch {
+      // Best effort only.
+    }
 
-    // Filter Sends via linked primary values (ARRAYJOIN({Pitch})) by campaignPitch
-    const pitchEsc = escapeAirtableString(campaignPitch);
-    const listFilter = `AND(FIND("${pitchEsc}", ARRAYJOIN({Pitch})), {Delivery status}="Queued")`;
-
-    const queued = await airtableList<SendFields>({
-      token: airtableToken,
+    const campaignFields = await fetchCampaignFields({
+      airtableToken,
       baseId,
-      table: sendsTable,
-      filterByFormula: listFilter,
-      fields: [
-        "Recipient",
-        "From address",
-        "Reply-to",
-        "Notes",
-        "Resend message id",
-        "Delivery status",
-        "Contact",
-        "Pitch",
-      ],
-      maxRecords: 100,
+      campaignsTable,
+      campaignId,
     });
 
-    // Eligible: queued with no resend id, then cap to batchLimit
-    const candidateSends = queued
-      .filter(
-        (s) => asString(s.fields["Resend message id"]).trim().length === 0,
-      )
-      .slice(0, batchLimit);
+    const campaignPitch =
+      asString(campaignFields["Campaign/Pitch"]).trim() ||
+      dispatch.campaign_pitch;
 
-    const diagSample = candidateSends.slice(0, 3).map((s) => ({
-      id: s.id,
-      recipient: asString(s.fields.Recipient),
-      resendMessageId: asString(s.fields["Resend message id"]),
-      deliveryStatus: asString(s.fields["Delivery status"]),
-      notes: asString(s.fields.Notes).slice(0, 160),
-    }));
+    const subjectTemplate = asString(
+      campaignFields["Email subject template"],
+    ).trim();
+    const bodyTemplate = asString(campaignFields["Email body template"]).trim();
 
-    if (!candidateSends.length) {
-      const remainingQueued = await countQueuedForPitch({
-        token: airtableToken,
+    if (!subjectTemplate || !bodyTemplate) {
+      return jsonError(res, 400, "Campaign is missing subject/body templates");
+    }
+
+    const campaignUsesPersonalUrl =
+      templateUsesPersonalUrl(subjectTemplate) ||
+      templateUsesPersonalUrl(bodyTemplate);
+
+    const picked = await claimQueuedRecipients({
+      dispatchId: dispatch.id,
+      batchLimit,
+    });
+
+    if (!picked.length) {
+      const counts = await refreshDispatchCounts(dispatch.id);
+      await markDispatchCompleteIfDone({
+        airtableToken,
         baseId,
-        sendsTable,
-        campaignPitch,
+        campaignsTable,
+        dispatchId: dispatch.id,
+        campaignId,
+        sentAtIso: nowIso,
+        remainingQueued: counts.queued_count,
       });
 
-      if (remainingQueued === 0) {
-        try {
-          await airtablePatchRecords({
-            token: airtableToken,
-            baseId,
-            table: campaignsTable,
-            records: [{ id: campaignId, fields: { Status: "Complete" } }],
-          });
-        } catch {}
-      }
-
       const nextPollMs = clampInt(
-        computeNextPollMs({ sent: 0, remainingQueued, batchLimit }),
+        computeNextPollMs({
+          sent: 0,
+          remainingQueued: counts.queued_count,
+          batchLimit,
+        }),
         0,
         5000,
       );
@@ -564,133 +456,76 @@ export default async function handler(
       return res.status(200).json({
         ok: true,
         sent: 0,
-        remainingQueued,
+        remainingQueued: counts.queued_count,
         nextPollMs,
         runId,
         diagnostics: {
           campaignId,
-          campaignPitch,
-          listFilter,
-          queuedMatchedByPitch: queued.length,
+          dispatchId: dispatch.id,
           eligibleToSend: 0,
-          sample: diagSample,
+          invalidInBatch: 0,
+          sentThisBatch: 0,
         },
       });
     }
 
-    // Contacts for merges (via Send.Contact)
-    const contactIds = Array.from(
-      new Set(
-        candidateSends
-          .flatMap((s) =>
-            Array.isArray(s.fields.Contact) ? s.fields.Contact : [],
-          )
-          .filter((x) => typeof x === "string" && x.startsWith("rec")),
-      ),
-    );
-
-    const contactById: Record<string, ContactFields> = {};
-    if (contactIds.length) {
-      const or = contactIds
-        .map((id) => `RECORD_ID()="${escapeAirtableString(id)}"`)
-        .join(",");
-      const contacts = await airtableList<ContactFields>({
-        token: airtableToken,
-        baseId,
-        table: contactsTable,
-        filterByFormula: `OR(${or})`,
-        fields: [
-          "Name",
-          "First Name",
-          "Surname",
-          "Email",
-          "Identifier",
-          "Personal URL",
-          "One-line hook",
-          "Custom paragraph",
-        ],
-        maxRecords: Math.min(100, contactIds.length),
-      });
-      for (const c of contacts) contactById[c.id] = c.fields;
-    }
-
-    const invalid: Array<{ sendId: string; reason: string }> = [];
+    const invalid: Array<{ recipientId: string; reason: string }> = [];
     const payloads: Payload[] = [];
 
-    for (const s of candidateSends) {
-      const to = normalizeEmail(asString(s.fields.Recipient));
-      const from = asString(s.fields["From address"]).trim();
-      const replyTo = asString(s.fields["Reply-to"]).trim();
+    for (const row of picked) {
+      const to = normalizeEmail(row.recipient_email);
+      const from = row.from_address.trim();
+      const replyTo = row.reply_to.trim();
 
       if (!isValidEmailLoose(to)) {
         invalid.push({
-          sendId: s.id,
+          recipientId: row.id,
           reason: `Invalid recipient email: "${to}"`,
         });
         continue;
       }
+
       if (!from) {
-        invalid.push({ sendId: s.id, reason: `Missing From address` });
+        invalid.push({ recipientId: row.id, reason: "Missing From address" });
         continue;
       }
+
       if (replyTo && !isValidEmailLoose(replyTo)) {
         invalid.push({
-          sendId: s.id,
+          recipientId: row.id,
           reason: `Invalid Reply-to: "${replyTo}"`,
         });
         continue;
       }
 
-      const contactId =
-        Array.isArray(s.fields.Contact) && s.fields.Contact.length
-          ? s.fields.Contact[0]
-          : undefined;
-      const cf = contactId ? contactById[contactId] : undefined;
+      const storedVars = jsonRecordValue(row.template_vars);
 
-      const firstName = asString(cf?.["First Name"]);
-      const lastName = asString(cf?.["Surname"]);
-      const fullName =
-        asString(cf?.["Name"]) ||
-        [firstName, lastName].filter(Boolean).join(" ").trim();
-      const identifier = asString(cf?.Identifier);
-      const personalUrl = normalizePersonalUrl(cf?.["Personal URL"]);
-      const oneLineHook = asString(cf?.["One-line hook"]);
-      const customParagraph = asString(cf?.["Custom paragraph"]);
-
-      if (campaignUsesPersonalUrl && !personalUrl) {
+      if (campaignUsesPersonalUrl && !storedVars.personal_url) {
         invalid.push({
-          sendId: s.id,
+          recipientId: row.id,
           reason:
             "Campaign uses {{personal_url}} but Press Contacts.Personal URL is missing or invalid (HTTPS required)",
         });
         continue;
       }
 
-      // Unsubscribe URL: only if we can bind to a real Press Contact record
       const unsubscribeUrl =
-        contactId && contactId.startsWith("rec")
+        row.airtable_contact_id && row.airtable_contact_id.startsWith("rec")
           ? `${siteUrl}/api/unsubscribe?t=${encodeURIComponent(
               mintUnsubscribeToken({
                 secret: unsubscribeSecret,
-                contactId,
+                contactId: row.airtable_contact_id,
                 email: to,
                 campaignId,
-                sendId: s.id,
+                sendId: row.id,
                 ttlDays: 60,
               }),
             )}`
           : "";
 
       const vars: Record<string, string> = {
-        first_name: firstName,
-        last_name: lastName,
-        full_name: fullName,
+        ...storedVars,
         email: to,
-        outlet: "",
-        identifier,
-        personal_url: personalUrl ?? "",
-        one_line_hook: oneLineHook,
-        custom_paragraph: customParagraph,
         campaign_name: campaignPitch,
         key_links: asString(campaignFields["Key links"]),
         assets_pack_link: asString(campaignFields["Assets pack link"]),
@@ -698,77 +533,55 @@ export default async function handler(
         unsubscribe_url: unsubscribeUrl,
       };
 
-      const subj = mergeTemplate(subjectTemplate, vars).trim();
+      const subject = mergeTemplate(subjectTemplate, vars).trim() || "(no subject)";
       const mergedBody = mergeTemplate(bodyTemplate, vars).trim();
 
-      // Always include an unsubscribe option; if we somehow lack a contactId, fall back to reply-to instruction.
-      // TEXT version (keep footer appended)
       const footerText = unsubscribeUrl
         ? `\n\n---\nDon’t want to hear from us again? ${unsubscribeUrl}`
         : `\n\n---\nDon’t want to hear from us again? Reply with “unsubscribe”.`;
 
       const text = (mergedBody + footerText).trim() || " ";
 
-      // HTML version (bodyMarkdown excludes footer; footer rendered via template prop)
       const html = await renderEmail(
         React.createElement(PressPitchEmail, {
           brandName: "Angelfish Records",
-          bodyMarkdown: mergedBody, // <— important
+          bodyMarkdown: mergedBody,
           logoUrl,
-          unsubscribeUrl, // <— important
+          unsubscribeUrl,
         }),
         { pretty: true },
       );
 
-      const personalisedSnapshot = [oneLineHook, customParagraph]
-        .filter(Boolean)
-        .join("\n\n")
-        .trim();
-
       payloads.push({
+        recipientId: row.id,
+        contactId: row.airtable_contact_id,
         to,
         from,
         replyTo,
-        subject: subj || "(no subject)",
+        subject,
         text,
         html,
-        personalisedSnapshot,
-        sendId: s.id,
         unsubscribeUrl: unsubscribeUrl || undefined,
       });
     }
 
-    // Mark invalid rows as Failed (best-effort), but keep the batch moving.
     if (invalid.length) {
-      try {
-        await airtablePatchRecords({
-          token: airtableToken,
-          baseId,
-          table: sendsTable,
-          records: invalid.map((x) => ({
-            id: x.sendId,
-            fields: {
-              "Delivery status": "Failed",
-              "Last event at": nowIso,
-              Notes: `validation_failed=${x.reason}\nrun_id=${runId}`.slice(
-                0,
-                90000,
-              ),
-            },
-          })),
+      for (const item of invalid) {
+        await markRecipientsFailed({
+          recipientIds: [item.recipientId],
+          reason: `validation_failed=${item.reason}\nrun_id=${runId}`,
         });
-      } catch {}
+      }
     }
 
     if (!payloads.length) {
-      const remainingQueued = await countQueuedForPitch({
-        token: airtableToken,
-        baseId,
-        sendsTable,
-        campaignPitch,
-      });
+      const counts = await refreshDispatchCounts(dispatch.id);
       const nextPollMs = clampInt(
-        computeNextPollMs({ sent: 0, remainingQueued, batchLimit }),
+        computeNextPollMs({
+          sent: 0,
+          remainingQueued: counts.queued_count,
+          batchLimit,
+        }),
         0,
         5000,
       );
@@ -776,45 +589,23 @@ export default async function handler(
       return res.status(200).json({
         ok: true,
         sent: 0,
-        remainingQueued,
+        remainingQueued: counts.queued_count,
         nextPollMs,
         runId,
         diagnostics: {
           campaignId,
-          campaignPitch,
-          listFilter,
-          queuedMatchedByPitch: queued.length,
-          eligibleToSend: 0,
+          dispatchId: dispatch.id,
+          eligibleToSend: picked.length,
           invalidInBatch: invalid.length,
-          sample: diagSample,
+          sentThisBatch: 0,
         },
       });
     }
 
-    // Batch idempotency: stable for this exact set/order of send ids
-    const batchKeyRaw = `campaign:${campaignId}:send_ids:${payloads.map((p) => p.sendId).join(",")}`;
+    const batchKeyRaw = `campaign:${campaignId}:recipient_ids:${payloads
+      .map((p) => p.recipientId)
+      .join(",")}`;
     const idempotencyKey = `af:${campaignId}:${sha256Hex(batchKeyRaw).slice(0, 48)}`;
-
-    // Stamp a note onto sends with run+idempotency (best-effort, helps audits + retries)
-    try {
-      await airtablePatchRecords({
-        token: airtableToken,
-        baseId,
-        table: sendsTable,
-        records: payloads.map((p) => {
-          const orig = candidateSends.find((s) => s.id === p.sendId);
-          return {
-            id: p.sendId,
-            fields: {
-              Notes:
-                `${asString(orig?.fields.Notes)}\n\ndrain_run_id=${runId}\nidempotency_key=${idempotencyKey}`
-                  .trim()
-                  .slice(0, 90000),
-            },
-          };
-        }),
-      });
-    } catch {}
 
     let attempt = 0;
     let lastError: unknown = null;
@@ -832,16 +623,15 @@ export default async function handler(
         ...(p.unsubscribeUrl
           ? {
               headers: {
-                // Angle brackets are the conventional header format for a URL entry
                 "List-Unsubscribe": `<${p.unsubscribeUrl}>`,
-                // One-click unsubscribe
                 "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
               },
             }
           : {}),
         tags: [
           { name: "campaign_id", value: campaignId },
-          { name: "send_id", value: p.sendId },
+          { name: "dispatch_id", value: dispatch.id },
+          { name: "recipient_id", value: p.recipientId },
           { name: "run_id", value: runId },
         ],
       }));
@@ -852,11 +642,12 @@ export default async function handler(
       if (!error) {
         const dataUnknown = (result as { data?: unknown }).data;
 
-        const idsArr: Array<{ id: string }> | null = Array.isArray(dataUnknown)
-          ? (dataUnknown as Array<{ id: string }>)
-          : isObj(dataUnknown) &&
+        const idsArr: ResendIdRow[] | null = Array.isArray(dataUnknown)
+          ? (dataUnknown as ResendIdRow[])
+          : dataUnknown &&
+              typeof dataUnknown === "object" &&
               Array.isArray((dataUnknown as { data?: unknown }).data)
-            ? ((dataUnknown as { data: unknown }).data as Array<{ id: string }>)
+            ? ((dataUnknown as { data: unknown }).data as ResendIdRow[])
             : null;
 
         if (!idsArr || idsArr.length !== payloads.length) {
@@ -865,75 +656,45 @@ export default async function handler(
           );
         }
 
-        await airtablePatchRecords({
-          token: airtableToken,
-          baseId,
-          table: sendsTable,
-          records: payloads.map((p, i) => ({
-            id: p.sendId,
-            fields: {
-              "Resend message id": idsArr[i]?.id ?? "",
-              "Delivery status": "Sent",
-              "Sent at": nowIso,
-              "Last event at": nowIso,
-              "Personalised paragraph used": p.personalisedSnapshot,
-            },
-          })),
+        await markRecipientsSent({
+          payloads,
+          resendIds: idsArr.map((row) => row.id),
+          sentAtIso: nowIso,
         });
 
-        // Set Campaigns.Sent at if it’s empty-ish (best-effort)
-        if (!asString(campaignFields["Sent at"]).trim()) {
-          try {
-            await airtablePatchRecords({
-              token: airtableToken,
-              baseId,
-              table: campaignsTable,
-              records: [{ id: campaignId, fields: { "Sent at": nowIso } }],
-            });
-          } catch {}
-        }
-
-        const sentCount = payloads.length;
-        const remainingQueued = await countQueuedForPitch({
-          token: airtableToken,
+        const counts = await refreshDispatchCounts(dispatch.id);
+        await markDispatchCompleteIfDone({
+          airtableToken,
           baseId,
-          sendsTable,
-          campaignPitch,
+          campaignsTable,
+          dispatchId: dispatch.id,
+          campaignId,
+          sentAtIso: nowIso,
+          remainingQueued: counts.queued_count,
         });
-
-        if (remainingQueued === 0) {
-          try {
-            await airtablePatchRecords({
-              token: airtableToken,
-              baseId,
-              table: campaignsTable,
-              records: [{ id: campaignId, fields: { Status: "Complete" } }],
-            });
-          } catch {}
-        }
 
         const nextPollMs = clampInt(
-          computeNextPollMs({ sent: sentCount, remainingQueued, batchLimit }),
+          computeNextPollMs({
+            sent: payloads.length,
+            remainingQueued: counts.queued_count,
+            batchLimit,
+          }),
           0,
           5000,
         );
 
         return res.status(200).json({
           ok: true,
-          sent: sentCount,
-          remainingQueued,
+          sent: payloads.length,
+          remainingQueued: counts.queued_count,
           nextPollMs,
           runId,
           diagnostics: {
             campaignId,
-            campaignPitch,
-            statusBefore: status,
-            listFilter,
-            queuedMatchedByPitch: queued.length,
-            eligibleToSend: candidateSends.length,
+            dispatchId: dispatch.id,
+            eligibleToSend: picked.length,
             invalidInBatch: invalid.length,
-            sentThisBatch: sentCount,
-            sample: diagSample,
+            sentThisBatch: payloads.length,
           },
         });
       }
@@ -953,23 +714,12 @@ export default async function handler(
 
     const errText = stringifyError(lastError);
 
-    await airtablePatchRecords({
-      token: airtableToken,
-      baseId,
-      table: sendsTable,
-      records: payloads.map((p) => ({
-        id: p.sendId,
-        fields: {
-          "Delivery status": "Failed",
-          Notes:
-            `${errText ? `send_failed=${errText}\n` : ""}run_id=${runId}`.slice(
-              0,
-              90000,
-            ),
-          "Last event at": nowIso,
-        },
-      })),
+    await markRecipientsFailed({
+      recipientIds: payloads.map((p) => p.recipientId),
+      reason: `${errText ? `send_failed=${errText}\n` : ""}run_id=${runId}`,
     });
+
+    const counts = await refreshDispatchCounts(dispatch.id);
 
     return res.status(502).json({
       error: "Drain send failed",
@@ -977,13 +727,11 @@ export default async function handler(
       runId,
       diagnostics: {
         campaignId,
-        campaignPitch,
-        listFilter,
-        queuedMatchedByPitch: queued.length,
-        eligibleToSend: candidateSends.length,
+        dispatchId: dispatch.id,
+        eligibleToSend: picked.length,
         invalidInBatch: invalid.length,
         sentThisBatch: 0,
-        sample: diagSample,
+        remainingQueued: counts.queued_count,
       },
     });
   } catch (err) {

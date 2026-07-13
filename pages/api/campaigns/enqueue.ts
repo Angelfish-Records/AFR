@@ -1,17 +1,23 @@
 // pages/api/campaigns/enqueue.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import crypto from "crypto";
+import { sql } from "@vercel/postgres";
 import { requireInternalBasicAuth } from "../_internalAuth";
-
-type AirtableListResp<TFields> = {
-  records: Array<{ id: string; fields: TFields }>;
-  offset?: string;
-};
-
-function must(v: string | undefined, name: string): string {
-  if (!v) throw new Error(`Missing ${name}`);
-  return v;
-}
+import {
+  airtableCreateSingle,
+  airtableListAll,
+  escapeAirtableString,
+  mustEnv,
+  normalizeFilterValue,
+} from "@/lib/campaigns/airtable";
+import {
+  CAMPAIGN_SENDERS,
+  extractEmailFromAddress,
+  isValidEmailLoose,
+  normalizeEmail,
+  parseCampaignSenderKey,
+  type CampaignSenderKey,
+} from "@/lib/campaigns/senders";
+import { asString, normalizePersonalUrl, toStringList } from "@/lib/campaigns/templates";
 
 function jsonError(
   res: NextApiResponse,
@@ -20,15 +26,6 @@ function jsonError(
   extra?: unknown,
 ) {
   return res.status(status).json({ error: msg, ...(extra ? { extra } : {}) });
-}
-
-function escapeAirtableString(s: string): string {
-  // safe inside Airtable string literal "..."
-  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
-function normalizeFilterValue(v: unknown): string {
-  return typeof v === "string" ? v.trim() : "";
 }
 
 function buildContactsFilter(args: {
@@ -40,14 +37,14 @@ function buildContactsFilter(args: {
   const parts: string[] = ["{Is mailable}"];
 
   const t = (args.outletType ?? "").trim();
-  if (t)
+  if (t) {
     parts.push(`FIND("${escapeAirtableString(t)}", ARRAYJOIN({Outlet Type}))`);
+  }
 
   const r = (args.outletRegion ?? "").trim();
-  if (r)
-    parts.push(
-      `FIND("${escapeAirtableString(r)}", ARRAYJOIN({Outlet Region}))`,
-    );
+  if (r) {
+    parts.push(`FIND("${escapeAirtableString(r)}", ARRAYJOIN({Outlet Region}))`);
+  }
 
   const a = (args.approach ?? "").trim();
   if (a) parts.push(`{Approach}="${escapeAirtableString(a)}"`);
@@ -58,203 +55,31 @@ function buildContactsFilter(args: {
   return parts.length === 1 ? parts[0] : `AND(${parts.join(",")})`;
 }
 
-function isValidEmailLoose(s: string): boolean {
-  const x = s.trim();
-  if (x.length < 3 || x.length > 254) return false;
-  const at = x.indexOf("@");
-  if (at <= 0 || at !== x.lastIndexOf("@")) return false;
-  const dot = x.lastIndexOf(".");
-  return dot > at + 1 && dot < x.length - 1;
+function normalizeAudienceKey(k: string | undefined): string {
+  return (k ?? "press_mailable_v1").trim();
 }
 
-function normalizeEmail(s: string): string {
-  return s.trim().toLowerCase();
-}
+function audienceSummary(args: {
+  outletType: string;
+  outletRegion: string;
+  approach: string;
+  priority: string;
+}): string {
+  const parts = [
+    args.outletType ? `Outlet Type: ${args.outletType}` : "",
+    args.outletRegion ? `Outlet Region: ${args.outletRegion}` : "",
+    args.approach ? `Approach: ${args.approach}` : "",
+    args.priority ? `Priority: ${args.priority}` : "",
+  ].filter(Boolean);
 
-// Accept either "Name <a@b>" or "a@b"
-function extractEmailFromFromAddress(s: string): string | null {
-  const trimmed = s.trim();
-  const m = trimmed.match(/<([^>]+)>/);
-  const candidate = (m?.[1] ?? trimmed).trim();
-  return isValidEmailLoose(candidate) ? candidate : null;
-}
-
-function parseRetryAfterMs(headers: Headers): number | null {
-  const ra = headers.get("retry-after");
-  if (!ra) return null;
-  const asInt = Number(ra);
-  if (Number.isFinite(asInt) && asInt >= 0)
-    return Math.min(30_000, Math.floor(asInt * 1000));
-  const asDate = Date.parse(ra);
-  if (Number.isFinite(asDate))
-    return Math.min(30_000, Math.max(0, asDate - Date.now()));
-  return null;
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((r) => setTimeout(r, ms));
-}
-
-async function airtableRequest<T>(
-  token: string,
-  url: string,
-  init?: RequestInit,
-): Promise<
-  | { ok: true; json: T }
-  | { ok: false; status: number; body: string; headers: Headers }
-> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    return { ok: false, status: res.status, body, headers: res.headers };
-  }
-  const json = (await res.json()) as T;
-  return { ok: true, json };
-}
-
-async function airtableRequestWithRetry<T>(
-  token: string,
-  url: string,
-  init?: RequestInit,
-): Promise<
-  | { ok: true; json: T }
-  | { ok: false; status: number; body: string; headers: Headers }
-> {
-  let attempt = 0;
-  let last: {
-    ok: false;
-    status: number;
-    body: string;
-    headers: Headers;
-  } | null = null;
-
-  while (attempt < 4) {
-    attempt++;
-    const resp = await airtableRequest<T>(token, url, init);
-    if (resp.ok) return resp;
-
-    last = resp;
-    const retryable =
-      resp.status === 429 ||
-      resp.status === 502 ||
-      resp.status === 503 ||
-      resp.status === 504;
-    if (!retryable) return resp;
-
-    const raMs = parseRetryAfterMs(resp.headers);
-    const backoff = Math.min(8000, 400 * Math.pow(2, attempt - 1));
-    await sleep(raMs ?? backoff);
-  }
-
-  return (
-    last ?? { ok: false, status: 500, body: "unknown", headers: new Headers() }
-  );
-}
-
-async function airtableListAll<TFields>(args: {
-  token: string;
-  baseId: string;
-  table: string;
-  filterByFormula?: string;
-  fields?: string[];
-  pageSize?: number;
-  maxRecords?: number;
-}): Promise<Array<{ id: string; fields: TFields }>> {
-  const {
-    token,
-    baseId,
-    table,
-    filterByFormula,
-    fields,
-    pageSize = 100,
-    maxRecords,
-  } = args;
-  const out: Array<{ id: string; fields: TFields }> = [];
-
-  let offset: string | undefined;
-  while (true) {
-    const params = new URLSearchParams();
-    params.set("pageSize", String(Math.min(100, Math.max(1, pageSize))));
-    if (filterByFormula) params.set("filterByFormula", filterByFormula);
-    if (fields?.length) for (const f of fields) params.append("fields[]", f);
-    if (offset) params.set("offset", offset);
-
-    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?${params.toString()}`;
-    const resp = await airtableRequestWithRetry<AirtableListResp<TFields>>(
-      token,
-      url,
-    );
-    if (!resp.ok)
-      throw new Error(`Airtable list failed: ${resp.status} ${resp.body}`);
-
-    out.push(...resp.json.records);
-    offset = resp.json.offset;
-
-    if (maxRecords && out.length >= maxRecords) return out.slice(0, maxRecords);
-    if (!offset) return out;
-  }
-}
-
-async function airtableCreateRecords(args: {
-  token: string;
-  baseId: string;
-  table: string;
-  records: Array<{ fields: Record<string, unknown> }>;
-}): Promise<Array<{ id: string }>> {
-  const { token, baseId, table, records } = args;
-  const created: Array<{ id: string }> = [];
-
-  for (let i = 0; i < records.length; i += 10) {
-    const chunk = records.slice(i, i + 10);
-    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`;
-    const resp = await airtableRequestWithRetry<{
-      records: Array<{ id: string }>;
-    }>(token, url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ records: chunk }),
-    });
-    if (!resp.ok)
-      throw new Error(`Airtable create failed: ${resp.status} ${resp.body}`);
-    created.push(...resp.json.records.map((r) => ({ id: r.id })));
-  }
-
-  return created;
-}
-
-async function airtableCreateSingle(args: {
-  token: string;
-  baseId: string;
-  table: string;
-  fields: Record<string, unknown>;
-}): Promise<string> {
-  const { token, baseId, table, fields } = args;
-  const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`;
-  const resp = await airtableRequestWithRetry<{
-    records: Array<{ id: string }>;
-  }>(token, url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ records: [{ fields }] }),
-  });
-  if (!resp.ok)
-    throw new Error(`Airtable create failed: ${resp.status} ${resp.body}`);
-  const id = resp.json.records?.[0]?.id;
-  if (!id) throw new Error("Airtable create returned no record id");
-  return id;
+  return parts.length ? parts.join(" • ") : "All mailable contacts";
 }
 
 type PressContactFields = {
   Email?: string;
   Outlet?: string[];
-  "Outlet Type"?: string[]; // lookup array from Outlets.Type
-  "Outlet Region"?: string[]; // lookup array from Outlets.Region
+  "Outlet Type"?: string[];
+  "Outlet Region"?: string[];
   Name?: string;
   "First Name"?: string;
   Surname?: string;
@@ -270,40 +95,147 @@ type OutletFields = {
   Outlet?: string;
 };
 
-type SendFields = {
-  Recipient?: string;
-  "Delivery status"?: string;
-  Contact?: string[];
-  Pitch?: unknown;
+type ContactRecipient = {
+  contactId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  outlet: string;
+  identifier: string;
+  personalUrl: string;
+  oneLineHook: string;
+  customParagraph: string;
 };
 
-type SenderKey = "angus" | "brendan";
-
-const SENDERS: Record<SenderKey, { fromAddress: string; replyTo: string }> = {
-  angus: {
-    fromAddress:
-      "Angus at Angelfish Records <angus@press.angelfishrecords.com>",
-    replyTo: "angus@press.angelfishrecords.com",
-  },
-  brendan: {
-    fromAddress:
-      "Brendan at Angelfish Records <brendan@press.angelfishrecords.com>",
-    replyTo: "brendan@press.angelfishrecords.com",
-  },
+type DispatchRow = {
+  id: string;
 };
 
-function asString(v: unknown): string {
-  return typeof v === "string" ? v : "";
+type InsertRecipientRow = {
+  id: string;
+};
+
+async function buildOutletNameMap(args: {
+  airtableToken: string;
+  baseId: string;
+  outletsTable: string | undefined;
+  contacts: Array<{ fields: PressContactFields }>;
+}): Promise<Record<string, string>> {
+  const { airtableToken, baseId, outletsTable, contacts } = args;
+  if (!outletsTable) return {};
+
+  const outletIds = Array.from(
+    new Set(
+      contacts.flatMap((c) =>
+        Array.isArray(c.fields.Outlet) ? c.fields.Outlet : [],
+      ),
+    ),
+  ).slice(0, 100);
+
+  if (!outletIds.length) return {};
+
+  const or = outletIds
+    .map((id) => `RECORD_ID()="${escapeAirtableString(id)}"`)
+    .join(",");
+
+  const outletRecs = await airtableListAll<OutletFields>({
+    token: airtableToken,
+    baseId,
+    table: outletsTable,
+    filterByFormula: `OR(${or})`,
+    fields: ["Outlet"],
+    maxRecords: outletIds.length,
+  });
+
+  return Object.fromEntries(
+    outletRecs.map((r) => [r.id, (r.fields.Outlet ?? "").toString()]),
+  );
 }
 
-function parseSenderKey(v: unknown): SenderKey | null {
-  const s = asString(v).trim();
-  if (s === "angus" || s === "brendan") return s;
-  return null;
+function mapContactToRecipient(
+  contact: { id: string; fields: PressContactFields },
+  outletNameById: Record<string, string>,
+): ContactRecipient | null {
+  const email = normalizeEmail((contact.fields.Email ?? "").toString());
+  if (!isValidEmailLoose(email)) return null;
+
+  const outletIds = Array.isArray(contact.fields.Outlet)
+    ? contact.fields.Outlet
+    : [];
+  const firstOutletId = outletIds[0];
+
+  const firstName = asString(contact.fields["First Name"]);
+  const lastName = asString(contact.fields.Surname);
+  const fullName =
+    asString(contact.fields.Name) ||
+    [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  const personalUrl = normalizePersonalUrl(contact.fields["Personal URL"]) ?? "";
+
+  return {
+    contactId: contact.id,
+    email,
+    firstName,
+    lastName,
+    fullName,
+    outlet: firstOutletId ? outletNameById[firstOutletId] ?? "" : "",
+    identifier: asString(contact.fields.Identifier),
+    personalUrl,
+    oneLineHook: asString(contact.fields["One-line hook"]),
+    customParagraph: asString(contact.fields["Custom paragraph"]),
+  };
 }
 
-function normalizeAudienceKey(k: string | undefined): string {
-  return (k ?? "press_mailable_v1").trim();
+function templateVarsForRecipient(recipient: ContactRecipient): Record<string, string> {
+  return {
+    first_name: recipient.firstName,
+    last_name: recipient.lastName,
+    full_name: recipient.fullName,
+    email: recipient.email,
+    outlet: recipient.outlet,
+    identifier: recipient.identifier,
+    personal_url: recipient.personalUrl,
+    one_line_hook: recipient.oneLineHook,
+    custom_paragraph: recipient.customParagraph,
+  };
+}
+
+async function refreshDispatchCounts(dispatchId: string): Promise<{
+  queuedCount: number;
+  sentCount: number;
+  failedCount: number;
+}> {
+  const result = await sql<{
+    queued_count: number;
+    sent_count: number;
+    failed_count: number;
+  }>`
+    with counts as (
+      select
+        count(*) filter (where status in ('queued', 'sending'))::int as queued_count,
+        count(*) filter (where status = 'sent')::int as sent_count,
+        count(*) filter (where status in ('failed', 'bounced', 'complained'))::int as failed_count
+      from campaign_dispatch_recipients
+      where dispatch_id = ${dispatchId}::uuid
+    )
+    update campaign_dispatches d
+    set
+      queued_count = counts.queued_count,
+      sent_count = counts.sent_count,
+      failed_count = counts.failed_count,
+      updated_at = now()
+    from counts
+    where d.id = ${dispatchId}::uuid
+    returning counts.queued_count, counts.sent_count, counts.failed_count
+  `;
+
+  const row = result.rows[0];
+  return {
+    queuedCount: row?.queued_count ?? 0,
+    sentCount: row?.sent_count ?? 0,
+    failedCount: row?.failed_count ?? 0,
+  };
 }
 
 export default async function handler(
@@ -313,22 +245,18 @@ export default async function handler(
   try {
     if (!requireInternalBasicAuth(req, res)) return;
 
-    const airtableToken = must(process.env.AIRTABLE_TOKEN, "AIRTABLE_TOKEN");
-    const baseId = must(process.env.AIRTABLE_BASE_ID, "AIRTABLE_BASE_ID");
+    const airtableToken = mustEnv(process.env.AIRTABLE_TOKEN, "AIRTABLE_TOKEN");
+    const baseId = mustEnv(process.env.AIRTABLE_BASE_ID, "AIRTABLE_BASE_ID");
 
-    const contactsTable = must(
+    const contactsTable = mustEnv(
       process.env.AIRTABLE_PRESS_CONTACTS_TABLE,
       "AIRTABLE_PRESS_CONTACTS_TABLE",
     );
-    const campaignsTable = must(
+    const campaignsTable = mustEnv(
       process.env.AIRTABLE_CAMPAIGNS_TABLE,
       "AIRTABLE_CAMPAIGNS_TABLE",
     );
-    const sendsTable = must(
-      process.env.AIRTABLE_SENDS_TABLE,
-      "AIRTABLE_SENDS_TABLE",
-    );
-    const outletsTable = process.env.AIRTABLE_OUTLETS_TABLE; // optional
+    const outletsTable = process.env.AIRTABLE_OUTLETS_TABLE;
 
     const audienceKey = normalizeAudienceKey(
       (req.method === "GET"
@@ -340,10 +268,10 @@ export default async function handler(
           : undefined),
     );
 
-    if (audienceKey !== "press_mailable_v1")
+    if (audienceKey !== "press_mailable_v1") {
       return jsonError(res, 400, "Unknown audienceKey");
+    }
 
-    // GET query filters
     const outletTypeQ =
       req.method === "GET" ? normalizeFilterValue(req.query.outletType) : "";
     const outletRegionQ =
@@ -384,33 +312,12 @@ export default async function handler(
         maxRecords: 12,
       });
 
-      let outletNameById: Record<string, string> = {};
-      if (outletsTable) {
-        const outletIds = Array.from(
-          new Set(
-            sampleContacts.flatMap((c) =>
-              Array.isArray(c.fields.Outlet) ? c.fields.Outlet : [],
-            ),
-          ),
-        ).slice(0, 50);
-
-        if (outletIds.length) {
-          const or = outletIds
-            .map((id) => `RECORD_ID()="${escapeAirtableString(id)}"`)
-            .join(",");
-          const outletRecs = await airtableListAll<OutletFields>({
-            token: airtableToken,
-            baseId,
-            table: outletsTable,
-            filterByFormula: `OR(${or})`,
-            fields: ["Outlet"],
-            maxRecords: outletIds.length,
-          });
-          outletNameById = Object.fromEntries(
-            outletRecs.map((r) => [r.id, (r.fields.Outlet ?? "").toString()]),
-          );
-        }
-      }
+      const outletNameById = await buildOutletNameMap({
+        airtableToken,
+        baseId,
+        outletsTable,
+        contacts: sampleContacts,
+      });
 
       const all = await airtableListAll<Record<string, never>>({
         token: airtableToken,
@@ -420,7 +327,6 @@ export default async function handler(
         fields: [],
       });
 
-      // Facets from the full mailable set (unfiltered), so dropdowns stay complete.
       const allForFacet = await airtableListAll<
         Pick<
           PressContactFields,
@@ -440,17 +346,10 @@ export default async function handler(
       const prioritySet = new Set<string>();
 
       for (const rec of allForFacet) {
-        const ts = Array.isArray(rec.fields["Outlet Type"])
-          ? rec.fields["Outlet Type"]
-          : [];
-        for (const t of ts)
-          if (typeof t === "string" && t.trim()) typeSet.add(t.trim());
-
-        const rs = Array.isArray(rec.fields["Outlet Region"])
-          ? rec.fields["Outlet Region"]
-          : [];
-        for (const r of rs)
-          if (typeof r === "string" && r.trim()) regionSet.add(r.trim());
+        for (const t of toStringList(rec.fields["Outlet Type"])) typeSet.add(t);
+        for (const r of toStringList(rec.fields["Outlet Region"])) {
+          regionSet.add(r);
+        }
 
         const a = rec.fields.Approach;
         if (typeof a === "string" && a.trim()) approachSet.add(a.trim());
@@ -459,48 +358,40 @@ export default async function handler(
         if (typeof p === "string" && p.trim()) prioritySet.add(p.trim());
       }
 
-      const availableOutletTypes = Array.from(typeSet).sort((a, b) =>
-        a.localeCompare(b),
-      );
-      const availableOutletRegions = Array.from(regionSet).sort((a, b) =>
-        a.localeCompare(b),
-      );
-      const availableApproaches = Array.from(approachSet).sort((a, b) =>
-        a.localeCompare(b),
-      );
-      const availablePriorities = Array.from(prioritySet).sort((a, b) =>
-        a.localeCompare(b),
-      );
       const sample = sampleContacts
-        .filter((c) => !!c.fields.Email)
-        .map((c) => {
-          const firstOutletId = Array.isArray(c.fields.Outlet)
-            ? c.fields.Outlet[0]
-            : undefined;
-          return {
-            id: c.id,
-            email: (c.fields.Email ?? "").toString(),
-            firstName: (c.fields["First Name"] ?? "").toString(),
-            lastName: (c.fields["Surname"] ?? "").toString(),
-            fullName: (c.fields["Name"] ?? "").toString(),
-            outlet: firstOutletId ? (outletNameById[firstOutletId] ?? "") : "",
-            identifier: (c.fields.Identifier ?? "").toString(),
-            personalUrl: (c.fields["Personal URL"] ?? "").toString(),
-            oneLineHook: (c.fields["One-line hook"] ?? "").toString(),
-            customParagraph: (c.fields["Custom paragraph"] ?? "").toString(),
-          };
-        })
-        .slice(0, 10);
+        .map((c) => mapContactToRecipient(c, outletNameById))
+        .filter((c): c is ContactRecipient => Boolean(c))
+        .slice(0, 10)
+        .map((c) => ({
+          id: c.contactId,
+          email: c.email,
+          firstName: c.firstName,
+          lastName: c.lastName,
+          fullName: c.fullName,
+          outlet: c.outlet,
+          identifier: c.identifier,
+          personalUrl: c.personalUrl,
+          oneLineHook: c.oneLineHook,
+          customParagraph: c.customParagraph,
+        }));
 
       return res.status(200).json({
         ok: true,
         audienceKey,
         mailableCount: all.length,
         sampleContacts: sample,
-        availableOutletTypes,
-        availableOutletRegions,
-        availableApproaches,
-        availablePriorities,
+        availableOutletTypes: Array.from(typeSet).sort((a, b) =>
+          a.localeCompare(b),
+        ),
+        availableOutletRegions: Array.from(regionSet).sort((a, b) =>
+          a.localeCompare(b),
+        ),
+        availableApproaches: Array.from(approachSet).sort((a, b) =>
+          a.localeCompare(b),
+        ),
+        availablePriorities: Array.from(prioritySet).sort((a, b) =>
+          a.localeCompare(b),
+        ),
         appliedFilters: {
           outletType: outletTypeQ || null,
           outletRegion: outletRegionQ || null,
@@ -510,19 +401,16 @@ export default async function handler(
       });
     }
 
-    if (req.method !== "POST")
+    if (req.method !== "POST") {
       return res.status(405).send("Method Not Allowed");
+    }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
 
     const campaignName =
       typeof body.campaignName === "string" ? body.campaignName : undefined;
-    const senderKey = parseSenderKey(body.senderKey) ?? "angus";
-
-    const legacyFromAddress =
-      typeof body.fromAddress === "string" ? body.fromAddress : undefined;
-    const legacyReplyTo =
-      typeof body.replyTo === "string" ? body.replyTo : undefined;
+    const senderKey: CampaignSenderKey =
+      parseCampaignSenderKey(body.senderKey) ?? "angus";
 
     const subjectTemplate =
       typeof body.subjectTemplate === "string"
@@ -531,28 +419,12 @@ export default async function handler(
     const bodyTemplate =
       typeof body.bodyTemplate === "string" ? body.bodyTemplate : undefined;
     const existingCampaignId =
-      typeof body.campaignId === "string" ? body.campaignId : undefined;
+      typeof body.campaignId === "string" ? body.campaignId.trim() : "";
 
-    // POST body filters
-    const outletType = normalizeFilterValue(
-      (body as { outletType?: unknown }).outletType,
-    );
-    const outletRegion = normalizeFilterValue(
-      (body as { outletRegion?: unknown }).outletRegion,
-    );
-    const approach = normalizeFilterValue(
-      (body as { approach?: unknown }).approach,
-    );
-    const priority = normalizeFilterValue(
-      (body as { priority?: unknown }).priority,
-    );
-
-    const contactsFilter = buildContactsFilter({
-      outletType,
-      outletRegion,
-      approach,
-      priority,
-    });
+    const outletType = normalizeFilterValue(body.outletType);
+    const outletRegion = normalizeFilterValue(body.outletRegion);
+    const approach = normalizeFilterValue(body.approach);
+    const priority = normalizeFilterValue(body.priority);
 
     if (!subjectTemplate || !bodyTemplate) {
       return jsonError(
@@ -562,135 +434,182 @@ export default async function handler(
       );
     }
 
-    const derived = SENDERS[senderKey];
-    const fromAddress = derived.fromAddress;
-    const replyTo = derived.replyTo;
+    const sender = CAMPAIGN_SENDERS[senderKey];
+    const fromAddress = sender.fromAddress;
+    const replyTo = sender.replyTo;
 
-    // Optional: guard against mixed/legacy inputs silently diverging
-    if (
-      legacyFromAddress &&
-      legacyFromAddress.trim() &&
-      legacyFromAddress.trim() !== fromAddress
-    ) {
-      return jsonError(
-        res,
-        400,
-        "fromAddress must not be provided when senderKey is set (or must match senderKey)",
-      );
-    }
-    if (
-      legacyReplyTo &&
-      legacyReplyTo.trim() &&
-      legacyReplyTo.trim() !== replyTo
-    ) {
-      return jsonError(
-        res,
-        400,
-        "replyTo must not be provided when senderKey is set (or must match senderKey)",
-      );
-    }
-
-    const fromEmail = extractEmailFromFromAddress(fromAddress);
-    if (!fromEmail)
+    const fromEmail = extractEmailFromAddress(fromAddress);
+    if (!fromEmail) {
       return jsonError(res, 400, "Configured sender fromAddress is invalid");
-    if (!isValidEmailLoose(replyTo))
+    }
+    if (!isValidEmailLoose(replyTo)) {
       return jsonError(res, 400, "Configured sender replyTo is invalid");
+    }
 
-    const runId = crypto.randomUUID();
+    const contactsFilter = buildContactsFilter({
+      outletType,
+      outletRegion,
+      approach,
+      priority,
+    });
+    const summary = audienceSummary({
+      outletType,
+      outletRegion,
+      approach,
+      priority,
+    });
 
     const campaignId =
-      existingCampaignId && existingCampaignId.trim()
-        ? existingCampaignId.trim()
-        : await airtableCreateSingle({
-            token: airtableToken,
-            baseId,
-            table: campaignsTable,
-            fields: {
-              "Campaign/Pitch":
-                campaignName && campaignName.trim()
-                  ? campaignName.trim()
-                  : subjectTemplate.trim().slice(0, 120),
-              "Email subject template": subjectTemplate,
-              "Email body template": bodyTemplate,
-              Status: "Ready",
-              "Audience key": audienceKey,
-            },
-          });
+      existingCampaignId ||
+      (await airtableCreateSingle({
+        token: airtableToken,
+        baseId,
+        table: campaignsTable,
+        fields: {
+          "Campaign/Pitch":
+            campaignName && campaignName.trim()
+              ? campaignName.trim()
+              : subjectTemplate.trim().slice(0, 120),
+          "Email subject template": subjectTemplate,
+          "Email body template": bodyTemplate,
+          Status: "Ready",
+          "Audience key": audienceKey,
+        },
+      }));
 
-    // Pull mailable contacts (email + link id) WITH applied filters
     const contacts = await airtableListAll<PressContactFields>({
       token: airtableToken,
       baseId,
       table: contactsTable,
       filterByFormula: contactsFilter,
-      fields: ["Email"],
+      fields: [
+        "Name",
+        "First Name",
+        "Surname",
+        "Email",
+        "Outlet",
+        "Identifier",
+        "Personal URL",
+        "One-line hook",
+        "Custom paragraph",
+      ],
+    });
+
+    const outletNameById = await buildOutletNameMap({
+      airtableToken,
+      baseId,
+      outletsTable,
+      contacts,
     });
 
     const recipients = contacts
-      .map((c) => ({
-        contactId: c.id,
-        email: normalizeEmail((c.fields.Email ?? "").toString()),
-      }))
-      .filter((x) => isValidEmailLoose(x.email));
+      .map((c) => mapContactToRecipient(c, outletNameById))
+      .filter((c): c is ContactRecipient => Boolean(c));
 
-    if (recipients.length === 0) {
-      return res.status(200).json({
-        ok: true,
-        audienceKey,
-        campaignId,
-        enqueued: 0,
-        skippedInvalid: contacts.length,
-        runId,
-        note: "No valid emails found in Press Contacts for the applied filters.",
-      });
-    }
+    const campaignPitch =
+      campaignName && campaignName.trim()
+        ? campaignName.trim()
+        : subjectTemplate.trim().slice(0, 120);
 
-    // Idempotency/dedupe: find existing sends for this campaign (by campaign record id in linked field)
-    const existing = await airtableListAll<SendFields>({
-      token: airtableToken,
-      baseId,
-      table: sendsTable,
-      filterByFormula: `FIND("${escapeAirtableString(campaignId)}", ARRAYJOIN({Pitch}))`,
-      fields: ["Recipient"],
+    const filtersJson = JSON.stringify({
+      outletType: outletType || null,
+      outletRegion: outletRegion || null,
+      approach: approach || null,
+      priority: priority || null,
     });
 
-    const existingEmails = new Set(
-      existing
-        .map((s) => normalizeEmail((s.fields.Recipient ?? "").toString()))
-        .filter((e) => isValidEmailLoose(e)),
-    );
+    const dispatchResult = await sql<DispatchRow>`
+      insert into campaign_dispatches (
+        airtable_campaign_id,
+        campaign_pitch,
+        audience_key,
+        audience_summary,
+        filters,
+        sender_key,
+        from_address,
+        reply_to,
+        status
+      )
+      values (
+        ${campaignId},
+        ${campaignPitch},
+        ${audienceKey},
+        ${summary},
+        ${filtersJson}::jsonb,
+        ${senderKey},
+        ${fromAddress},
+        ${replyTo},
+        'ready'
+      )
+      on conflict (airtable_campaign_id) do update set
+        campaign_pitch = excluded.campaign_pitch,
+        audience_key = excluded.audience_key,
+        audience_summary = excluded.audience_summary,
+        filters = excluded.filters,
+        sender_key = excluded.sender_key,
+        from_address = excluded.from_address,
+        reply_to = excluded.reply_to,
+        status = case
+          when campaign_dispatches.status = 'complete' then campaign_dispatches.status
+          else 'ready'
+        end,
+        updated_at = now()
+      returning id
+    `;
 
-    const toCreate = recipients.filter((r) => !existingEmails.has(r.email));
+    const dispatchId = dispatchResult.rows[0]?.id;
+    if (!dispatchId) throw new Error("Failed to create campaign dispatch");
 
-    // Create sends queued (store contact link and runId in Notes for auditability without schema changes)
-    const sendRecords = toCreate.map((x) => ({
-      fields: {
-        Pitch: [campaignId],
-        Recipient: x.email,
-        "From address": fromAddress,
-        "Reply-to": replyTo,
-        "Delivery status": "Queued",
-        Contact: [x.contactId],
-        Notes: `enqueue_run_id=${runId}`,
-      },
-    }));
+    let inserted = 0;
 
-    const created = sendRecords.length
-      ? await airtableCreateRecords({
-          token: airtableToken,
-          baseId,
-          table: sendsTable,
-          records: sendRecords,
-        })
-      : [];
+    for (const recipient of recipients) {
+      const vars = templateVarsForRecipient(recipient);
+      const personalSnapshot = [
+        recipient.oneLineHook,
+        recipient.customParagraph,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+
+      const insert = await sql<InsertRecipientRow>`
+        insert into campaign_dispatch_recipients (
+          dispatch_id,
+          airtable_contact_id,
+          recipient_email,
+          from_address,
+          reply_to,
+          template_vars,
+          personalised_snapshot,
+          status
+        )
+        values (
+          ${dispatchId}::uuid,
+          ${recipient.contactId},
+          ${recipient.email},
+          ${fromAddress},
+          ${replyTo},
+          ${JSON.stringify(vars)}::jsonb,
+          ${personalSnapshot},
+          'queued'
+        )
+        on conflict (dispatch_id, recipient_email) do nothing
+        returning id
+      `;
+
+      if (insert.rows[0]?.id) inserted++;
+    }
+
+    const counts = await refreshDispatchCounts(dispatchId);
 
     return res.status(200).json({
       ok: true,
       audienceKey,
       campaignId,
-      enqueued: created.length,
-      dedupedExisting: recipients.length - toCreate.length,
-      runId,
+      dispatchId,
+      enqueued: inserted,
+      dedupedExisting: recipients.length - inserted,
+      remainingQueued: counts.queuedCount,
     });
   } catch (err) {
     console.error("[campaigns/enqueue] failed", err);
