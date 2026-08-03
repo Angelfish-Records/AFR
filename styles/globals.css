@@ -114,12 +114,21 @@ a.outbound:hover::after {
   overflow: hidden;
   background:
     radial-gradient(
-      circle at 50% 30%,
-      rgba(52, 99, 170, 0.58),
-      transparent 34%
+      circle at 50% 12%,
+      rgba(255, 248, 209, 0.92),
+      transparent 36%
     ),
-    radial-gradient(circle at 38% 52%, rgba(19, 49, 96, 0.74), transparent 42%),
-    linear-gradient(135deg, #020617 0%, #071426 46%, #00030a 100%);
+    radial-gradient(
+      circle at 24% 58%,
+      rgba(113, 226, 210, 0.68),
+      transparent 46%
+    ),
+    radial-gradient(
+      circle at 78% 48%,
+      rgba(220, 167, 242, 0.52),
+      transparent 43%
+    ),
+    linear-gradient(145deg, #bcebea 0%, #d9f3ed 38%, #f5e6de 72%, #dcd8f6 100%);
 }
 
 @supports (height: 100dvh) {
@@ -147,16 +156,26 @@ a.outbound:hover::after {
 .home-visualiser-bg--fallback {
   background:
     radial-gradient(
-      circle at 50% 28%,
-      rgba(84, 130, 205, 0.46),
-      transparent 31%
+      circle at 50% 16%,
+      rgba(255, 249, 217, 0.94),
+      transparent 34%
     ),
     radial-gradient(
-      circle at 42% 58%,
-      rgba(18, 60, 118, 0.58),
-      transparent 46%
+      circle at 26% 62%,
+      rgba(105, 220, 205, 0.72),
+      transparent 45%
     ),
-    linear-gradient(135deg, #020617 0%, #071426 46%, #00030a 100%);
+    radial-gradient(
+      circle at 76% 52%,
+      rgba(232, 174, 220, 0.56),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 56% 76%,
+      rgba(140, 198, 240, 0.42),
+      transparent 48%
+    ),
+    linear-gradient(145deg, #b9e9e7 0%, #ddf4eb 38%, #f8e6d9 70%, #ded9f5 100%);
 }
 
 .home-visualiser-bg > canvas {
@@ -172,28 +191,38 @@ a.outbound:hover::after {
   inset: 0;
   background:
     radial-gradient(
-      circle at 50% 26%,
-      rgba(145, 180, 235, 0.11),
-      transparent 29%
+      ellipse at 50% 12%,
+      rgba(255, 251, 221, 0.2),
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 18% 54%,
+      rgba(109, 231, 213, 0.1),
+      transparent 48%
+    ),
+    radial-gradient(
+      ellipse at 84% 48%,
+      rgba(235, 175, 224, 0.1),
+      transparent 46%
     ),
     linear-gradient(
       to right,
-      rgba(0, 3, 10, 0.8),
-      rgba(0, 3, 10, 0.16) 36%,
-      rgba(0, 3, 10, 0.12) 62%,
-      rgba(0, 3, 10, 0.82)
+      rgba(229, 249, 247, 0.1),
+      transparent 28%,
+      transparent 72%,
+      rgba(241, 226, 250, 0.12)
     ),
     linear-gradient(
       to bottom,
-      rgba(0, 3, 10, 0.18),
-      rgba(0, 3, 10, 0.38) 52%,
-      rgba(0, 3, 10, 0.84)
+      rgba(255, 255, 255, 0.04),
+      rgba(240, 252, 248, 0.015) 48%,
+      rgba(226, 240, 249, 0.12)
     );
 }
 
 @media (prefers-reduced-motion: reduce) {
   .home-visualiser-bg canvas {
-    opacity: 0.82;
+    opacity: 0.96;
   }
 }
 

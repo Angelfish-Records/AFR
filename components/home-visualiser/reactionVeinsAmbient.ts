@@ -20,7 +20,6 @@ out vec4 fragColor;
 uniform vec2 uRes;
 uniform float uTime;
 uniform float uAge;
-uniform float uEnergy;
 
 const float PI = 3.14159265359;
 const float TAU = 6.28318530718;
@@ -158,11 +157,29 @@ void main() {
   float time = max(uTime, 0.0);
   float age = clamp(uAge, 0.0, 720.0);
   float t = time * 0.10;
-  float e = clamp(uEnergy, 0.0, 1.0);
+
+  // Autonomous ambient pulse. The deliberately mismatched periods prevent
+  // the shimmer from settling into an obvious repeating rhythm.
+  float shimmerBreath =
+    0.5 + 0.5 * sin(time * 0.137 + 0.8);
+
+  float shimmerDrift =
+    0.5 + 0.5 * sin(time * 0.061 + 2.7);
+
+  float shimmerTide =
+    0.5 + 0.5 * sin(time * 0.023 + 4.4);
+
+  float e = clamp(
+    0.12
+      + shimmerBreath * 0.10
+      + shimmerDrift * 0.07
+      + shimmerTide * 0.05,
+    0.12,
+    0.34
+  );
 
   float ageProgress =
     1.0 - exp(-age * 0.0038);
-
   float approach =
     1.0 + 1.18 * ageProgress;
 
@@ -759,7 +776,6 @@ export function createReactionVeinsAmbientTheme(): AmbientTheme {
   let uRes: WebGLUniformLocation | null = null;
   let uTime: WebGLUniformLocation | null = null;
   let uAge: WebGLUniformLocation | null = null;
-  let uEnergy: WebGLUniformLocation | null = null;
 
   let startedAtSeconds: number | null = null;
 
@@ -775,7 +791,6 @@ export function createReactionVeinsAmbientTheme(): AmbientTheme {
       uRes = gl.getUniformLocation(program, "uRes");
       uTime = gl.getUniformLocation(program, "uTime");
       uAge = gl.getUniformLocation(program, "uAge");
-      uEnergy = gl.getUniformLocation(program, "uEnergy");
     },
 
     render(gl, opts) {
@@ -785,40 +800,18 @@ export function createReactionVeinsAmbientTheme(): AmbientTheme {
         startedAtSeconds = opts.time;
       }
 
-      const ageSeconds = Math.max(
-        0,
-        opts.time - startedAtSeconds,
-      );
+      const ageSeconds = Math.max(0, opts.time - startedAtSeconds);
 
       gl.useProgram(program);
       gl.bindVertexArray(tri.vao);
 
-      gl.uniform2f(
-        uRes,
-        opts.width,
-        opts.height,
-      );
+      gl.uniform2f(uRes, opts.width, opts.height);
 
-      gl.uniform1f(
-        uTime,
-        opts.time,
-      );
+      gl.uniform1f(uTime, opts.time);
 
-      gl.uniform1f(
-        uAge,
-        ageSeconds,
-      );
+      gl.uniform1f(uAge, ageSeconds);
 
-      gl.uniform1f(
-        uEnergy,
-        opts.energy,
-      );
-
-      gl.drawArrays(
-        gl.TRIANGLES,
-        0,
-        3,
-      );
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
 
       gl.bindVertexArray(null);
       gl.useProgram(null);
@@ -839,7 +832,6 @@ export function createReactionVeinsAmbientTheme(): AmbientTheme {
       uRes = null;
       uTime = null;
       uAge = null;
-      uEnergy = null;
       startedAtSeconds = null;
     },
   };
