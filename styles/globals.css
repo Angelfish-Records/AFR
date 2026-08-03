@@ -13,12 +13,16 @@
 
 html {
   width: 100%;
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-y: auto;
 }
 
 body {
   width: 100%;
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 body {
