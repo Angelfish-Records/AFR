@@ -286,13 +286,41 @@ void main() {
   float r = length(wall);
   float angle = atan(wall.y, wall.x);
 
+  // The raw atan() branch cut lies on the negative x-axis, which shows up
+  // as a visible horizontal seam on the left side of the frame. Rotate that
+  // cut into the bright upper part of the composition and locally ease off
+  // the radialisation near the cut so the transition reads as continuous.
+  const float RADIAL_SEAM_ROTATION = -0.5 * PI;
+
+  float wrappedAngle = mod(
+    angle + RADIAL_SEAM_ROTATION + TAU,
+    TAU
+  );
+
   vec2 radialized = vec2(
-    angle / PI * 1.25,
+    (wrappedAngle / PI - 1.0) * 1.25,
     log(r + 1.18) * 1.55
   );
 
+  vec2 wallDir = normalize(
+    wall + vec2(0.0001, 0.0)
+  );
+
+  float seamBand = smoothstep(
+    0.94,
+    0.995,
+    dot(wallDir, vec2(0.0, 1.0))
+  );
+
+  seamBand *= smoothstep(
+    0.14,
+    0.42,
+    r
+  );
+
   float radialMix =
-    0.38 * ageProgress;
+    0.38 * ageProgress
+    * (1.0 - 0.72 * seamBand);
 
   vec2 reef = mix(
     wall,
