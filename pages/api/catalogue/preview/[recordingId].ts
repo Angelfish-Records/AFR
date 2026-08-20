@@ -195,7 +195,7 @@ export default async function handler(
       .sign(privateKey);
 
     const playbackUrl =
-      `https://stream.mux.com/${playbackId}.m3u8` +
+      `https://stream.mux.com/${playbackId}/audio.m4a` +
       `?token=${encodeURIComponent(jwt)}`;
 
     res.setHeader("Cache-Control", "private, no-store");

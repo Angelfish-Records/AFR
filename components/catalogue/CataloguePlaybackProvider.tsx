@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Hls from "hls.js";
 
 type PreviewResponse =
   | {
@@ -85,23 +84,12 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
   const { accessToken = null, children } = props;
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  const hlsRef = React.useRef<Hls | null>(null);
   const sourceCacheRef = React.useRef<Map<string, PlaybackSource>>(new Map());
   const attachedSourceRef = React.useRef<PlaybackSource | null>(null);
 
   const [state, setState] = React.useState<PlaybackState>(INITIAL_STATE);
 
-  const teardownHls = React.useCallback(() => {
-    if (hlsRef.current) {
-      try {
-        hlsRef.current.destroy();
-      } catch {
-        // ignore teardown errors
-      }
-
-      hlsRef.current = null;
-    }
-
+  const teardownMedia = React.useCallback(() => {
     const audio = audioRef.current;
 
     if (audio) {
@@ -126,67 +114,30 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         throw new Error("Audio element unavailable");
       }
 
-      teardownHls();
+      teardownMedia();
 
       await new Promise<void>((resolve, reject) => {
-        if (audio.canPlayType("application/vnd.apple.mpegurl")) {
-          const onNativeReady = () => {
-            audio.removeEventListener("canplay", onNativeReady);
-            audio.removeEventListener("error", onNativeError);
-            attachedSourceRef.current = source;
-            resolve();
-          };
-
-          const onNativeError = () => {
-            audio.removeEventListener("canplay", onNativeReady);
-            audio.removeEventListener("error", onNativeError);
-            attachedSourceRef.current = null;
-            reject(new Error("Failed to load playback"));
-          };
-
-          audio.addEventListener("canplay", onNativeReady);
-          audio.addEventListener("error", onNativeError);
-          audio.src = source.playbackUrl;
-          audio.load();
-          return;
-        }
-
-        if (!Hls.isSupported()) {
-          reject(new Error("HLS is not supported in this browser"));
-          return;
-        }
-
-        const hls = new Hls();
-        hlsRef.current = hls;
-
-        const cleanupHlsListeners = () => {
-          hls.off(Hls.Events.MANIFEST_PARSED, onManifestParsed);
-          hls.off(Hls.Events.ERROR, onHlsError);
-        };
-
-        const onManifestParsed = () => {
-          cleanupHlsListeners();
+        const onReady = () => {
+          audio.removeEventListener("canplay", onReady);
+          audio.removeEventListener("error", onError);
           attachedSourceRef.current = source;
           resolve();
         };
 
-        const onHlsError = (_event: string, data: { fatal?: boolean }) => {
-          if (!data?.fatal) {
-            return;
-          }
-
-          cleanupHlsListeners();
+        const onError = () => {
+          audio.removeEventListener("canplay", onReady);
+          audio.removeEventListener("error", onError);
           attachedSourceRef.current = null;
           reject(new Error("Failed to load playback"));
         };
 
-        hls.on(Hls.Events.MANIFEST_PARSED, onManifestParsed);
-        hls.on(Hls.Events.ERROR, onHlsError);
-        hls.loadSource(source.playbackUrl);
-        hls.attachMedia(audio);
+        audio.addEventListener("canplay", onReady);
+        audio.addEventListener("error", onError);
+        audio.src = source.playbackUrl;
+        audio.load();
       });
     },
-    [teardownHls],
+    [teardownMedia],
   );
 
   const fetchSource = React.useCallback(
@@ -477,9 +428,9 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
   React.useEffect(() => {
     return () => {
       pause();
-      teardownHls();
+      teardownMedia();
     };
-  }, [pause, teardownHls]);
+  }, [pause, teardownMedia]);
 
   const value = React.useMemo<CataloguePlaybackContextValue>(
     () => ({
