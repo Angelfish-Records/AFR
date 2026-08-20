@@ -1019,3 +1019,147 @@
   width: 18px;
   height: 18px;
 }
+
+.clearanceStack {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.clearanceStackCompact {
+  gap: 4px;
+}
+
+.clearanceRow,
+.deliverableRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.clearancePill,
+.deliverablePill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  line-height: 1;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.clearancePill {
+  border: 1px solid rgba(146, 205, 255, 0.24);
+  background: rgba(83, 155, 219, 0.08);
+  color: rgba(218, 239, 255, 0.88);
+}
+
+.clearancePillPrimary {
+  border-color: rgba(145, 222, 181, 0.42);
+  background: rgba(73, 161, 113, 0.16);
+  color: rgba(214, 255, 232, 0.96);
+  font-weight: 700;
+}
+
+.clearancePillControl {
+  opacity: 0.86;
+}
+
+.deliverablePill {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.discoveryBar {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.searchWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchInput {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+  color: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.searchInput:focus {
+  border-color: rgba(118, 191, 255, 0.46);
+}
+
+.filterMeta {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.48);
+  white-space: nowrap;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filterButton,
+.filterReset {
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.64);
+  font: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.045em;
+  cursor: pointer;
+}
+
+.filterButtonActive {
+  border-color: rgba(118, 191, 255, 0.38);
+  background: rgba(118, 191, 255, 0.13);
+  color: rgba(229, 244, 255, 0.94);
+}
+
+.filterReset {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+@media (max-width: 720px) {
+  .searchWrap {
+    grid-template-columns: 1fr;
+  }
+
+  .filterMeta {
+    white-space: normal;
+  }
+
+  .filterReset {
+    margin-left: 0;
+  }
+}

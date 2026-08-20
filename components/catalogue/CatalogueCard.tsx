@@ -27,10 +27,7 @@ export default function CatalogueCard(props: Props) {
         <h2 className={styles.cardTitle}>{record.title}</h2>
 
         <div className={styles.cardReadinessRow}>
-          <CatalogueReadinessPills
-            summary={record.syncReadinessSummary}
-            compact={false}
-          />
+          <CatalogueReadinessPills record={record} compact={false} />
         </div>
 
         {record.shortLogline ? (

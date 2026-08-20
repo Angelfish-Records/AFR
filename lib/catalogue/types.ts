@@ -5,12 +5,19 @@ export type CatalogueRecord = {
   artistName: string | null;
   syncReadinessSummary: string | null;
   recordingType: string | null;
+  oneStopStatus: string | null;
+  explicitFlag: string | null;
+  familyRecordingTypes: string[];
+  stemsAvailable: string | null;
+  sampleClearanceStatus: string | null;
   rightsCoverage: string | null;
-  knownLegalRisks: string | null;
   releaseDateCurrent: string | null;
   isrc: string | null;
   masterOwner: string | null;
   duration: string | null;
+  bpm: number | null;
+  musicalKey: string | null;
+  timeSignature: string | null;
   language: string | null;
   genreLabels: string[];
   moodTags: string[];
@@ -29,6 +36,13 @@ export type CatalogueRecordListItem = Pick<
   | "title"
   | "artistName"
   | "syncReadinessSummary"
+  | "recordingType"
+  | "oneStopStatus"
+  | "explicitFlag"
+  | "familyRecordingTypes"
+  | "stemsAvailable"
+  | "masterOwner"
+  | "rightsAdministrator"
   | "duration"
   | "genreLabels"
   | "moodTags"
@@ -66,12 +80,19 @@ export type RecordingAirtableFields = {
   "Artist (Derived)"?: AirtableCellValue;
   "Sync Readiness Summary"?: AirtableCellValue;
   "Recording Type"?: AirtableCellValue;
+  "One-Stop Status"?: AirtableCellValue;
+  "Explicit Flag"?: AirtableCellValue;
+  "Family Recording Types [Lookup]"?: AirtableCellValue;
+  "Stems Available"?: AirtableCellValue;
+  "Sample Clearance Status"?: AirtableCellValue;
   "Rights Coverage"?: AirtableCellValue;
-  "Known Legal Risks"?: AirtableCellValue;
   "Release Date (Current)"?: AirtableCellValue;
   ISRC?: AirtableCellValue;
   "Master Owner"?: AirtableCellValue;
   Duration?: AirtableCellValue;
+  BPM?: AirtableCellValue;
+  Key?: AirtableCellValue;
+  "Time Signature"?: AirtableCellValue;
   Language?: AirtableCellValue;
   Genre?: AirtableCellValue;
   "Mood / Tags"?: AirtableCellValue;

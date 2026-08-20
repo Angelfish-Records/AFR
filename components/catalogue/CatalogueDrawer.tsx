@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import CatalogueDetailSection from "@/components/catalogue/CatalogueDetailSection";
 import CatalogueMetaRow from "@/components/catalogue/CatalogueMetaRow";
 import CataloguePlaybackTransport from "@/components/catalogue/CataloguePlaybackTransport";
+import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecord } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue.module.css";
 
@@ -140,11 +141,11 @@ export default function CatalogueDrawer(props: Props) {
                   ) : null}
                 </div>
 
-                {(record.shortLogline || record.syncReadinessSummary) && (
-                  <p className={styles.detailLead}>
-                    {record.shortLogline ?? record.syncReadinessSummary}
-                  </p>
-                )}
+                <CatalogueReadinessPills record={record} />
+
+                {record.shortLogline ? (
+                  <p className={styles.detailLead}>{record.shortLogline}</p>
+                ) : null}
 
                 <CataloguePlaybackTransport
                   recordingId={record.recordingId}
@@ -156,14 +157,19 @@ export default function CatalogueDrawer(props: Props) {
               <CatalogueDetailSection title="Overview">
                 <dl className={styles.metaList}>
                   <CatalogueMetaRow
-                    label="Sync readiness"
-                    value={record.syncReadinessSummary}
-                  />
-                  <CatalogueMetaRow
                     label="Recording type"
                     value={record.recordingType}
                   />
                   <CatalogueMetaRow label="Duration" value={record.duration} />
+                  <CatalogueMetaRow
+                    label="BPM"
+                    value={record.bpm === null ? null : String(record.bpm)}
+                  />
+                  <CatalogueMetaRow label="Key" value={record.musicalKey} />
+                  <CatalogueMetaRow
+                    label="Time signature"
+                    value={record.timeSignature}
+                  />
                   <CatalogueMetaRow label="Language" value={record.language} />
                   <CatalogueMetaRow label="Genre" value={record.genreLabels} />
                   <CatalogueMetaRow
@@ -181,12 +187,8 @@ export default function CatalogueDrawer(props: Props) {
               <CatalogueDetailSection title="Rights & Clearance">
                 <dl className={styles.metaList}>
                   <CatalogueMetaRow
-                    label="Rights coverage"
-                    value={record.rightsCoverage}
-                  />
-                  <CatalogueMetaRow
-                    label="Known legal risks"
-                    value={record.knownLegalRisks}
+                    label="One-stop status"
+                    value={record.oneStopStatus}
                   />
                   <CatalogueMetaRow
                     label="Master owner"
@@ -195,6 +197,14 @@ export default function CatalogueDrawer(props: Props) {
                   <CatalogueMetaRow
                     label="Rights administrator"
                     value={record.rightsAdministrator}
+                  />
+                  <CatalogueMetaRow
+                    label="Rights coverage"
+                    value={record.rightsCoverage}
+                  />
+                  <CatalogueMetaRow
+                    label="Sample clearance"
+                    value={record.sampleClearanceStatus}
                   />
                   <CatalogueMetaRow
                     label="Last reviewed"

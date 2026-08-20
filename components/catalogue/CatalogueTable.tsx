@@ -31,7 +31,7 @@ export default function CatalogueTable(props: Props) {
         <div aria-hidden="true" />
         <div>Track</div>
         <div>Preview</div>
-        <div>Readiness</div>
+        <div>Clearance / Delivery</div>
         <div>Genre / Mood</div>
         <div>Duration</div>
       </div>
@@ -57,7 +57,9 @@ export default function CatalogueTable(props: Props) {
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => onToggleSelected(record.recordingId)}
-                    aria-label={`Select ${record.title} for print shortlist`}
+                    aria-label={`${isSelected ? "Remove" : "Add"} ${
+                      record.title
+                    } ${isSelected ? "from" : "to"} shortlist`}
                     className={styles.selectionCheckbox}
                   />
                   <span className={styles.selectionCheckboxVisual} />
@@ -94,10 +96,7 @@ export default function CatalogueTable(props: Props) {
               </div>
 
               <div className={styles.tableReadinessCell}>
-                <CatalogueReadinessPills
-                  summary={record.syncReadinessSummary}
-                  compact
-                />
+                <CatalogueReadinessPills record={record} compact />
               </div>
 
               <div className={styles.tableCellMuted}>{metaText || "—"}</div>

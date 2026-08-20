@@ -119,12 +119,6 @@ export default function CataloguePrintPage(
                   </div>
                 </div>
                 <div className={styles.metaItem}>
-                  <div className={styles.metaLabel}>Known legal risks</div>
-                  <div className={styles.metaValue}>
-                    {record.rights.knownLegalRisks ?? "—"}
-                  </div>
-                </div>
-                <div className={styles.metaItem}>
                   <div className={styles.metaLabel}>Master owner</div>
                   <div className={styles.metaValue}>
                     {record.rights.masterOwner ?? "—"}

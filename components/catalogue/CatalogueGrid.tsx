@@ -38,7 +38,9 @@ export default function CatalogueGrid(props: Props) {
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => onToggleSelected(record.recordingId)}
-                  aria-label={`Select ${record.title} for print shortlist`}
+                  aria-label={`${isSelected ? "Remove" : "Add"} ${
+                    record.title
+                  } ${isSelected ? "from" : "to"} shortlist`}
                   className={styles.selectionCheckbox}
                 />
                 <span className={styles.selectionCheckboxVisual} />
@@ -66,10 +68,7 @@ export default function CatalogueGrid(props: Props) {
                 ) : null}
 
                 <div className={styles.cardReadinessRow}>
-                  <CatalogueReadinessPills
-                    summary={record.syncReadinessSummary}
-                    compact
-                  />
+                  <CatalogueReadinessPills record={record} compact />
                 </div>
 
                 {record.shortLogline ? (

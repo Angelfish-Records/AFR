@@ -3,6 +3,9 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import CatalogueDrawer from "@/components/catalogue/CatalogueDrawer";
+import CatalogueDiscoveryBar, {
+  type CatalogueFilterKey,
+} from "@/components/catalogue/CatalogueDiscoveryBar";
 import { CataloguePlaybackProvider } from "@/components/catalogue/CataloguePlaybackProvider";
 import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
@@ -44,6 +47,18 @@ function getSingleQueryValue(
   return null;
 }
 
+function normalizeSearchValue(value: string | null): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function includesNormalized(values: string[], expected: string): boolean {
+  const normalizedExpected = expected.trim().toLowerCase();
+
+  return values.some(
+    (value) => value.trim().toLowerCase() === normalizedExpected,
+  );
+}
+
 export default function CatalogueIndexSurface(props: Props) {
   const { records } = props;
   const router = useRouter();
@@ -59,10 +74,81 @@ export default function CatalogueIndexSurface(props: Props) {
   const [selectedRecordingIds, setSelectedRecordingIds] = useState<string[]>(
     [],
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilters, setActiveFilters] = useState<CatalogueFilterKey[]>([]);
 
   const activeRecordingId = getSingleQueryValue(router.query.recordingId);
   const shareToken =
     getSingleQueryValue(router.query.st) ?? getSingleQueryValue(router.query.t);
+
+  const toggleFilter = useCallback((filter: CatalogueFilterKey) => {
+    setActiveFilters((current) =>
+      current.includes(filter)
+        ? current.filter((value) => value !== filter)
+        : [...current, filter],
+    );
+  }, []);
+
+  const resetDiscovery = useCallback(() => {
+    setSearchQuery("");
+    setActiveFilters([]);
+  }, []);
+
+  const visibleRecords = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return records.filter((record) => {
+      if (query) {
+        const haystack = [
+          record.title,
+          record.artistName ?? "",
+          record.shortLogline ?? "",
+          ...record.genreLabels,
+          ...record.moodTags,
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        if (!haystack.includes(query)) {
+          return false;
+        }
+      }
+
+      for (const filter of activeFilters) {
+        if (
+          filter === "oneStop" &&
+          normalizeSearchValue(record.oneStopStatus) !== "one-stop"
+        ) {
+          return false;
+        }
+
+        if (
+          filter === "clean" &&
+          normalizeSearchValue(record.explicitFlag) !== "clean" &&
+          !includesNormalized(record.familyRecordingTypes, "clean")
+        ) {
+          return false;
+        }
+
+        if (
+          filter === "instrumental" &&
+          normalizeSearchValue(record.recordingType) !== "instrumental" &&
+          !includesNormalized(record.familyRecordingTypes, "instrumental")
+        ) {
+          return false;
+        }
+
+        if (
+          filter === "stems" &&
+          normalizeSearchValue(record.stemsAvailable) !== "yes"
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [activeFilters, records, searchQuery]);
 
   const activeListItem = useMemo(() => {
     if (!activeRecordingId) {
@@ -218,14 +304,32 @@ export default function CatalogueIndexSurface(props: Props) {
             <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>
+
+        {records.length > 0 ? (
+          <CatalogueDiscoveryBar
+            query={searchQuery}
+            activeFilters={activeFilters}
+            visibleCount={visibleRecords.length}
+            totalCount={records.length}
+            onQueryChange={setSearchQuery}
+            onToggleFilter={toggleFilter}
+            onReset={resetDiscovery}
+          />
+        ) : null}
+
         {records.length === 0 ? (
           <CatalogueEmptyState
             title="No catalogue records are currently available"
             body="The configured Airtable view is returning no records yet. Once tracks are added to the dedicated sync view, they will appear here automatically."
           />
+        ) : visibleRecords.length === 0 ? (
+          <CatalogueEmptyState
+            title="No tracks match these filters"
+            body="Try another search term or reset the active filters."
+          />
         ) : viewMode === "table" ? (
           <CatalogueTable
-            records={records}
+            records={visibleRecords}
             activeRecordingId={activeRecordingId}
             onSelect={openRecord}
             selectedRecordingIds={selectedRecordingIds}
@@ -233,7 +337,7 @@ export default function CatalogueIndexSurface(props: Props) {
           />
         ) : (
           <CatalogueGrid
-            records={records}
+            records={visibleRecords}
             onSelect={openRecord}
             selectedRecordingIds={selectedRecordingIds}
             onToggleSelected={toggleSelectedRecording}
