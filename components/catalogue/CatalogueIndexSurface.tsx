@@ -24,6 +24,7 @@ import styles from "@/styles/catalogue.module.css";
 
 type Props = {
   records: CatalogueRecordListItem[];
+  hasShareAttribution: boolean;
 };
 
 type DetailApiResponse = {
@@ -61,7 +62,7 @@ function includesNormalized(values: string[], expected: string): boolean {
 }
 
 export default function CatalogueIndexSurface(props: Props) {
-  const { records } = props;
+  const { records, hasShareAttribution } = props;
   const router = useRouter();
 
   const [viewMode, setViewMode] = useState<CatalogueViewMode>("table");
@@ -79,9 +80,17 @@ export default function CatalogueIndexSurface(props: Props) {
   const [activeFilters, setActiveFilters] = useState<CatalogueFilterKey[]>([]);
   const [enquiryRecordingIds, setEnquiryRecordingIds] = useState<string[]>([]);
 
-  const activeRecordingId = getSingleQueryValue(router.query.recordingId);
-  const shareToken =
-    getSingleQueryValue(router.query.st) ?? getSingleQueryValue(router.query.t);
+  const activeRecordingId = getSingleQueryValue(
+    router.query.recordingId,
+  );
+
+  const requestedShareToken =
+    getSingleQueryValue(router.query.st) ??
+    getSingleQueryValue(router.query.t);
+
+  const shareToken = hasShareAttribution
+    ? requestedShareToken
+    : null;
 
   const toggleFilter = useCallback((filter: CatalogueFilterKey) => {
     setActiveFilters((current) =>

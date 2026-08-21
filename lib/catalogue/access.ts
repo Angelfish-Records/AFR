@@ -1,21 +1,10 @@
 import type { GetServerSidePropsContext, NextApiRequest } from "next";
-import {
-  resolveCatalogueShareToken,
-  validateCatalogueShareToken,
-} from "@/lib/catalogue/shareLinks";
+import { resolveCatalogueShareToken } from "@/lib/catalogue/shareLinks";
 import type { CatalogueShareLinkSummary } from "@/lib/catalogue/shareLinkTypes";
 
-export type CatalogueAccessState = "granted" | "missing" | "invalid";
-
-export type CatalogueApiAccessContext =
-  | {
-      granted: true;
-      shareLink: CatalogueShareLinkSummary | null;
-    }
-  | {
-      granted: false;
-      shareLink: null;
-    };
+export type CatalogueAttributionContext = {
+  shareLink: CatalogueShareLinkSummary | null;
+};
 
 function normalizeToken(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
@@ -38,7 +27,9 @@ function getQueryTokenFromUnknown(input: unknown): string | null {
   return null;
 }
 
-function getHeaderTokenFromUnknown(input: string | string[] | undefined): string | null {
+function getHeaderTokenFromUnknown(
+  input: string | string[] | undefined,
+): string | null {
   if (typeof input === "string") {
     return normalizeToken(input);
   }
@@ -50,11 +41,9 @@ function getHeaderTokenFromUnknown(input: string | string[] | undefined): string
   return null;
 }
 
-function getConfiguredFallbackToken(): string | null {
-  return normalizeToken(process.env.CATALOGUE_ACCESS_TOKEN);
-}
-
-function getPageRequestShareToken(context: GetServerSidePropsContext): string | null {
+function getPageRequestShareToken(
+  context: GetServerSidePropsContext,
+): string | null {
   const shareToken =
     getQueryTokenFromUnknown(context.query.st) ??
     getQueryTokenFromUnknown(context.query.t);
@@ -64,7 +53,9 @@ function getPageRequestShareToken(context: GetServerSidePropsContext): string | 
   }
 
   return (
-    getHeaderTokenFromUnknown(context.req.headers["x-catalogue-share-token"]) ??
+    getHeaderTokenFromUnknown(
+      context.req.headers["x-catalogue-share-token"],
+    ) ??
     getHeaderTokenFromUnknown(context.req.headers["x-catalogue-token"])
   );
 }
@@ -84,70 +75,51 @@ function getApiRequestShareToken(req: NextApiRequest): string | null {
   );
 }
 
-export async function getCataloguePageAccessState(
-  context: GetServerSidePropsContext
-): Promise<CatalogueAccessState> {
-  const shareToken = getPageRequestShareToken(context);
-
-  if (shareToken) {
-    const valid = await validateCatalogueShareToken(shareToken, { touch: true });
-    if (valid) {
-      return "granted";
-    }
-
-    const configuredFallbackToken = getConfiguredFallbackToken();
-    if (configuredFallbackToken && shareToken === configuredFallbackToken) {
-      return "granted";
-    }
-
-    return "invalid";
+async function resolveOptionalCatalogueAttribution(
+  rawToken: string | null,
+): Promise<CatalogueShareLinkSummary | null> {
+  if (!rawToken) {
+    return null;
   }
 
-  return "missing";
-}
-
-export async function hasCatalogueAccess(
-  context: GetServerSidePropsContext
-): Promise<boolean> {
-  return (await getCataloguePageAccessState(context)) === "granted";
-}
-
-export async function getCatalogueApiAccessContext(
-  req: NextApiRequest,
-): Promise<CatalogueApiAccessContext> {
-  const shareToken = getApiRequestShareToken(req);
-
-  if (shareToken) {
-    const shareLink = await resolveCatalogueShareToken(shareToken, {
+  try {
+    return await resolveCatalogueShareToken(rawToken, {
       touch: true,
     });
+  } catch (error) {
+    console.error("[catalogue attribution] resolution failed", {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown catalogue attribution error",
+    });
 
-    if (shareLink) {
-      return {
-        granted: true,
-        shareLink,
-      };
-    }
-
-    const configuredFallbackToken = getConfiguredFallbackToken();
-
-    if (configuredFallbackToken && shareToken === configuredFallbackToken) {
-      return {
-        granted: true,
-        shareLink: null,
-      };
-    }
+    return null;
   }
-
-  return {
-    granted: false,
-    shareLink: null,
-  };
 }
 
-export async function hasCatalogueApiAccess(
+export async function resolveCataloguePageAttribution(
+  context: GetServerSidePropsContext,
+): Promise<CatalogueShareLinkSummary | null> {
+  return resolveOptionalCatalogueAttribution(
+    getPageRequestShareToken(context),
+  );
+}
+
+export async function touchCatalogueApiAttribution(
   req: NextApiRequest,
-): Promise<boolean> {
-  const context = await getCatalogueApiAccessContext(req);
-  return context.granted;
+): Promise<void> {
+  await resolveOptionalCatalogueAttribution(
+    getApiRequestShareToken(req),
+  );
+}
+
+export async function getCatalogueApiAttributionContext(
+  req: NextApiRequest,
+): Promise<CatalogueAttributionContext> {
+  return {
+    shareLink: await resolveOptionalCatalogueAttribution(
+      getApiRequestShareToken(req),
+    ),
+  };
 }

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { hasCatalogueApiAccess } from "@/lib/catalogue/access";
+import { touchCatalogueApiAttribution } from "@/lib/catalogue/access";
 import { getCatalogueRecordByRecordingId } from "@/lib/catalogue/queries";
 import type { CatalogueDetailResponse } from "@/lib/catalogue/api";
 
@@ -17,10 +17,7 @@ export default async function handler(
     return;
   }
 
-  if (!(await hasCatalogueApiAccess(req))) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
+  await touchCatalogueApiAttribution(req);
 
   const { recordingId } = req.query;
 

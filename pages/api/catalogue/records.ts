@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { toCatalogueListItem, type CatalogueListResponse } from "@/lib/catalogue/api";
-import { hasCatalogueApiAccess } from "@/lib/catalogue/access";
+import { touchCatalogueApiAttribution } from "@/lib/catalogue/access";
 import { listCatalogueRecords } from "@/lib/catalogue/queries";
 
 type ErrorResponse = {
@@ -17,10 +17,7 @@ export default async function handler(
     return;
   }
 
-  if (!(await hasCatalogueApiAccess(req))) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
+  await touchCatalogueApiAttribution(req);
 
   try {
     const records = await listCatalogueRecords();

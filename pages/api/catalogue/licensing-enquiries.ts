@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getCatalogueApiAccessContext } from "@/lib/catalogue/access";
+import { getCatalogueApiAttributionContext } from "@/lib/catalogue/access";
 import {
   markCatalogueLicensingNotificationFailed,
   markCatalogueLicensingNotificationSent,
@@ -214,15 +214,8 @@ export default async function handler(
 
   res.setHeader("Cache-Control", "private, no-store");
 
-  const access = await getCatalogueApiAccessContext(req);
-
-  if (!access.granted) {
-    res.status(404).json({
-      ok: false,
-      error: "Not found",
-    });
-    return;
-  }
+  const attribution =
+    await getCatalogueApiAttributionContext(req);
 
   const parsed = parseRequest(req.body);
 
@@ -266,7 +259,7 @@ export default async function handler(
 
     const persisted = await persistCatalogueLicensingEnquiry({
       submission: parsed.value,
-      shareLinkId: access.shareLink?.id ?? null,
+      shareLinkId: attribution.shareLink?.id ?? null,
       tracks,
     });
 
@@ -283,7 +276,7 @@ export default async function handler(
         enquiryId: persisted.id,
         submission: parsed.value,
         tracks,
-        shareLink: access.shareLink,
+        shareLink: attribution.shareLink,
       });
 
       await markCatalogueLicensingNotificationSent(

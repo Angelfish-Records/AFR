@@ -1,54 +1,38 @@
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
-import CatalogueAccessRequired from "@/components/catalogue/CatalogueAccessRequired";
 import CatalogueIndexSurface from "@/components/catalogue/CatalogueIndexSurface";
 import { toCatalogueListItem } from "@/lib/catalogue/api";
-import { getCataloguePageAccessState } from "@/lib/catalogue/access";
+import { resolveCataloguePageAttribution } from "@/lib/catalogue/access";
 import { listCatalogueRecords } from "@/lib/catalogue/queries";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
 
-type Props =
-  | {
-      accessState: "granted";
-      records: CatalogueRecordListItem[];
-    }
-  | {
-      accessState: "missing" | "invalid";
-      records: CatalogueRecordListItem[];
-    };
+type Props = {
+  records: CatalogueRecordListItem[];
+  hasShareAttribution: boolean;
+};
 
 export default function CatalogueIndexPage(
-  props: InferGetServerSidePropsType<typeof getServerSideProps>
+  props: InferGetServerSidePropsType<typeof getServerSideProps>,
 ) {
-  if (props.accessState !== "granted") {
-    return (
-      <CatalogueAccessRequired
-        title="Authorisation required"
-        body="Ensure you are visiting using the tokenised link provided."
-      />
-    );
-  }
-
-  return <CatalogueIndexSurface records={props.records} />;
+  return (
+    <CatalogueIndexSurface
+      records={props.records}
+      hasShareAttribution={props.hasShareAttribution}
+    />
+  );
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
-  const accessState = await getCataloguePageAccessState(context);
-
-  if (accessState !== "granted") {
-    return {
-      props: {
-        accessState,
-        records: [],
-      },
-    };
-  }
-
-  const records = await listCatalogueRecords();
+export const getServerSideProps: GetServerSideProps<Props> = async (
+  context,
+) => {
+  const [shareAttribution, records] = await Promise.all([
+    resolveCataloguePageAttribution(context),
+    listCatalogueRecords(),
+  ]);
 
   return {
     props: {
-      accessState: "granted",
       records: records.map(toCatalogueListItem),
+      hasShareAttribution: shareAttribution !== null,
     },
   };
 };

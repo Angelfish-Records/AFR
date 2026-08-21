@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { importPKCS8, SignJWT } from "jose";
-import { hasCatalogueApiAccess } from "@/lib/catalogue/access";
+import { touchCatalogueApiAttribution } from "@/lib/catalogue/access";
 import { getCatalogueRecordByRecordingId } from "@/lib/catalogue/queries";
 
 function mustEnv(...names: string[]): string {
@@ -99,13 +99,7 @@ export default async function handler(
     return;
   }
 
-  if (!(await hasCatalogueApiAccess(req))) {
-    res.status(404).json({
-      ok: false,
-      error: "Not found",
-    });
-    return;
-  }
+  await touchCatalogueApiAttribution(req);
 
   const recordingId = String(req.query.recordingId ?? "").trim();
 

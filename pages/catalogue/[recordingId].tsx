@@ -1,5 +1,5 @@
 import type { GetServerSideProps } from "next";
-import { getCataloguePageAccessState } from "@/lib/catalogue/access";
+import { resolveCataloguePageAttribution } from "@/lib/catalogue/access";
 
 type Props = Record<string, never>;
 
@@ -7,36 +7,35 @@ export default function CatalogueDetailRedirectPage() {
   return null;
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
-  const accessState = await getCataloguePageAccessState(context);
+export const getServerSideProps: GetServerSideProps<Props> = async (
+  context,
+) => {
+  const rawRecordingId = context.params?.recordingId;
 
-  if (accessState !== "granted") {
+  if (
+    typeof rawRecordingId !== "string" ||
+    rawRecordingId.trim().length === 0
+  ) {
     return {
-      redirect: {
-        destination: "/",
-        permanent: false,
-      },
+      notFound: true,
     };
   }
 
-  const rawRecordingId = context.params?.recordingId;
+  const shareAttribution =
+    await resolveCataloguePageAttribution(context);
 
-  if (typeof rawRecordingId !== "string" || rawRecordingId.trim().length === 0) {
-    return { notFound: true };
-  }
-
-  const shareToken =
+  const rawShareToken =
     typeof context.query.st === "string"
       ? context.query.st
       : typeof context.query.t === "string"
-      ? context.query.t
-      : null;
+        ? context.query.t
+        : null;
 
   const searchParams = new URLSearchParams();
-  searchParams.set("recordingId", rawRecordingId);
+  searchParams.set("recordingId", rawRecordingId.trim());
 
-  if (shareToken) {
-    searchParams.set("st", shareToken);
+  if (shareAttribution && rawShareToken?.trim()) {
+    searchParams.set("st", rawShareToken.trim());
   }
 
   return {

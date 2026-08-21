@@ -4,7 +4,7 @@ import {
   getExportRecordsByRecordingIds,
   type CatalogueExportRecord,
 } from "@/lib/catalogue/export";
-import { hasCatalogueAccess } from "@/lib/catalogue/access";
+import { resolveCataloguePageAttribution } from "@/lib/catalogue/access";
 import styles from "@/styles/catalogue-print.module.css";
 
 type Props = {
@@ -148,13 +148,7 @@ export default function CataloguePrintPage(
 export const getServerSideProps: GetServerSideProps<Props> = async (
   context,
 ) => {
-  const hasAccess = await hasCatalogueAccess(context);
-
-  if (!hasAccess) {
-    return {
-      notFound: true,
-    };
-  }
+  await resolveCataloguePageAttribution(context);
 
   const idsParam = context.query.ids;
   const idsRaw =
