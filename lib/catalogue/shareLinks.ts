@@ -160,13 +160,13 @@ export async function revokeCatalogueShareLink(id: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function validateCatalogueShareToken(
+export async function resolveCatalogueShareToken(
   rawToken: string,
-  options?: { touch?: boolean }
-): Promise<boolean> {
+  options?: { touch?: boolean },
+): Promise<CatalogueShareLinkSummary | null> {
   const token = normalizeNullableString(rawToken);
   if (!token) {
-    return false;
+    return null;
   }
 
   const tokenHash = hashCatalogueShareToken(token);
@@ -189,19 +189,20 @@ export async function validateCatalogueShareToken(
 
   const row = result.rows[0];
   if (!row) {
-    return false;
+    return null;
   }
 
   const revokedAt = toIsoString(row.revoked_at);
   if (revokedAt) {
-    return false;
+    return null;
   }
 
   const expiresAt = toIsoString(row.expires_at);
   if (expiresAt) {
     const expiresAtMs = Date.parse(expiresAt);
+
     if (Number.isFinite(expiresAtMs) && expiresAtMs < Date.now()) {
-      return false;
+      return null;
     }
   }
 
@@ -213,5 +214,13 @@ export async function validateCatalogueShareToken(
     `;
   }
 
-  return true;
+  return mapRow(row);
+}
+
+export async function validateCatalogueShareToken(
+  rawToken: string,
+  options?: { touch?: boolean },
+): Promise<boolean> {
+  const link = await resolveCatalogueShareToken(rawToken, options);
+  return link !== null;
 }

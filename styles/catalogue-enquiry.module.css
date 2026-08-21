@@ -1,0 +1,363 @@
+.shortlistBar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.shortlistClearButton,
+.shortlistRequestButton,
+.drawerRequestButton,
+.primaryButton,
+.secondaryButton {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.shortlistClearButton {
+  padding: 7px 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.44);
+  font-size: 0.64rem;
+  letter-spacing: 0.09em;
+}
+
+.shortlistClearButton:hover {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.shortlistRequestButton {
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 191, 255, 0.34);
+  background: rgba(118, 191, 255, 0.11);
+  color: rgba(235, 247, 255, 0.96);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  white-space: nowrap;
+}
+
+.shortlistRequestButton:hover:not(:disabled) {
+  border-color: rgba(118, 191, 255, 0.58);
+  background: rgba(118, 191, 255, 0.18);
+}
+
+.shortlistRequestButtonDisabled {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(255, 255, 255, 0.27);
+  cursor: default;
+}
+
+.drawerActionGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.drawerRequestButton {
+  min-height: 36px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 191, 255, 0.38);
+  background: rgba(118, 191, 255, 0.13);
+  color: rgba(235, 247, 255, 0.96);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.065em;
+  white-space: nowrap;
+}
+
+.drawerRequestButton:hover {
+  border-color: rgba(118, 191, 255, 0.62);
+  background: rgba(118, 191, 255, 0.2);
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(12px);
+}
+
+.modal {
+  width: min(760px, 100%);
+  max-height: min(90vh, 920px);
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(25, 29, 34, 0.98),
+      rgba(13, 15, 18, 0.99)
+    );
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.56);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.modalEyebrow {
+  margin: 0 0 5px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  font-weight: 520;
+  letter-spacing: -0.025em;
+}
+
+.modalCloseButton {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.modalCloseButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.selectedTracks {
+  display: grid;
+  gap: 6px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.selectedTracksLabel {
+  margin-bottom: 3px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.67rem;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.selectedTrack {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: baseline;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.78rem;
+}
+
+.selectedTrackId {
+  color: rgba(150, 206, 255, 0.78);
+  font-size: 0.7rem;
+  letter-spacing: 0.045em;
+}
+
+.form {
+  padding: 22px 24px 24px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.fieldLabel {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.71rem;
+  letter-spacing: 0.035em;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  font-size: 0.83rem;
+  outline: none;
+}
+
+.input {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 98px;
+  padding: 10px;
+  line-height: 1.5;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: rgba(118, 191, 255, 0.48);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.privacyNote {
+  margin: 17px 0 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.errorBlock {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 133, 133, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 97, 97, 0.07);
+  color: rgba(255, 210, 210, 0.9);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 38px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+
+.primaryButton {
+  border: 1px solid rgba(118, 191, 255, 0.42);
+  background: rgba(118, 191, 255, 0.15);
+  color: rgba(237, 248, 255, 0.96);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: rgba(118, 191, 255, 0.23);
+}
+
+.secondaryButton {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.successBlock {
+  padding: 34px 24px 28px;
+}
+
+.successBlock h3 {
+  margin: 0 0 9px;
+  font-size: 1.15rem;
+  font-weight: 520;
+}
+
+.successBlock p {
+  max-width: 560px;
+  margin: 0 0 22px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .shortlistBar {
+    gap: 4px;
+  }
+
+  .shortlistRequestButton {
+    padding-inline: 9px;
+    font-size: 0.62rem;
+  }
+
+  .modalBackdrop {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .modal {
+    max-height: 92vh;
+    border-radius: 16px 16px 12px 12px;
+  }
+
+  .modalHeader,
+  .selectedTracks,
+  .form,
+  .successBlock {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .fieldWide {
+    grid-column: auto;
+  }
+
+  .formActions {
+    flex-direction: column-reverse;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+  }
+
+  .drawerActionGroup {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+}

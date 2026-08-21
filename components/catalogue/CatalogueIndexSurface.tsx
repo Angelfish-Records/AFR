@@ -10,6 +10,7 @@ import { CataloguePlaybackProvider } from "@/components/catalogue/CataloguePlayb
 import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
 import CatalogueLayout from "@/components/catalogue/CatalogueLayout";
+import CatalogueLicensingEnquiry from "@/components/catalogue/CatalogueLicensingEnquiry";
 import CatalogueShortlistBar from "@/components/catalogue/CatalogueShortlistBar";
 import CatalogueTable from "@/components/catalogue/CatalogueTable";
 import CatalogueViewToggle, {
@@ -76,6 +77,7 @@ export default function CatalogueIndexSurface(props: Props) {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<CatalogueFilterKey[]>([]);
+  const [enquiryRecordingIds, setEnquiryRecordingIds] = useState<string[]>([]);
 
   const activeRecordingId = getSingleQueryValue(router.query.recordingId);
   const shareToken =
@@ -160,6 +162,17 @@ export default function CatalogueIndexSurface(props: Props) {
     );
   }, [activeRecordingId, records]);
 
+  const enquiryRecords = useMemo(() => {
+    return enquiryRecordingIds
+      .map(
+        (recordingId) =>
+          records.find((record) => record.recordingId === recordingId) ?? null,
+      )
+      .filter(
+        (record): record is CatalogueRecordListItem => record !== null,
+      );
+  }, [enquiryRecordingIds, records]);
+
   const toggleSelectedRecording = useCallback((recordingId: string) => {
     setSelectedRecordingIds((current) =>
       current.includes(recordingId)
@@ -170,6 +183,33 @@ export default function CatalogueIndexSurface(props: Props) {
 
   const clearSelectedRecordings = useCallback(() => {
     setSelectedRecordingIds([]);
+  }, []);
+
+  const openLicensingEnquiry = useCallback(
+    (recordingIds: string[]) => {
+      const availableIds = new Set(
+        records.map((record) => record.recordingId),
+      );
+
+      const safeIds = Array.from(
+        new Set(
+          recordingIds.filter((recordingId) =>
+            availableIds.has(recordingId),
+          ),
+        ),
+      );
+
+      if (safeIds.length === 0) {
+        return;
+      }
+
+      setEnquiryRecordingIds(safeIds);
+    },
+    [records],
+  );
+
+  const closeLicensingEnquiry = useCallback(() => {
+    setEnquiryRecordingIds([]);
   }, []);
 
   const openRecord = useCallback(
@@ -298,8 +338,10 @@ export default function CatalogueIndexSurface(props: Props) {
           <div className={styles.surfaceControlRight}>
             <CatalogueShortlistBar
               selectedRecordingIds={selectedRecordingIds}
-              shareToken={shareToken}
               onClear={clearSelectedRecordings}
+              onRequestLicence={() =>
+                openLicensingEnquiry(selectedRecordingIds)
+              }
             />
             <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
           </div>
@@ -350,7 +392,17 @@ export default function CatalogueIndexSurface(props: Props) {
           isLoading={isLoadingDetail}
           errorMessage={detailErrorMessage}
           shareToken={shareToken}
+          onRequestLicence={(recordingId) =>
+            openLicensingEnquiry([recordingId])
+          }
           onClose={closeDrawer}
+        />
+
+        <CatalogueLicensingEnquiry
+          isOpen={enquiryRecords.length > 0}
+          records={enquiryRecords}
+          shareToken={shareToken}
+          onClose={closeLicensingEnquiry}
         />
       </CatalogueLayout>
     </CataloguePlaybackProvider>

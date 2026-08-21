@@ -1,7 +1,21 @@
 import type { GetServerSidePropsContext, NextApiRequest } from "next";
-import { validateCatalogueShareToken } from "@/lib/catalogue/shareLinks";
+import {
+  resolveCatalogueShareToken,
+  validateCatalogueShareToken,
+} from "@/lib/catalogue/shareLinks";
+import type { CatalogueShareLinkSummary } from "@/lib/catalogue/shareLinkTypes";
 
 export type CatalogueAccessState = "granted" | "missing" | "invalid";
+
+export type CatalogueApiAccessContext =
+  | {
+      granted: true;
+      shareLink: CatalogueShareLinkSummary | null;
+    }
+  | {
+      granted: false;
+      shareLink: null;
+    };
 
 function normalizeToken(value: string | null | undefined): string | null {
   if (typeof value !== "string") {
@@ -98,20 +112,42 @@ export async function hasCatalogueAccess(
   return (await getCataloguePageAccessState(context)) === "granted";
 }
 
-export async function hasCatalogueApiAccess(req: NextApiRequest): Promise<boolean> {
+export async function getCatalogueApiAccessContext(
+  req: NextApiRequest,
+): Promise<CatalogueApiAccessContext> {
   const shareToken = getApiRequestShareToken(req);
 
   if (shareToken) {
-    const valid = await validateCatalogueShareToken(shareToken, { touch: true });
-    if (valid) {
-      return true;
+    const shareLink = await resolveCatalogueShareToken(shareToken, {
+      touch: true,
+    });
+
+    if (shareLink) {
+      return {
+        granted: true,
+        shareLink,
+      };
     }
 
     const configuredFallbackToken = getConfiguredFallbackToken();
+
     if (configuredFallbackToken && shareToken === configuredFallbackToken) {
-      return true;
+      return {
+        granted: true,
+        shareLink: null,
+      };
     }
   }
 
-  return false;
+  return {
+    granted: false,
+    shareLink: null,
+  };
+}
+
+export async function hasCatalogueApiAccess(
+  req: NextApiRequest,
+): Promise<boolean> {
+  const context = await getCatalogueApiAccessContext(req);
+  return context.granted;
 }

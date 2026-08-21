@@ -6,6 +6,7 @@ import CatalogueMetaRow from "@/components/catalogue/CatalogueMetaRow";
 import CataloguePlaybackTransport from "@/components/catalogue/CataloguePlaybackTransport";
 import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecord } from "@/lib/catalogue/types";
+import enquiryStyles from "@/styles/catalogue-enquiry.module.css";
 import styles from "@/styles/catalogue.module.css";
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
   isLoading: boolean;
   errorMessage: string | null;
   shareToken?: string | null;
+  onRequestLicence: (recordingId: string) => void;
   onClose: () => void;
 };
 
@@ -26,6 +28,7 @@ export default function CatalogueDrawer(props: Props) {
     isLoading,
     errorMessage,
     shareToken = null,
+    onRequestLicence,
     onClose,
   } = props;
 
@@ -114,31 +117,41 @@ export default function CatalogueDrawer(props: Props) {
                     ) : null}
                   </div>
 
-                  {singleTrackPrintHref ? (
-                    <Link
-                      href={singleTrackPrintHref}
-                      className={styles.iconActionButton}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`Print one-sheet for ${record.title}`}
+                  <div className={enquiryStyles.drawerActionGroup}>
+                    <button
+                      type="button"
+                      className={enquiryStyles.drawerRequestButton}
+                      onClick={() => onRequestLicence(record.recordingId)}
                     >
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        className={styles.iconActionSvg}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                      REQUEST LICENCE
+                    </button>
+
+                    {singleTrackPrintHref ? (
+                      <Link
+                        href={singleTrackPrintHref}
+                        className={styles.iconActionButton}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open one-sheet for ${record.title}`}
                       >
-                        <path d="M7 9V4h10v5" />
-                        <path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2" />
-                        <path d="M7 14h10v6H7z" />
-                        <path d="M17 11h.01" />
-                      </svg>
-                    </Link>
-                  ) : null}
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className={styles.iconActionSvg}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M7 9V4h10v5" />
+                          <path d="M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2" />
+                          <path d="M7 14h10v6H7z" />
+                          <path d="M17 11h.01" />
+                        </svg>
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
 
                 <CatalogueReadinessPills record={record} />
