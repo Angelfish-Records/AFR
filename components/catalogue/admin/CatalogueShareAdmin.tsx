@@ -6,10 +6,12 @@ import {
   type ReactNode,
 } from "react";
 import type { CatalogueShareLinkSummary } from "@/lib/catalogue/shareLinkTypes";
+import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
 import styles from "@/styles/catalogue-admin.module.css";
 
 type Props = {
   initialLinks: CatalogueShareLinkSummary[];
+  catalogueRecords: CatalogueRecordListItem[];
   afterContent?: ReactNode;
 };
 
@@ -57,6 +59,8 @@ export default function CatalogueShareAdmin(props: Props) {
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [label, setLabel] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [curatedRecordingIds, setCuratedRecordingIds] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState("");
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,6 +70,25 @@ export default function CatalogueShareAdmin(props: Props) {
     () => links.filter((link) => !link.revokedAt),
     [links]
   );
+
+  const recordTitleById = useMemo(
+    () =>
+      new Map(
+        props.catalogueRecords.map((record) => [
+          record.recordingId,
+          record.title,
+        ]),
+      ),
+    [props.catalogueRecords],
+  );
+
+  function toggleCuratedRecording(recordingId: string): void {
+    setCuratedRecordingIds((current) =>
+      current.includes(recordingId)
+        ? current.filter((value) => value !== recordingId)
+        : [...current, recordingId],
+    );
+  }
 
   async function handleCreate(): Promise<void> {
     setIsSubmitting(true);
@@ -81,7 +104,11 @@ export default function CatalogueShareAdmin(props: Props) {
           recipientName,
           recipientEmail,
           label,
-          expiresAt: expiresAt || null,
+          welcomeMessage,
+          curatedRecordingIds,
+          expiresAt: expiresAt
+            ? new Date(expiresAt).toISOString()
+            : null,
         }),
       });
 
@@ -98,6 +125,8 @@ export default function CatalogueShareAdmin(props: Props) {
       setRecipientName("");
       setRecipientEmail("");
       setLabel("");
+      setWelcomeMessage("");
+      setCuratedRecordingIds([]);
       setExpiresAt("");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to create link");
@@ -155,20 +184,21 @@ export default function CatalogueShareAdmin(props: Props) {
     <div className={styles.page}>
       <div className={styles.hero}>
         <p className={styles.eyebrow}>Angelfish Records</p>
-        <h1 className={styles.title}>Catalogue Share Links</h1>
+        <h1 className={styles.title}>Catalogue Admin</h1>
         <p className={styles.description}>
-          Generate unique share links for music supervisors, publishers, and sync
-          partners. Each link can expire or be revoked independently.
+          Create attributed catalogue links, prepare tailored track selections,
+          and review catalogue engagement. Curated links remain part of the
+          public catalogue: recipients can always reveal the full catalogue.
         </p>
       </div>
 
       <div className={styles.grid}>
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Generate new link</h2>
+          <h2 className={styles.cardTitle}>Generate curated link</h2>
 
           <div className={styles.formGrid}>
             <label className={styles.field}>
-              <span className={styles.label}>Recipient name</span>
+              <span className={styles.label}>Recipient / entity</span>
               <input
                 className={styles.input}
                 value={recipientName}
@@ -188,7 +218,7 @@ export default function CatalogueShareAdmin(props: Props) {
             </label>
 
             <label className={styles.field}>
-              <span className={styles.label}>Label / notes</span>
+              <span className={styles.label}>Internal label / notes</span>
               <input
                 className={styles.input}
                 value={label}
@@ -206,6 +236,100 @@ export default function CatalogueShareAdmin(props: Props) {
                 onChange={(event) => setExpiresAt(event.target.value)}
               />
             </label>
+
+            <label className={`${styles.field} ${styles.fieldWide}`}>
+              <span className={styles.label}>Welcome message</span>
+              <textarea
+                className={styles.textarea}
+                value={welcomeMessage}
+                maxLength={600}
+                rows={4}
+                onChange={(event) => setWelcomeMessage(event.target.value)}
+                placeholder="Optional short note shown above the catalogue."
+              />
+              <span className={styles.fieldHelp}>
+                Plain text · {welcomeMessage.length}/600
+              </span>
+            </label>
+
+            <fieldset className={styles.curationFieldset}>
+              <legend className={styles.curationLegend}>
+                Curated track selection
+              </legend>
+
+              <div className={styles.curationHeader}>
+                <div>
+                  <strong>
+                    {curatedRecordingIds.length === 0
+                      ? "Full catalogue"
+                      : `${curatedRecordingIds.length} selected`}
+                  </strong>
+                  <p className={styles.fieldHelp}>
+                    No tracks selected means the link opens the full catalogue.
+                  </p>
+                </div>
+
+                <div className={styles.compactActions}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() =>
+                      setCuratedRecordingIds(
+                        props.catalogueRecords.map(
+                          (record) => record.recordingId,
+                        ),
+                      )
+                    }
+                  >
+                    Select all
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => setCuratedRecordingIds([])}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.trackPickerList}>
+                {props.catalogueRecords.map((record) => {
+                  const selected = curatedRecordingIds.includes(
+                    record.recordingId,
+                  );
+
+                  return (
+                    <label
+                      key={record.recordingId}
+                      className={styles.trackPickerItem}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        className={styles.trackPickerCheckbox}
+                        onChange={() =>
+                          toggleCuratedRecording(record.recordingId)
+                        }
+                      />
+
+                      <span>
+                        <span className={styles.trackPickerTitle}>
+                          {record.title}
+                        </span>
+                        <span className={styles.trackPickerMeta}>
+                          {record.recordingId}
+                          {record.artistName
+                            ? ` · ${record.artistName}`
+                            : ""}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           </div>
 
           <div className={styles.actions}>
@@ -258,6 +382,17 @@ export default function CatalogueShareAdmin(props: Props) {
                   link.label ??
                   "Untitled recipient";
 
+                const curatedTitles = link.curatedRecordingIds.map(
+                  (recordingId) =>
+                    recordTitleById.get(recordingId) ?? recordingId,
+                );
+
+                const visibleTitles = curatedTitles.slice(0, 4);
+                const remainingTitles = Math.max(
+                  curatedTitles.length - visibleTitles.length,
+                  0,
+                );
+
                 return (
                   <div key={link.id} className={styles.linkItem}>
                     <div className={styles.linkMeta}>
@@ -274,6 +409,30 @@ export default function CatalogueShareAdmin(props: Props) {
                         {link.recipientEmail ?? "No email"} · Created{" "}
                         {formatDateTime(link.createdAt)}
                       </p>
+
+                      {link.label ? (
+                        <p className={styles.linkSubline}>
+                          Internal: {link.label}
+                        </p>
+                      ) : null}
+
+                      <p className={styles.linkCuration}>
+                        {curatedTitles.length === 0
+                          ? "Full catalogue"
+                          : `${curatedTitles.length} curated track${
+                              curatedTitles.length === 1 ? "" : "s"
+                            }: ${visibleTitles.join(" · ")}${
+                              remainingTitles > 0
+                                ? ` · +${remainingTitles} more`
+                                : ""
+                            }`}
+                      </p>
+
+                      {link.welcomeMessage ? (
+                        <p className={styles.linkWelcome}>
+                          {link.welcomeMessage}
+                        </p>
+                      ) : null}
 
                       <p className={styles.linkSubline}>
                         Expires {formatDateTime(link.expiresAt)} · Last accessed{" "}

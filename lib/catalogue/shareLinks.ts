@@ -10,6 +10,8 @@ type DbShareLinkRow = {
   recipient_name: string | null;
   recipient_email: string | null;
   label: string | null;
+  welcome_message: string | null;
+  curated_recording_ids: string[] | null;
   expires_at: Date | string | null;
   revoked_at: Date | string | null;
   created_at: Date | string;
@@ -24,6 +26,30 @@ function normalizeNullableString(value: string | null | undefined): string | nul
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeRecordingIds(values: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    const recordingId = value.trim();
+
+    if (!recordingId || seen.has(recordingId)) {
+      continue;
+    }
+
+    seen.add(recordingId);
+    normalized.push(recordingId);
+  }
+
+  if (normalized.length > 50) {
+    throw new Error(
+      "A curated share link may contain at most 50 recordings",
+    );
+  }
+
+  return normalized;
 }
 
 function toIsoString(value: Date | string | null | undefined): string | null {
@@ -45,6 +71,8 @@ function mapRow(row: DbShareLinkRow): CatalogueShareLinkSummary {
     recipientName: row.recipient_name,
     recipientEmail: row.recipient_email,
     label: row.label,
+    welcomeMessage: row.welcome_message,
+    curatedRecordingIds: row.curated_recording_ids ?? [],
     expiresAt: toIsoString(row.expires_at),
     revokedAt: toIsoString(row.revoked_at),
     createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
@@ -73,6 +101,8 @@ export async function listCatalogueShareLinks(
       recipient_name,
       recipient_email,
       label,
+      welcome_message,
+      curated_recording_ids,
       expires_at,
       revoked_at,
       created_at,
@@ -99,6 +129,16 @@ export async function createCatalogueShareLink(
   const recipientName = normalizeNullableString(input.recipientName);
   const recipientEmail = normalizeNullableString(input.recipientEmail);
   const label = normalizeNullableString(input.label);
+  const welcomeMessage = normalizeNullableString(input.welcomeMessage);
+
+  if (welcomeMessage !== null && welcomeMessage.length > 600) {
+    throw new Error("Catalogue welcome message is too long");
+  }
+
+  const curatedRecordingIds = normalizeRecordingIds(
+    input.curatedRecordingIds,
+  );
+  const curatedRecordingIdsJson = JSON.stringify(curatedRecordingIds);
   const createdBy = normalizeNullableString(input.createdBy);
   const expiresAt = normalizeNullableString(input.expiresAt);
 
@@ -109,6 +149,8 @@ export async function createCatalogueShareLink(
       recipient_name,
       recipient_email,
       label,
+      welcome_message,
+      curated_recording_ids,
       expires_at,
       created_by
     )
@@ -118,6 +160,12 @@ export async function createCatalogueShareLink(
       ${recipientName},
       ${recipientEmail},
       ${label},
+      ${welcomeMessage},
+      array(
+        select jsonb_array_elements_text(
+          ${curatedRecordingIdsJson}::jsonb
+        )
+      ),
       ${expiresAt ? new Date(expiresAt).toISOString() : null},
       ${createdBy}
     )
@@ -126,6 +174,8 @@ export async function createCatalogueShareLink(
       recipient_name,
       recipient_email,
       label,
+      welcome_message,
+      curated_recording_ids,
       expires_at,
       revoked_at,
       created_at,
@@ -177,6 +227,8 @@ export async function resolveCatalogueShareToken(
       recipient_name,
       recipient_email,
       label,
+      welcome_message,
+      curated_recording_ids,
       expires_at,
       revoked_at,
       created_at,

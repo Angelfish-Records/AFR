@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
+import CatalogueCuratedIntro from "@/components/catalogue/CatalogueCuratedIntro";
 import CatalogueDrawer from "@/components/catalogue/CatalogueDrawer";
 import CatalogueDiscoveryBar, {
   type CatalogueFilterKey,
@@ -23,6 +24,7 @@ import CatalogueTable from "@/components/catalogue/CatalogueTable";
 import CatalogueViewToggle, {
   type CatalogueViewMode,
 } from "@/components/catalogue/CatalogueViewToggle";
+import type { CatalogueSharePresentation } from "@/lib/catalogue/shareLinkTypes";
 import type {
   CatalogueRecord,
   CatalogueRecordListItem,
@@ -32,6 +34,7 @@ import styles from "@/styles/catalogue.module.css";
 type Props = {
   records: CatalogueRecordListItem[];
   hasShareAttribution: boolean;
+  sharePresentation: CatalogueSharePresentation | null;
 };
 
 type DetailApiResponse = {
@@ -69,7 +72,11 @@ function includesNormalized(values: string[], expected: string): boolean {
 }
 
 export default function CatalogueIndexSurface(props: Props) {
-  const { records, hasShareAttribution } = props;
+  const {
+    records,
+    hasShareAttribution,
+    sharePresentation,
+  } = props;
   const router = useRouter();
 
   const [viewMode, setViewMode] = useState<CatalogueViewMode>("table");
@@ -86,6 +93,7 @@ export default function CatalogueIndexSurface(props: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<CatalogueFilterKey[]>([]);
   const [enquiryRecordingIds, setEnquiryRecordingIds] = useState<string[]>([]);
+  const [isShowingFullCatalogue, setIsShowingFullCatalogue] = useState(false);
 
   const activeRecordingId = getSingleQueryValue(
     router.query.recordingId,
@@ -98,6 +106,36 @@ export default function CatalogueIndexSurface(props: Props) {
   const shareToken = hasShareAttribution
     ? requestedShareToken
     : null;
+
+  const curatedRecordingIds =
+    sharePresentation?.curatedRecordingIds ?? [];
+
+  const hasCuratedSelection = curatedRecordingIds.length > 0;
+
+  const curatedRecordingIdSet = useMemo(
+    () => new Set(curatedRecordingIds),
+    [curatedRecordingIds],
+  );
+
+  const curatedRecords = useMemo(
+    () =>
+      records.filter((record) =>
+        curatedRecordingIdSet.has(record.recordingId),
+      ),
+    [curatedRecordingIdSet, records],
+  );
+
+  const catalogueScopeRecords =
+    hasCuratedSelection && !isShowingFullCatalogue
+      ? curatedRecords
+      : records;
+
+  const shouldShowSharePresentation =
+    sharePresentation !== null &&
+    (
+      hasCuratedSelection ||
+      Boolean(sharePresentation.welcomeMessage)
+    );
 
   const { trackEvent } = useCatalogueEngagement(shareToken);
   const catalogueOpenTrackedRef = useRef(false);
@@ -146,7 +184,7 @@ export default function CatalogueIndexSurface(props: Props) {
   const visibleRecords = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return records.filter((record) => {
+    return catalogueScopeRecords.filter((record) => {
       if (query) {
         const haystack = [
           record.title,
@@ -197,7 +235,7 @@ export default function CatalogueIndexSurface(props: Props) {
 
       return true;
     });
-  }, [activeFilters, records, searchQuery]);
+  }, [activeFilters, catalogueScopeRecords, searchQuery]);
 
   const activeListItem = useMemo(() => {
     if (!activeRecordingId) {
@@ -420,12 +458,26 @@ export default function CatalogueIndexSurface(props: Props) {
           </div>
         </div>
 
-        {records.length > 0 ? (
+        {shouldShowSharePresentation && sharePresentation ? (
+          <CatalogueCuratedIntro
+            recipientName={sharePresentation.recipientName}
+            welcomeMessage={sharePresentation.welcomeMessage}
+            hasCuratedSelection={hasCuratedSelection}
+            isShowingFullCatalogue={isShowingFullCatalogue}
+            curatedCount={curatedRecords.length}
+            totalCount={records.length}
+            onToggleCatalogueScope={() =>
+              setIsShowingFullCatalogue((current) => !current)
+            }
+          />
+        ) : null}
+
+        {catalogueScopeRecords.length > 0 ? (
           <CatalogueDiscoveryBar
             query={searchQuery}
             activeFilters={activeFilters}
             visibleCount={visibleRecords.length}
-            totalCount={records.length}
+            totalCount={catalogueScopeRecords.length}
             onQueryChange={setSearchQuery}
             onToggleFilter={toggleFilter}
             onReset={resetDiscovery}
@@ -436,6 +488,11 @@ export default function CatalogueIndexSurface(props: Props) {
           <CatalogueEmptyState
             title="No catalogue records are currently available"
             body="The configured Airtable view is returning no records yet. Once tracks are added to the dedicated sync view, they will appear here automatically."
+          />
+        ) : catalogueScopeRecords.length === 0 ? (
+          <CatalogueEmptyState
+            title="This curated selection is no longer available"
+            body="The selected recordings are no longer in the current catalogue. Use View full catalogue above to browse the available recordings."
           />
         ) : visibleRecords.length === 0 ? (
           <CatalogueEmptyState

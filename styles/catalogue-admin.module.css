@@ -211,3 +211,135 @@
   margin: 0;
   color: rgba(255, 255, 255, 0.62);
 }
+
+/* Curated share admin */
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 104px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f3f4f6;
+  padding: 12px 14px;
+  font: inherit;
+  line-height: 1.55;
+}
+
+.fieldHelp {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.curationFieldset {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 2px 0 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+}
+
+.curationLegend {
+  padding: 0 6px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.curationHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.compactActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.compactActions .secondaryButton {
+  padding: 7px 11px;
+  font-size: 0.78rem;
+}
+
+.trackPickerList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.trackPickerItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+}
+
+.trackPickerItem:hover {
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.trackPickerCheckbox {
+  margin-top: 3px;
+}
+
+.trackPickerTitle,
+.trackPickerMeta {
+  display: block;
+}
+
+.trackPickerTitle {
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.trackPickerMeta {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.linkCuration {
+  margin: 7px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgba(210, 235, 255, 0.82);
+}
+
+.linkWelcome {
+  margin: 7px 0 0;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+@media (max-width: 760px) {
+  .trackPickerList {
+    grid-template-columns: 1fr;
+  }
+
+  .curationHeader {
+    flex-direction: column;
+  }
+}
