@@ -61,6 +61,8 @@ export default function CatalogueShareAdmin(props: Props) {
   const [label, setLabel] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [curatedRecordingIds, setCuratedRecordingIds] = useState<string[]>([]);
+  const [curationSearch, setCurationSearch] = useState("");
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -80,6 +82,49 @@ export default function CatalogueShareAdmin(props: Props) {
       ),
     [props.catalogueRecords],
   );
+
+  const selectedRecordingIdSet = useMemo(
+    () => new Set(curatedRecordingIds),
+    [curatedRecordingIds],
+  );
+
+  const visibleCatalogueRecords = useMemo(() => {
+    const query = curationSearch.trim().toLowerCase();
+
+    return props.catalogueRecords.filter((record) => {
+      if (
+        showSelectedOnly &&
+        !selectedRecordingIdSet.has(record.recordingId)
+      ) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const haystack = [
+        record.recordingId,
+        record.title,
+        record.artistName ?? "",
+        record.shortLogline ?? "",
+        record.recordingType ?? "",
+        record.oneStopStatus ?? "",
+        record.explicitFlag ?? "",
+        ...record.genreLabels,
+        ...record.moodTags,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [
+    curationSearch,
+    props.catalogueRecords,
+    selectedRecordingIdSet,
+    showSelectedOnly,
+  ]);
 
   function toggleCuratedRecording(recordingId: string): void {
     setCuratedRecordingIds((current) =>
@@ -123,6 +168,8 @@ export default function CatalogueShareAdmin(props: Props) {
       setLabel("");
       setWelcomeMessage("");
       setCuratedRecordingIds([]);
+      setCurationSearch("");
+      setShowSelectedOnly(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to create link");
     } finally {
@@ -181,15 +228,16 @@ export default function CatalogueShareAdmin(props: Props) {
         <p className={styles.eyebrow}>Angelfish Records</p>
         <h1 className={styles.title}>Catalogue Admin</h1>
         <p className={styles.description}>
-          Create attributed catalogue links, prepare tailored track selections,
-          and review catalogue engagement. Curated links remain part of the
-          public catalogue: recipients can always reveal the full catalogue.
+          Curate recipient-specific catalogue views and monitor how the
+          catalogue is being explored. The public catalogue remains open;
+          attributed links add context, curation, and recipient-level
+          engagement.
         </p>
       </div>
 
       <div className={styles.grid}>
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Generate curated link</h2>
+          <h2 className={styles.cardTitle}>Curate a catalogue</h2>
 
           <div className={styles.formGrid}>
             <label className={styles.field}>
@@ -279,8 +327,39 @@ export default function CatalogueShareAdmin(props: Props) {
                 </div>
               </div>
 
+              <div className={styles.curationControls}>
+                <input
+                  type="search"
+                  className={styles.searchInput}
+                  value={curationSearch}
+                  onChange={(event) =>
+                    setCurationSearch(event.target.value)
+                  }
+                  placeholder="Search title, artist, genre, mood, ID or logline…"
+                  aria-label="Search catalogue recordings"
+                />
+
+                <button
+                  type="button"
+                  className={
+                    showSelectedOnly
+                      ? [
+                          styles.secondaryButton,
+                          styles.secondaryButtonActive,
+                        ].join(" ")
+                      : styles.secondaryButton
+                  }
+                  aria-pressed={showSelectedOnly}
+                  onClick={() =>
+                    setShowSelectedOnly((current) => !current)
+                  }
+                >
+                  Selected only
+                </button>
+              </div>
+
               <div className={styles.trackPickerList}>
-                {props.catalogueRecords.map((record) => {
+                {visibleCatalogueRecords.map((record) => {
                   const selected = curatedRecordingIds.includes(
                     record.recordingId,
                   );
@@ -288,7 +367,14 @@ export default function CatalogueShareAdmin(props: Props) {
                   return (
                     <label
                       key={record.recordingId}
-                      className={styles.trackPickerItem}
+                      className={
+                        selected
+                          ? [
+                              styles.trackPickerItem,
+                              styles.trackPickerItemSelected,
+                            ].join(" ")
+                          : styles.trackPickerItem
+                      }
                     >
                       <input
                         type="checkbox"
@@ -351,9 +437,11 @@ export default function CatalogueShareAdmin(props: Props) {
           {errorMessage ? <p className={styles.error}>{errorMessage}</p> : null}
         </section>
 
+        {props.afterContent}
+
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>
-            Active links <span className={styles.count}>{activeLinks.length}</span>
+            Link history <span className={styles.count}>{activeLinks.length} active</span>
           </h2>
 
           <div className={styles.linkList}>
@@ -440,8 +528,6 @@ export default function CatalogueShareAdmin(props: Props) {
           </div>
         </section>
       </div>
-
-      {props.afterContent}
     </div>
   );
 }
