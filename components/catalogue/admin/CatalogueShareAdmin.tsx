@@ -61,7 +61,6 @@ export default function CatalogueShareAdmin(props: Props) {
   const [label, setLabel] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [curatedRecordingIds, setCuratedRecordingIds] = useState<string[]>([]);
-  const [expiresAt, setExpiresAt] = useState("");
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -106,9 +105,6 @@ export default function CatalogueShareAdmin(props: Props) {
           label,
           welcomeMessage,
           curatedRecordingIds,
-          expiresAt: expiresAt
-            ? new Date(expiresAt).toISOString()
-            : null,
         }),
       });
 
@@ -127,7 +123,6 @@ export default function CatalogueShareAdmin(props: Props) {
       setLabel("");
       setWelcomeMessage("");
       setCuratedRecordingIds([]);
-      setExpiresAt("");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to create link");
     } finally {
@@ -224,16 +219,6 @@ export default function CatalogueShareAdmin(props: Props) {
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
                 placeholder="e.g. Sony trailer team"
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span className={styles.label}>Expires at</span>
-              <input
-                type="datetime-local"
-                className={styles.input}
-                value={expiresAt}
-                onChange={(event) => setExpiresAt(event.target.value)}
               />
             </label>
 
@@ -435,8 +420,7 @@ export default function CatalogueShareAdmin(props: Props) {
                       ) : null}
 
                       <p className={styles.linkSubline}>
-                        Expires {formatDateTime(link.expiresAt)} · Last accessed{" "}
-                        {formatDateTime(link.lastAccessedAt)}
+                        Last accessed {formatDateTime(link.lastAccessedAt)}
                       </p>
                     </div>
 

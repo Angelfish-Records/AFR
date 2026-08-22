@@ -28,7 +28,6 @@ type ParsedCreateBody = {
   label: string | null;
   welcomeMessage: string | null;
   curatedRecordingIds: string[];
-  expiresAt: string | null;
 };
 
 class RequestValidationError extends Error {}
@@ -164,16 +163,6 @@ function parseCreateBody(bodyUnknown: unknown): ParsedCreateBody {
     600,
   );
 
-  const expiresAt = optionalText(
-    bodyUnknown.expiresAt,
-    "Expiry",
-    100,
-  );
-
-  if (expiresAt && !Number.isFinite(Date.parse(expiresAt))) {
-    throw new RequestValidationError("Expiry date is invalid");
-  }
-
   return {
     recipientName,
     recipientEmail,
@@ -182,7 +171,6 @@ function parseCreateBody(bodyUnknown: unknown): ParsedCreateBody {
     curatedRecordingIds: parseCuratedRecordingIds(
       bodyUnknown.curatedRecordingIds,
     ),
-    expiresAt,
   };
 }
 

@@ -12,7 +12,6 @@ type DbShareLinkRow = {
   label: string | null;
   welcome_message: string | null;
   curated_recording_ids: string[] | null;
-  expires_at: Date | string | null;
   revoked_at: Date | string | null;
   created_at: Date | string;
   created_by: string | null;
@@ -73,7 +72,6 @@ function mapRow(row: DbShareLinkRow): CatalogueShareLinkSummary {
     label: row.label,
     welcomeMessage: row.welcome_message,
     curatedRecordingIds: row.curated_recording_ids ?? [],
-    expiresAt: toIsoString(row.expires_at),
     revokedAt: toIsoString(row.revoked_at),
     createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
     createdBy: row.created_by,
@@ -103,7 +101,6 @@ export async function listCatalogueShareLinks(
       label,
       welcome_message,
       curated_recording_ids,
-      expires_at,
       revoked_at,
       created_at,
       created_by,
@@ -140,7 +137,6 @@ export async function createCatalogueShareLink(
   );
   const curatedRecordingIdsJson = JSON.stringify(curatedRecordingIds);
   const createdBy = normalizeNullableString(input.createdBy);
-  const expiresAt = normalizeNullableString(input.expiresAt);
 
   const insertResult = await sql<DbShareLinkRow>`
     insert into catalogue_share_links (
@@ -151,7 +147,6 @@ export async function createCatalogueShareLink(
       label,
       welcome_message,
       curated_recording_ids,
-      expires_at,
       created_by
     )
     values (
@@ -166,7 +161,6 @@ export async function createCatalogueShareLink(
           ${curatedRecordingIdsJson}::jsonb
         )
       ),
-      ${expiresAt ? new Date(expiresAt).toISOString() : null},
       ${createdBy}
     )
     returning
@@ -176,7 +170,6 @@ export async function createCatalogueShareLink(
       label,
       welcome_message,
       curated_recording_ids,
-      expires_at,
       revoked_at,
       created_at,
       created_by,
@@ -229,7 +222,6 @@ export async function resolveCatalogueShareToken(
       label,
       welcome_message,
       curated_recording_ids,
-      expires_at,
       revoked_at,
       created_at,
       created_by,
@@ -249,15 +241,6 @@ export async function resolveCatalogueShareToken(
     return null;
   }
 
-  const expiresAt = toIsoString(row.expires_at);
-  if (expiresAt) {
-    const expiresAtMs = Date.parse(expiresAt);
-
-    if (Number.isFinite(expiresAtMs) && expiresAtMs < Date.now()) {
-      return null;
-    }
-  }
-
   if (options?.touch) {
     await sql`
       update catalogue_share_links
@@ -267,12 +250,4 @@ export async function resolveCatalogueShareToken(
   }
 
   return mapRow(row);
-}
-
-export async function validateCatalogueShareToken(
-  rawToken: string,
-  options?: { touch?: boolean },
-): Promise<boolean> {
-  const link = await resolveCatalogueShareToken(rawToken, options);
-  return link !== null;
 }

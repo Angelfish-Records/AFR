@@ -1,5 +1,13 @@
+import crypto from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getCatalogueApiAttributionContext } from "@/lib/catalogue/access";
+import {
+  consumeCatalogueLicensingRateLimit,
+  isCatalogueLicensingHoneypotTriggered,
+  isCatalogueLicensingJsonRequest,
+  isCatalogueLicensingPayloadTooLarge,
+  isCatalogueLicensingSameOriginRequest,
+} from "@/lib/catalogue/licensingEnquiryAbuse";
 import {
   markCatalogueLicensingNotificationFailed,
   markCatalogueLicensingNotificationSent,
@@ -13,6 +21,14 @@ import type {
   CatalogueLicensingRightsRequest,
 } from "@/lib/catalogue/licensingEnquiryTypes";
 import { listCatalogueRecords } from "@/lib/catalogue/queries";
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "16kb",
+    },
+  },
+};
 
 type ParseResult =
   | {
@@ -214,8 +230,37 @@ export default async function handler(
 
   res.setHeader("Cache-Control", "private, no-store");
 
-  const attribution =
-    await getCatalogueApiAttributionContext(req);
+  if (!isCatalogueLicensingJsonRequest(req)) {
+    res.status(415).json({
+      ok: false,
+      error: "Content-Type must be application/json",
+    });
+    return;
+  }
+
+  if (isCatalogueLicensingPayloadTooLarge(req)) {
+    res.status(413).json({
+      ok: false,
+      error: "Licensing enquiry is too large",
+    });
+    return;
+  }
+
+  if (!isCatalogueLicensingSameOriginRequest(req)) {
+    res.status(403).json({
+      ok: false,
+      error: "Cross-origin licensing submissions are not accepted",
+    });
+    return;
+  }
+
+  if (isCatalogueLicensingHoneypotTriggered(req.body)) {
+    res.status(200).json({
+      ok: true,
+      enquiryId: crypto.randomUUID(),
+    });
+    return;
+  }
 
   const parsed = parseRequest(req.body);
 
@@ -228,6 +273,23 @@ export default async function handler(
   }
 
   try {
+    const rateLimit =
+      await consumeCatalogueLicensingRateLimit(req);
+
+    if (!rateLimit.allowed) {
+      res.setHeader(
+        "Retry-After",
+        String(rateLimit.retryAfterSeconds),
+      );
+
+      res.status(429).json({
+        ok: false,
+        error:
+          "Too many licensing enquiries from this network. Please try again later.",
+      });
+      return;
+    }
+
     const catalogueRecords = await listCatalogueRecords();
 
     const recordById = new Map(
@@ -256,6 +318,9 @@ export default async function handler(
         position: index,
       });
     }
+
+    const attribution =
+      await getCatalogueApiAttributionContext(req);
 
     const persisted = await persistCatalogueLicensingEnquiry({
       submission: parsed.value,

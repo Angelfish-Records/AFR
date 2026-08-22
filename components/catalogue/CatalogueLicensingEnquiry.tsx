@@ -33,6 +33,7 @@ export default function CatalogueLicensingEnquiry(props: Props) {
   const [requesterName, setRequesterName] = useState("");
   const [requesterEmail, setRequesterEmail] = useState("");
   const [company, setCompany] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
   const [projectName, setProjectName] = useState("");
   const [mediumUse, setMediumUse] = useState("");
   const [territory, setTerritory] = useState("");
@@ -62,6 +63,7 @@ export default function CatalogueLicensingEnquiry(props: Props) {
     setRequesterName("");
     setRequesterEmail("");
     setCompany("");
+    setCompanyWebsite("");
     setProjectName("");
     setMediumUse("");
     setTerritory("");
@@ -131,6 +133,7 @@ export default function CatalogueLicensingEnquiry(props: Props) {
           requesterName,
           requesterEmail,
           company,
+          companyWebsite,
           projectName,
           mediumUse,
           territory,
@@ -236,6 +239,23 @@ export default function CatalogueLicensingEnquiry(props: Props) {
             className={styles.form}
             onSubmit={(event) => void handleSubmit(event)}
           >
+            <label
+              className={styles.honeypotField}
+              aria-hidden="true"
+            >
+              <span>Company website</span>
+              <input
+                type="text"
+                name="companyWebsite"
+                value={companyWebsite}
+                autoComplete="off"
+                tabIndex={-1}
+                onChange={(event) =>
+                  setCompanyWebsite(event.target.value)
+                }
+              />
+            </label>
+
             <div className={styles.formGrid}>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Name *</span>

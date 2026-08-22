@@ -5,7 +5,6 @@ export type CatalogueShareLinkSummary = {
   label: string | null;
   welcomeMessage: string | null;
   curatedRecordingIds: string[];
-  expiresAt: string | null;
   revokedAt: string | null;
   createdAt: string;
   createdBy: string | null;
@@ -18,7 +17,6 @@ export type CatalogueShareLinkCreateInput = {
   label: string | null;
   welcomeMessage: string | null;
   curatedRecordingIds: string[];
-  expiresAt: string | null;
   createdBy: string | null;
 };
 
