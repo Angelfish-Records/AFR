@@ -15,7 +15,12 @@ function joinCompact(values: string[], maxItems: number): string {
 }
 
 export default function CatalogueGrid(props: Props) {
-  const { records, onSelect, selectedRecordingIds, onToggleSelected } = props;
+  const {
+    records,
+    onSelect,
+    selectedRecordingIds,
+    onToggleSelected,
+  } = props;
 
   return (
     <section className={styles.grid}>
@@ -31,40 +36,59 @@ export default function CatalogueGrid(props: Props) {
             className={`${styles.cardShell} ${
               isSelected ? styles.cardShellSelected : ""
             }`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Open detailed view for ${record.title}`}
+            onClick={() => onSelect(record.recordingId)}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) {
+                return;
+              }
+
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect(record.recordingId);
+              }
+            }}
           >
-            <div className={styles.cardSelectionRow}>
-              <label className={styles.selectionCheckboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => onToggleSelected(record.recordingId)}
-                  aria-label={`${isSelected ? "Remove" : "Add"} ${
-                    record.title
-                  } ${isSelected ? "from" : "to"} shortlist`}
-                  className={styles.selectionCheckbox}
-                />
-                <span className={styles.selectionCheckboxVisual} />
-              </label>
-
-              <div className={styles.cardMetaPill}>
-                {record.duration ?? "—"}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className={styles.cardButton}
-              onClick={() => onSelect(record.recordingId)}
-            >
+            <div className={styles.cardButton}>
               <div className={styles.cardBody}>
                 <div className={styles.cardTopRow}>
-                  <div className={styles.cardKicker}>{record.recordingId}</div>
+                  <div className={styles.cardKicker}>
+                    {record.recordingId}
+                  </div>
+
+                  <div className={styles.cardTopActions}>
+                    <div className={styles.cardMetaPill}>
+                      {record.duration ?? "—"}
+                    </div>
+
+                    <label
+                      className={styles.selectionCheckboxLabel}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() =>
+                          onToggleSelected(record.recordingId)
+                        }
+                        aria-label={`${isSelected ? "Remove" : "Add"} ${
+                          record.title
+                        } ${isSelected ? "from" : "to"} shortlist`}
+                        className={styles.selectionCheckbox}
+                      />
+                      <span className={styles.selectionCheckboxVisual} />
+                    </label>
+                  </div>
                 </div>
 
                 <h2 className={styles.cardTitle}>{record.title}</h2>
 
                 {record.artistName ? (
-                  <div className={styles.cardArtist}>{record.artistName}</div>
+                  <div className={styles.cardArtist}>
+                    {record.artistName}
+                  </div>
                 ) : null}
 
                 <div className={styles.cardReadinessRow}>
@@ -72,11 +96,15 @@ export default function CatalogueGrid(props: Props) {
                 </div>
 
                 {record.shortLogline ? (
-                  <p className={styles.cardLogline}>{record.shortLogline}</p>
+                  <p className={styles.cardLogline}>
+                    {record.shortLogline}
+                  </p>
                 ) : null}
 
                 <div className={styles.cardPreviewRow}>
-                  <CataloguePreviewButton recordingId={record.recordingId} />
+                  <CataloguePreviewButton
+                    recordingId={record.recordingId}
+                  />
                 </div>
 
                 <div className={styles.tagRow}>
@@ -89,7 +117,7 @@ export default function CatalogueGrid(props: Props) {
                   )}
                 </div>
               </div>
-            </button>
+            </div>
           </article>
         );
       })}

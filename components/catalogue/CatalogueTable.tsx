@@ -1,4 +1,3 @@
-// components/catalogue/CatalogueTable.tsx
 import CataloguePreviewButton from "@/components/catalogue/CataloguePreviewButton";
 import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
 import type { CatalogueRecordListItem } from "@/lib/catalogue/types";
@@ -31,7 +30,8 @@ export default function CatalogueTable(props: Props) {
         <div aria-hidden="true" />
         <div>Track</div>
         <div>Preview</div>
-        <div>Clearance / Delivery</div>
+        <div>Rights</div>
+        <div>Delivery</div>
         <div>Genre / Mood</div>
         <div>Duration</div>
       </div>
@@ -50,9 +50,27 @@ export default function CatalogueTable(props: Props) {
               className={`${styles.tableRowButton} ${
                 isActive ? styles.tableRowButtonActive : ""
               }`}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open detailed view for ${record.title}`}
+              aria-current={isActive ? "true" : undefined}
+              onClick={() => onSelect(record.recordingId)}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelect(record.recordingId);
+                }
+              }}
             >
               <div className={styles.tableSelectCell}>
-                <label className={styles.selectionCheckboxLabel}>
+                <label
+                  className={styles.selectionCheckboxLabel}
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -66,40 +84,54 @@ export default function CatalogueTable(props: Props) {
                 </label>
               </div>
 
-              <button
-                type="button"
-                className={styles.tableTrackButton}
-                onClick={() => onSelect(record.recordingId)}
-              >
-                <div className={styles.tableTrackCell}>
-                  <div className={styles.tableTrackTopLine}>
-                    <span className={styles.tableRecordingId}>
-                      {record.recordingId}
-                    </span>
-                  </div>
-                  <div className={styles.tableTrackTitle}>{record.title}</div>
-                  {record.artistName ? (
-                    <div className={styles.tableTrackArtist}>
-                      {record.artistName}
-                    </div>
-                  ) : null}
-                  {record.shortLogline ? (
-                    <div className={styles.tableTrackLogline}>
-                      {record.shortLogline}
-                    </div>
-                  ) : null}
+              <div className={styles.tableTrackCell}>
+                <div className={styles.tableTrackTopLine}>
+                  <span className={styles.tableRecordingId}>
+                    {record.recordingId}
+                  </span>
                 </div>
-              </button>
+
+                <div className={styles.tableTrackTitle}>{record.title}</div>
+
+                <div className={styles.tableDetailHint}>
+                  Open detailed view
+                </div>
+
+                {record.artistName ? (
+                  <div className={styles.tableTrackArtist}>
+                    {record.artistName}
+                  </div>
+                ) : null}
+
+                {record.shortLogline ? (
+                  <div className={styles.tableTrackLogline}>
+                    {record.shortLogline}
+                  </div>
+                ) : null}
+              </div>
 
               <div className={styles.tablePreviewCell}>
                 <CataloguePreviewButton recordingId={record.recordingId} />
               </div>
 
-              <div className={styles.tableReadinessCell}>
-                <CatalogueReadinessPills record={record} compact />
+              <div className={styles.tableRightsCell}>
+                <CatalogueReadinessPills
+                  record={record}
+                  mode="rights"
+                />
               </div>
 
-              <div className={styles.tableCellMuted}>{metaText || "—"}</div>
+              <div className={styles.tableDeliveryCell}>
+                <CatalogueReadinessPills
+                  record={record}
+                  mode="delivery"
+                  compact
+                />
+              </div>
+
+              <div className={styles.tableCellMuted}>
+                {metaText || "—"}
+              </div>
 
               <div className={styles.tableDurationCell}>
                 {record.duration ?? "—"}

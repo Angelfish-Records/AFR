@@ -12,13 +12,22 @@ type ReadinessRecord = Pick<
   | "rightsAdministrator"
 >;
 
+type ReadinessMode = "all" | "rights" | "delivery";
+
 type Props = {
   record: ReadinessRecord;
   compact?: boolean;
+  mode?: ReadinessMode;
 };
 
 function normalize(value: string | null): string {
   return value?.trim().toLowerCase() ?? "";
+}
+
+function displayUpper(value: string | null): string | null {
+  const trimmed = value?.trim();
+
+  return trimmed ? trimmed.toUpperCase() : null;
 }
 
 function hasFamilyType(record: ReadinessRecord, type: string): boolean {
@@ -29,29 +38,7 @@ function hasFamilyType(record: ReadinessRecord, type: string): boolean {
   );
 }
 
-export default function CatalogueReadinessPills(props: Props) {
-  const { record, compact = false } = props;
-
-  const clearanceItems: Array<{ label: string; primary: boolean }> = [];
-
-  if (normalize(record.oneStopStatus) === "one-stop") {
-    clearanceItems.push({ label: "ONE-STOP", primary: true });
-  }
-
-  if (record.masterOwner) {
-    clearanceItems.push({
-      label: `MASTER · ${record.masterOwner.toUpperCase()}`,
-      primary: false,
-    });
-  }
-
-  if (record.rightsAdministrator) {
-    clearanceItems.push({
-      label: `RIGHTS ADMIN · ${record.rightsAdministrator.toUpperCase()}`,
-      primary: false,
-    });
-  }
-
+function getDeliverables(record: ReadinessRecord): string[] {
   const deliverables: string[] = [];
   const explicitFlag = normalize(record.explicitFlag);
   const recordingType = normalize(record.recordingType);
@@ -75,6 +62,99 @@ export default function CatalogueReadinessPills(props: Props) {
 
   if (normalize(record.stemsAvailable) === "yes") {
     deliverables.push("STEMS");
+  }
+
+  return deliverables;
+}
+
+export default function CatalogueReadinessPills(props: Props) {
+  const {
+    record,
+    compact = false,
+    mode = "all",
+  } = props;
+
+  const oneStopStatus = displayUpper(record.oneStopStatus);
+  const masterOwner = displayUpper(record.masterOwner);
+  const rightsAdministrator = displayUpper(record.rightsAdministrator);
+  const deliverables = getDeliverables(record);
+
+  if (mode === "rights") {
+    const isOneStop = normalize(record.oneStopStatus) === "one-stop";
+
+    return (
+      <div className={styles.rightsTile}>
+        <div
+          className={`${styles.rightsTileStatus} ${
+            isOneStop ? styles.rightsTileStatusPrimary : ""
+          }`}
+        >
+          {oneStopStatus ?? "RIGHTS STATUS —"}
+        </div>
+
+        <div className={styles.rightsTileDetails}>
+          <div className={styles.rightsTileDetail}>
+            <span className={styles.rightsTileLabel}>Master</span>
+            <span className={styles.rightsTileValue}>
+              {masterOwner ?? "—"}
+            </span>
+          </div>
+
+          <div className={styles.rightsTileDetail}>
+            <span className={styles.rightsTileLabel}>Rights admin</span>
+            <span className={styles.rightsTileValue}>
+              {rightsAdministrator ?? "—"}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "delivery") {
+    if (deliverables.length === 0) {
+      return <span className={styles.readinessFallback}>—</span>;
+    }
+
+    return (
+      <div
+        className={`${styles.deliverableRow} ${
+          compact ? styles.deliverableRowCompact : ""
+        }`}
+      >
+        {deliverables.map((item) => (
+          <span key={item} className={styles.deliverablePill}>
+            {item}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  const clearanceItems: Array<{
+    label: string;
+    primary: boolean;
+  }> = [];
+
+  if (normalize(record.oneStopStatus) === "one-stop") {
+    clearanceItems.push({
+      label: "ONE-STOP",
+      primary: true,
+    });
+  }
+
+  if (record.masterOwner) {
+    clearanceItems.push({
+      label: `MASTER · ${record.masterOwner.toUpperCase()}`,
+      primary: false,
+    });
+  }
+
+  if (record.rightsAdministrator) {
+    clearanceItems.push({
+      label: `RIGHTS ADMIN · ${record.rightsAdministrator.toUpperCase()}`,
+      primary: false,
+    });
   }
 
   if (clearanceItems.length === 0 && deliverables.length === 0) {

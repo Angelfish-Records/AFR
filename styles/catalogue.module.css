@@ -143,8 +143,8 @@
 .tableHeaderRow {
   display: grid;
   grid-template-columns:
-    30px minmax(205px, 0.94fr) 96px minmax(420px, 1.92fr)
-    minmax(280px, 1.18fr) 72px;
+    30px minmax(210px, 0.98fr) 96px minmax(220px, 0.92fr)
+    minmax(170px, 0.66fr) minmax(220px, 0.9fr) 72px;
   gap: 14px;
   padding: 16px 20px 16px 16px;
   font-size: 0.8em;
@@ -168,12 +168,14 @@
   width: 100%;
   display: grid;
   grid-template-columns:
-    30px minmax(205px, 0.94fr) 96px minmax(420px, 1.92fr)
-    minmax(280px, 1.18fr) 72px;
+    30px minmax(210px, 0.98fr) 96px minmax(220px, 0.92fr)
+    minmax(170px, 0.66fr) minmax(220px, 0.9fr) 72px;
   gap: 14px;
-  align-items: center;
+  align-items: stretch;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding: 14px 20px 14px 16px;
+  cursor: pointer;
+  outline: none;
   transition:
     background 160ms ease,
     border-color 160ms ease,
@@ -185,7 +187,12 @@
 }
 
 .tableRowButton:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.tableRowButton:focus-visible {
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(118, 191, 255, 0.3);
 }
 
 .tableRowButtonActive {
@@ -217,6 +224,7 @@
 
 .tableTrackCell {
   min-width: 0;
+  align-self: center;
 }
 
 .tableTrackTopLine {
@@ -234,7 +242,26 @@
   font-size: 1em;
   line-height: 1.26;
   color: rgba(255, 255, 255, 0.96);
-  margin-bottom: 7px;
+  margin-bottom: 4px;
+}
+
+.tableDetailHint {
+  min-height: 1.2em;
+  margin: 0 0 6px;
+  font-size: 0.7em;
+  line-height: 1.2;
+  letter-spacing: 0.045em;
+  color: rgba(177, 218, 255, 0);
+  transform: translateY(-2px);
+  transition:
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.tableRowButton:hover .tableDetailHint,
+.tableRowButton:focus-visible .tableDetailHint {
+  color: rgba(177, 218, 255, 0.82);
+  transform: translateY(0);
 }
 
 .tableTrackArtist {
@@ -368,10 +395,17 @@
   color: rgba(197, 229, 255, 0.96);
 }
 
-.tableReadinessCell {
-  align-self: center;
+.tableRightsCell {
+  display: flex;
   min-width: 0;
-  padding-right: 8px;
+  align-self: stretch;
+}
+
+.tableDeliveryCell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-right: 4px;
 }
 
 .tableCellMuted {
@@ -470,8 +504,14 @@
 }
 
 .cardShell {
-  display: grid;
-  gap: 10px;
+  display: block;
+  cursor: pointer;
+  outline: none;
+}
+
+.cardShell:focus-visible .cardButton {
+  border-color: rgba(118, 191, 255, 0.34);
+  box-shadow: 0 0 0 1px rgba(118, 191, 255, 0.18);
 }
 
 .cardShellSelected .cardButton {
@@ -518,6 +558,13 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.cardTopActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
 .cardKicker {
@@ -1040,10 +1087,78 @@
   opacity: 0.86;
 }
 
+.rightsTile {
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(145, 222, 181, 0.2);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(73, 161, 113, 0.12),
+      rgba(83, 155, 219, 0.06)
+    );
+}
+
+.rightsTileStatus {
+  width: fit-content;
+  font-size: 0.7rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.rightsTileStatusPrimary {
+  color: rgba(214, 255, 232, 0.98);
+  font-weight: 750;
+}
+
+.rightsTileDetails {
+  display: grid;
+  gap: 6px;
+}
+
+.rightsTileDetail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.rightsTileLabel {
+  font-size: 0.58rem;
+  line-height: 1.2;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.rightsTileValue {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.66rem;
+  line-height: 1.25;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(218, 239, 255, 0.78);
+}
+
 .deliverablePill {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.045);
   color: rgba(255, 255, 255, 0.68);
+}
+
+.deliverableRowCompact {
+  gap: 5px;
 }
 
 .discoveryBar {
