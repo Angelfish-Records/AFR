@@ -51,6 +51,10 @@ const CataloguePlaybackContext =
 
 type ProviderProps = {
   accessToken?: string | null;
+  onPlaybackStart?: (
+    recordingId: string,
+    mode: PlaybackMode,
+  ) => void;
   children: React.ReactNode;
 };
 
@@ -81,7 +85,11 @@ function hasUsableMediaSource(audio: HTMLAudioElement): boolean {
 }
 
 export function CataloguePlaybackProvider(props: ProviderProps) {
-  const { accessToken = null, children } = props;
+  const {
+    accessToken = null,
+    onPlaybackStart,
+    children,
+  } = props;
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const sourceCacheRef = React.useRef<Map<string, PlaybackSource>>(new Map());
@@ -269,6 +277,12 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
           clipEndSeconds,
           errorMessage: null,
         }));
+
+        try {
+          onPlaybackStart?.(recordingId, mode);
+        } catch {
+          // Telemetry must never affect playback.
+        }
       } catch (error) {
         setState((current) => ({
           ...current,
@@ -283,6 +297,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
     [
       attachSource,
       fetchSource,
+      onPlaybackStart,
       state.activeMode,
       state.activeRecordingId,
       state.status,

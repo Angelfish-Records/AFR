@@ -1,6 +1,12 @@
 // components/catalogue/CatalogueIndexSurface.tsx
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/router";
 import CatalogueDrawer from "@/components/catalogue/CatalogueDrawer";
 import CatalogueDiscoveryBar, {
@@ -11,6 +17,7 @@ import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
 import CatalogueLayout from "@/components/catalogue/CatalogueLayout";
 import CatalogueLicensingEnquiry from "@/components/catalogue/CatalogueLicensingEnquiry";
+import { useCatalogueEngagement } from "@/components/catalogue/useCatalogueEngagement";
 import CatalogueShortlistBar from "@/components/catalogue/CatalogueShortlistBar";
 import CatalogueTable from "@/components/catalogue/CatalogueTable";
 import CatalogueViewToggle, {
@@ -91,6 +98,37 @@ export default function CatalogueIndexSurface(props: Props) {
   const shareToken = hasShareAttribution
     ? requestedShareToken
     : null;
+
+  const { trackEvent } = useCatalogueEngagement(shareToken);
+  const catalogueOpenTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!router.isReady || catalogueOpenTrackedRef.current) {
+      return;
+    }
+
+    catalogueOpenTrackedRef.current = true;
+    trackEvent("catalogue_open");
+  }, [router.isReady, trackEvent]);
+
+  useEffect(() => {
+    if (!router.isReady || !activeRecordingId) {
+      return;
+    }
+
+    trackEvent("detail_open", {
+      recordingId: activeRecordingId,
+    });
+  }, [activeRecordingId, router.isReady, trackEvent]);
+
+  const handlePlaybackStart = useCallback(
+    (recordingId: string, mode: "full" | "clip") => {
+      trackEvent(mode === "full" ? "play_full" : "play_clip", {
+        recordingId,
+      });
+    },
+    [trackEvent],
+  );
 
   const toggleFilter = useCallback((filter: CatalogueFilterKey) => {
     setActiveFilters((current) =>
@@ -182,17 +220,36 @@ export default function CatalogueIndexSurface(props: Props) {
       );
   }, [enquiryRecordingIds, records]);
 
-  const toggleSelectedRecording = useCallback((recordingId: string) => {
-    setSelectedRecordingIds((current) =>
-      current.includes(recordingId)
-        ? current.filter((value) => value !== recordingId)
-        : [...current, recordingId],
-    );
-  }, []);
+  const toggleSelectedRecording = useCallback(
+    (recordingId: string) => {
+      const isCurrentlySelected =
+        selectedRecordingIds.includes(recordingId);
+
+      setSelectedRecordingIds((current) =>
+        current.includes(recordingId)
+          ? current.filter((value) => value !== recordingId)
+          : [...current, recordingId],
+      );
+
+      trackEvent(
+        isCurrentlySelected ? "shortlist_remove" : "shortlist_add",
+        {
+          recordingId,
+        },
+      );
+    },
+    [selectedRecordingIds, trackEvent],
+  );
 
   const clearSelectedRecordings = useCallback(() => {
+    for (const recordingId of selectedRecordingIds) {
+      trackEvent("shortlist_remove", {
+        recordingId,
+      });
+    }
+
     setSelectedRecordingIds([]);
-  }, []);
+  }, [selectedRecordingIds, trackEvent]);
 
   const openLicensingEnquiry = useCallback(
     (recordingIds: string[]) => {
@@ -212,9 +269,13 @@ export default function CatalogueIndexSurface(props: Props) {
         return;
       }
 
+      trackEvent("licensing_open", {
+        selectionCount: safeIds.length,
+      });
+
       setEnquiryRecordingIds(safeIds);
     },
-    [records],
+    [records, trackEvent],
   );
 
   const closeLicensingEnquiry = useCallback(() => {
@@ -327,7 +388,10 @@ export default function CatalogueIndexSurface(props: Props) {
   }, [activeRecordingId, shareToken]);
 
   return (
-    <CataloguePlaybackProvider accessToken={shareToken}>
+    <CataloguePlaybackProvider
+      accessToken={shareToken}
+      onPlaybackStart={handlePlaybackStart}
+    >
       <CatalogueLayout>
         <div className={styles.logoHeader}>
           <Image

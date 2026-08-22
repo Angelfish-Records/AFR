@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { CatalogueShareLinkSummary } from "@/lib/catalogue/shareLinkTypes";
 import styles from "@/styles/catalogue-admin.module.css";
 
 type Props = {
   initialLinks: CatalogueShareLinkSummary[];
+  afterContent?: ReactNode;
 };
 
 type CreateResponse =
@@ -292,6 +297,8 @@ export default function CatalogueShareAdmin(props: Props) {
           </div>
         </section>
       </div>
+
+      {props.afterContent}
     </div>
   );
 }
