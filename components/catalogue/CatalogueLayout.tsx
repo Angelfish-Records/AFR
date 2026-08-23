@@ -6,9 +6,12 @@ import {
 } from "@/lib/catalogue/constants";
 import styles from "@/styles/catalogue.module.css";
 
+export type CatalogueThemeMode = "dark" | "light";
+
 type Props = {
   title?: string;
   description?: string;
+  theme?: CatalogueThemeMode;
   children: ReactNode;
 };
 
@@ -16,6 +19,7 @@ export default function CatalogueLayout(props: Props) {
   const {
     title = CATALOGUE_TITLE,
     description = CATALOGUE_DESCRIPTION,
+    theme = "dark",
     children,
   } = props;
 
@@ -29,7 +33,12 @@ export default function CatalogueLayout(props: Props) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className={styles.pageShell}>
+      <div
+        className={`${styles.pageShell} ${
+          theme === "light" ? styles.pageShellLight : ""
+        }`}
+        data-catalogue-theme={theme}
+      >
         <main className={`${styles.pageInner} ${styles.catalogueRoot}`}>
           {children}
         </main>

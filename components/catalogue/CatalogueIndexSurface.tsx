@@ -16,7 +16,9 @@ import CatalogueDiscoveryBar, {
 import { CataloguePlaybackProvider } from "@/components/catalogue/CataloguePlaybackProvider";
 import CatalogueEmptyState from "@/components/catalogue/CatalogueEmptyState";
 import CatalogueGrid from "@/components/catalogue/CatalogueGrid";
-import CatalogueLayout from "@/components/catalogue/CatalogueLayout";
+import CatalogueLayout, {
+  type CatalogueThemeMode,
+} from "@/components/catalogue/CatalogueLayout";
 import CatalogueLicensingEnquiry from "@/components/catalogue/CatalogueLicensingEnquiry";
 import { useCatalogueEngagement } from "@/components/catalogue/useCatalogueEngagement";
 import CatalogueShortlistBar from "@/components/catalogue/CatalogueShortlistBar";
@@ -40,6 +42,14 @@ type Props = {
 type DetailApiResponse = {
   record: CatalogueRecord;
 };
+
+const CATALOGUE_THEME_STORAGE_KEY = "afr-catalogue-theme";
+
+function isCatalogueThemeMode(
+  value: string | null,
+): value is CatalogueThemeMode {
+  return value === "dark" || value === "light";
+}
 
 function getSingleQueryValue(
   value: string | string[] | undefined,
@@ -80,6 +90,7 @@ export default function CatalogueIndexSurface(props: Props) {
   const router = useRouter();
 
   const [viewMode, setViewMode] = useState<CatalogueViewMode>("table");
+  const [themeMode, setThemeMode] = useState<CatalogueThemeMode>("dark");
   const [activeRecord, setActiveRecord] = useState<CatalogueRecord | null>(
     null,
   );
@@ -97,6 +108,38 @@ export default function CatalogueIndexSurface(props: Props) {
   const [activeFilters, setActiveFilters] = useState<CatalogueFilterKey[]>([]);
   const [enquiryRecordingIds, setEnquiryRecordingIds] = useState<string[]>([]);
   const [isShowingFullCatalogue, setIsShowingFullCatalogue] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedTheme = window.localStorage.getItem(
+        CATALOGUE_THEME_STORAGE_KEY,
+      );
+
+      if (isCatalogueThemeMode(storedTheme)) {
+        setThemeMode(storedTheme);
+      }
+    } catch {
+      // Theme persistence is optional.
+    }
+  }, []);
+
+  const toggleThemeMode = useCallback(() => {
+    setThemeMode((current) => {
+      const nextTheme: CatalogueThemeMode =
+        current === "dark" ? "light" : "dark";
+
+      try {
+        window.localStorage.setItem(
+          CATALOGUE_THEME_STORAGE_KEY,
+          nextTheme,
+        );
+      } catch {
+        // Switching still works without persistence.
+      }
+
+      return nextTheme;
+    });
+  }, []);
 
   const activeRecordingId = getSingleQueryValue(
     router.query.recordingId,
@@ -451,7 +494,7 @@ export default function CatalogueIndexSurface(props: Props) {
       accessToken={shareToken}
       onPlaybackStart={handlePlaybackStart}
     >
-      <CatalogueLayout>
+      <CatalogueLayout theme={themeMode}>
         <div className={styles.logoHeader}>
           <Image
             src="/brand/AFR-logo-white-horizontal.png"
@@ -463,11 +506,7 @@ export default function CatalogueIndexSurface(props: Props) {
           />
         </div>
         <div className={styles.surfaceHeaderRow}>
-          <div className={styles.surfaceControlLeft} aria-hidden="true" />
-
-          <div className={styles.surfaceHeaderTitle}>SYNC CATALOGUE</div>
-
-          <div className={styles.surfaceControlRight}>
+          <div className={styles.surfaceControlLeft}>
             <CatalogueShortlistBar
               selectedRecordingIds={selectedRecordingIds}
               onClear={clearSelectedRecordings}
@@ -475,7 +514,47 @@ export default function CatalogueIndexSurface(props: Props) {
                 openLicensingEnquiry(selectedRecordingIds)
               }
             />
+          </div>
+
+          <div className={styles.surfaceHeaderTitle}>SYNC CATALOGUE</div>
+
+          <div className={styles.surfaceControlRight}>
             <CatalogueViewToggle value={viewMode} onChange={setViewMode} />
+
+            <button
+              type="button"
+              className={styles.themeToggle}
+              onClick={toggleThemeMode}
+              aria-label={
+                themeMode === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
+              title={
+                themeMode === "dark"
+                  ? "Switch to light mode"
+                  : "Switch to dark mode"
+              }
+            >
+              {themeMode === "dark" ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className={styles.themeToggleIcon}
+                >
+                  <circle cx="12" cy="12" r="3.25" />
+                  <path d="M12 2.75v2.1M12 19.15v2.1M2.75 12h2.1M19.15 12h2.1M5.46 5.46l1.49 1.49M17.05 17.05l1.49 1.49M18.54 5.46l-1.49 1.49M6.95 17.05l-1.49 1.49" />
+                </svg>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className={styles.themeToggleIcon}
+                >
+                  <path d="M20.1 15.05A8.3 8.3 0 0 1 8.95 3.9 8.55 8.55 0 1 0 20.1 15.05Z" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 

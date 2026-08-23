@@ -371,3 +371,93 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+
+:global([data-catalogue-theme="light"]) .shortlistClearButton {
+  color: rgba(29, 45, 60, 0.48);
+}
+
+:global([data-catalogue-theme="light"]) .shortlistClearButton:hover {
+  color: rgba(25, 41, 55, 0.78);
+}
+
+:global([data-catalogue-theme="light"]) .shortlistRequestButton {
+  border-color: rgba(56, 131, 185, 0.3);
+  background: rgba(70, 148, 204, 0.09);
+  color: rgba(31, 91, 134, 0.94);
+}
+
+:global([data-catalogue-theme="light"]) .shortlistRequestButtonDisabled {
+  border-color: rgba(31, 48, 64, 0.08);
+  background: rgba(31, 48, 64, 0.025);
+  color: rgba(31, 48, 64, 0.28);
+}
+
+:global([data-catalogue-theme="light"]) .drawerRequestButton,
+:global([data-catalogue-theme="light"]) .primaryButton {
+  border-color: rgba(56, 131, 185, 0.34);
+  background: rgba(70, 148, 204, 0.11);
+  color: rgba(31, 91, 134, 0.96);
+}
+
+:global([data-catalogue-theme="light"]) .modalBackdrop {
+  background: rgba(34, 44, 54, 0.42);
+}
+
+:global([data-catalogue-theme="light"]) .modal {
+  border-color: rgba(31, 48, 64, 0.13);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.99),
+      rgba(244, 247, 250, 0.99)
+    );
+  box-shadow: 0 28px 90px rgba(41, 55, 68, 0.24);
+  color: rgba(23, 36, 48, 0.92);
+}
+
+:global([data-catalogue-theme="light"]) .modalHeader,
+:global([data-catalogue-theme="light"]) .selectedTracks {
+  border-color: rgba(31, 48, 64, 0.08);
+}
+
+:global([data-catalogue-theme="light"]) .modalEyebrow,
+:global([data-catalogue-theme="light"]) .selectedTracksLabel {
+  color: rgba(31, 48, 64, 0.44);
+}
+
+:global([data-catalogue-theme="light"]) .modalCloseButton,
+:global([data-catalogue-theme="light"]) .secondaryButton {
+  border-color: rgba(31, 48, 64, 0.1);
+  background: rgba(31, 48, 64, 0.035);
+  color: rgba(31, 48, 64, 0.65);
+}
+
+:global([data-catalogue-theme="light"]) .selectedTrack {
+  color: rgba(28, 43, 57, 0.74);
+}
+
+:global([data-catalogue-theme="light"]) .selectedTrackId {
+  color: rgba(40, 105, 152, 0.8);
+}
+
+:global([data-catalogue-theme="light"]) .fieldLabel,
+:global([data-catalogue-theme="light"]) .privacyNote {
+  color: rgba(31, 48, 64, 0.56);
+}
+
+:global([data-catalogue-theme="light"]) .input,
+:global([data-catalogue-theme="light"]) .textarea {
+  border-color: rgba(31, 48, 64, 0.13);
+  background: rgba(255, 255, 255, 0.82);
+  color: rgba(23, 36, 48, 0.92);
+}
+
+:global([data-catalogue-theme="light"]) .input::placeholder,
+:global([data-catalogue-theme="light"]) .textarea::placeholder {
+  color: rgba(31, 48, 64, 0.34);
+}
+
+:global([data-catalogue-theme="light"]) .successBlock p {
+  color: rgba(31, 48, 64, 0.6);
+}
