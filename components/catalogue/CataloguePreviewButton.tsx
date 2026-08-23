@@ -16,29 +16,43 @@ export default function CataloguePreviewButton(props: Props) {
   const isFullActive = isRecordingActive(recordingId, "full");
   const isClipActive = isRecordingActive(recordingId, "clip");
 
-  const isLoadingActiveRow =
-    state.status === "loading" &&
-    state.activeRecordingId === recordingId;
+  const isFullLoading =
+    isFullActive && state.status === "loading";
 
-  const isErrorActiveRow =
-    state.status === "error" &&
-    state.activeRecordingId === recordingId;
+  const isClipLoading =
+    isClipActive && state.status === "loading";
 
-  const fullLabel = isLoadingActiveRow
-    ? "Loading"
-    : isFullActive && state.status === "playing"
-      ? "Pause"
-      : isErrorActiveRow
-        ? "Retry"
-        : "Full";
+  const isFullPlaying =
+    isFullActive && state.status === "playing";
 
-  const clipLabel = isLoadingActiveRow
-    ? "Loading"
-    : isClipActive && state.status === "playing"
-      ? "Pause"
-      : isErrorActiveRow
-        ? "Retry"
-        : "Clip";
+  const isClipPlaying =
+    isClipActive && state.status === "playing";
+
+  const isFullError =
+    isFullActive && state.status === "error";
+
+  const isClipError =
+    isClipActive && state.status === "error";
+
+  const fullLabel = isFullPlaying
+    ? "Pause"
+    : isFullError
+      ? "Retry"
+      : "Full";
+
+  const clipLabel = isClipPlaying
+    ? "Pause"
+    : isClipError
+      ? "Retry"
+      : "Clip";
+
+  const fullAriaLabel = isFullLoading
+    ? `Loading full track for ${recordingId}`
+    : `${fullLabel} full track for ${recordingId}`;
+
+  const clipAriaLabel = isClipLoading
+    ? `Loading 30 second clip for ${recordingId}`
+    : `${clipLabel} 30 second clip for ${recordingId}`;
 
   return (
     <div
@@ -51,20 +65,26 @@ export default function CataloguePreviewButton(props: Props) {
       <button
         type="button"
         className={`${styles.previewButton} ${
-          isFullActive && state.status === "playing"
-            ? styles.previewButtonActive
-            : ""
+          isFullPlaying ? styles.previewButtonActive : ""
+        } ${
+          isFullLoading ? styles.previewButtonLoading : ""
         }`}
         onClick={(event) => {
           event.stopPropagation();
           void toggle(recordingId, "full");
         }}
-        aria-label={`${fullLabel} full track for ${recordingId}`}
+        aria-label={fullAriaLabel}
+        aria-busy={isFullLoading}
       >
         <span className={styles.previewButtonIcon}>
-          {isFullActive && state.status === "playing" ? "❚❚" : "▶"}
+          <span className={styles.previewButtonGlyph}>
+            {isFullPlaying ? "❚❚" : "▶"}
+          </span>
         </span>
-        <span className={styles.previewButtonLabel}>{fullLabel}</span>
+
+        <span className={styles.previewButtonLabel}>
+          {fullLabel}
+        </span>
       </button>
 
       <button
@@ -72,20 +92,26 @@ export default function CataloguePreviewButton(props: Props) {
         className={`${styles.previewButton} ${
           styles.previewButtonSecondary
         } ${
-          isClipActive && state.status === "playing"
-            ? styles.previewButtonActive
-            : ""
+          isClipPlaying ? styles.previewButtonActive : ""
+        } ${
+          isClipLoading ? styles.previewButtonLoading : ""
         }`}
         onClick={(event) => {
           event.stopPropagation();
           void toggle(recordingId, "clip");
         }}
-        aria-label={`${clipLabel} 30 second clip for ${recordingId}`}
+        aria-label={clipAriaLabel}
+        aria-busy={isClipLoading}
       >
         <span className={styles.previewButtonIcon}>
-          {isClipActive && state.status === "playing" ? "❚❚" : "✦"}
+          <span className={styles.previewButtonGlyph}>
+            {isClipPlaying ? "❚❚" : "✦"}
+          </span>
         </span>
-        <span className={styles.previewButtonLabel}>{clipLabel}</span>
+
+        <span className={styles.previewButtonLabel}>
+          {clipLabel}
+        </span>
       </button>
     </div>
   );

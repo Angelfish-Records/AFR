@@ -371,6 +371,9 @@
 }
 
 .previewButtonIcon {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -385,7 +388,50 @@
     background 160ms ease,
     border-color 160ms ease,
     color 160ms ease,
-    transform 160ms ease;
+    transform 160ms ease,
+    box-shadow 220ms ease;
+}
+
+.previewButtonGlyph {
+  position: relative;
+  z-index: 2;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.previewButtonLoading .previewButtonIcon {
+  border-color: rgba(118, 191, 255, 0.38);
+  background: rgba(118, 191, 255, 0.07);
+}
+
+.previewButtonLoading .previewButtonIcon::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: -12%;
+  right: -12%;
+  bottom: -8%;
+  height: 92%;
+  border-radius: 48% 52% 42% 46%;
+  background:
+    radial-gradient(
+      circle at 52% 10%,
+      rgba(220, 241, 255, 0.5),
+      transparent 34%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(118, 191, 255, 0.18),
+      rgba(118, 191, 255, 0.62)
+    );
+  transform: translateY(72%) rotate(-3deg);
+  animation: cataloguePreviewFill 900ms ease-in-out infinite alternate;
+}
+
+.previewButtonLoading .previewButtonGlyph {
+  opacity: 0.45;
+  transform: scale(0.92);
 }
 
 .previewButton:hover .previewButtonIcon {
@@ -395,8 +441,9 @@
 
 .previewButtonActive .previewButtonIcon {
   background: rgba(118, 191, 255, 0.14);
-  border-color: rgba(118, 191, 255, 0.22);
+  border-color: rgba(118, 191, 255, 0.34);
   color: rgba(197, 229, 255, 0.98);
+  animation: cataloguePreviewEmanation 2.4s ease-in-out infinite;
 }
 
 .previewButtonLabel {
@@ -766,6 +813,67 @@
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.82);
+}
+
+.drawerOptimistic {
+  animation: catalogueDrawerArrival 180ms ease-out both;
+}
+
+.drawerHydrationStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 4px;
+  font-size: 0.76em;
+  color: rgba(177, 218, 255, 0.62);
+}
+
+.drawerHydrationPulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(118, 191, 255, 0.72);
+  box-shadow: 0 0 0 0 rgba(118, 191, 255, 0.22);
+  animation: catalogueHydrationPulse 1.4s ease-out infinite;
+}
+
+.drawerSkeleton {
+  display: grid;
+  gap: 11px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.drawerSkeleton span {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.045),
+      rgba(255, 255, 255, 0.095),
+      rgba(255, 255, 255, 0.045)
+    );
+  background-size: 220% 100%;
+  animation: catalogueSkeletonShift 1.3s ease-in-out infinite;
+}
+
+.drawerSkeleton span:nth-child(1) {
+  width: 76%;
+}
+
+.drawerSkeleton span:nth-child(2) {
+  width: 92%;
+}
+
+.drawerSkeleton span:nth-child(3) {
+  width: 64%;
+}
+
+.drawerSkeleton span:nth-child(4) {
+  width: 84%;
 }
 
 .detailHero {
@@ -1359,5 +1467,81 @@
 
   .curatedIntroButton {
     align-self: flex-start;
+  }
+}
+
+
+@keyframes cataloguePreviewFill {
+  0% {
+    transform: translateY(72%) rotate(-3deg);
+  }
+
+  100% {
+    transform: translateY(18%) rotate(3deg);
+  }
+}
+
+@keyframes cataloguePreviewEmanation {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(118, 191, 255, 0),
+      0 0 12px rgba(118, 191, 255, 0.08);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(118, 191, 255, 0.055),
+      0 0 20px rgba(118, 191, 255, 0.16);
+  }
+}
+
+@keyframes catalogueHydrationPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(118, 191, 255, 0.28);
+  }
+
+  100% {
+    box-shadow: 0 0 0 8px rgba(118, 191, 255, 0);
+  }
+}
+
+@keyframes catalogueSkeletonShift {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes catalogueDrawerArrival {
+  from {
+    opacity: 0.7;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .previewButtonLoading .previewButtonIcon::before {
+    animation: none;
+    transform: translateY(34%);
+  }
+
+  .previewButtonActive .previewButtonIcon,
+  .drawerHydrationPulse,
+  .drawerSkeleton span,
+  .drawerOptimistic {
+    animation: none;
+  }
+
+  .previewButtonActive .previewButtonIcon {
+    box-shadow: 0 0 14px rgba(118, 191, 255, 0.14);
   }
 }

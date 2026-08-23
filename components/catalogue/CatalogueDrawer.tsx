@@ -1,16 +1,19 @@
-// components/catalogue/CatalogueDrawer.tsx
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import CatalogueDetailSection from "@/components/catalogue/CatalogueDetailSection";
 import CatalogueMetaRow from "@/components/catalogue/CatalogueMetaRow";
 import CataloguePlaybackTransport from "@/components/catalogue/CataloguePlaybackTransport";
 import CatalogueReadinessPills from "@/components/catalogue/CatalogueReadinessPills";
-import type { CatalogueRecord } from "@/lib/catalogue/types";
+import type {
+  CatalogueRecord,
+  CatalogueRecordListItem,
+} from "@/lib/catalogue/types";
 import enquiryStyles from "@/styles/catalogue-enquiry.module.css";
 import styles from "@/styles/catalogue.module.css";
 
 type Props = {
   record: CatalogueRecord | null;
+  summaryRecord: CatalogueRecordListItem | null;
   recordingId: string | null;
   isOpen: boolean;
   isLoading: boolean;
@@ -23,6 +26,7 @@ type Props = {
 export default function CatalogueDrawer(props: Props) {
   const {
     record,
+    summaryRecord,
     recordingId,
     isOpen,
     isLoading,
@@ -62,6 +66,12 @@ export default function CatalogueDrawer(props: Props) {
     return `/print?${params.toString()}`;
   }, [recordingId, shareToken]);
 
+  const optimisticTitle =
+    record?.title ??
+    summaryRecord?.title ??
+    recordingId ??
+    "Track detail";
+
   return (
     <>
       <div
@@ -79,9 +89,7 @@ export default function CatalogueDrawer(props: Props) {
         <div className={styles.drawerHeader}>
           <div>
             <p className={styles.drawerEyebrow}>Track detail</p>
-            <h2 className={styles.drawerTitle}>
-              {record?.title ?? recordingId ?? "Loading"}
-            </h2>
+            <h2 className={styles.drawerTitle}>{optimisticTitle}</h2>
           </div>
 
           <button
@@ -95,8 +103,62 @@ export default function CatalogueDrawer(props: Props) {
         </div>
 
         <div className={styles.drawerBody}>
-          {isLoading ? (
-            <div className={styles.drawerStateBlock}>
+          {isLoading && summaryRecord ? (
+            <div className={styles.drawerOptimistic}>
+              <header className={styles.detailHero}>
+                <p className={styles.detailKicker}>
+                  {summaryRecord.recordingId}
+                </p>
+
+                <h1 className={styles.detailTitle}>
+                  {summaryRecord.title}
+                </h1>
+
+                {summaryRecord.artistName ? (
+                  <p className={styles.detailArtist}>
+                    {summaryRecord.artistName}
+                  </p>
+                ) : null}
+
+                <CatalogueReadinessPills record={summaryRecord} />
+
+                {summaryRecord.shortLogline ? (
+                  <p className={styles.detailLead}>
+                    {summaryRecord.shortLogline}
+                  </p>
+                ) : null}
+              </header>
+
+              <div
+                className={styles.drawerHydrationStatus}
+                role="status"
+                aria-live="polite"
+              >
+                <span
+                  className={styles.drawerHydrationPulse}
+                  aria-hidden="true"
+                />
+                <span>Loading full track details</span>
+              </div>
+
+              <div
+                className={styles.drawerSkeleton}
+                aria-hidden="true"
+              >
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          ) : null}
+
+          {isLoading && !summaryRecord ? (
+            <div
+              className={styles.drawerStateBlock}
+              role="status"
+              aria-live="polite"
+            >
               Loading track details…
             </div>
           ) : null}
@@ -112,8 +174,11 @@ export default function CatalogueDrawer(props: Props) {
                   <div>
                     <p className={styles.detailKicker}>{record.recordingId}</p>
                     <h1 className={styles.detailTitle}>{record.title}</h1>
+
                     {record.artistName ? (
-                      <p className={styles.detailArtist}>{record.artistName}</p>
+                      <p className={styles.detailArtist}>
+                        {record.artistName}
+                      </p>
                     ) : null}
                   </div>
 

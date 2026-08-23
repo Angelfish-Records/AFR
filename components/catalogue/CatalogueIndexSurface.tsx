@@ -87,6 +87,9 @@ export default function CatalogueIndexSurface(props: Props) {
   const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(
     null,
   );
+  const [drawerRecordingId, setDrawerRecordingId] = useState<string | null>(
+    null,
+  );
   const [selectedRecordingIds, setSelectedRecordingIds] = useState<string[]>(
     [],
   );
@@ -98,6 +101,10 @@ export default function CatalogueIndexSurface(props: Props) {
   const activeRecordingId = getSingleQueryValue(
     router.query.recordingId,
   );
+
+  useEffect(() => {
+    setDrawerRecordingId(activeRecordingId);
+  }, [activeRecordingId]);
 
   const requestedShareToken =
     getSingleQueryValue(router.query.st) ??
@@ -238,14 +245,14 @@ export default function CatalogueIndexSurface(props: Props) {
   }, [activeFilters, catalogueScopeRecords, searchQuery]);
 
   const activeListItem = useMemo(() => {
-    if (!activeRecordingId) {
+    if (!drawerRecordingId) {
       return null;
     }
 
     return (
-      records.find((record) => record.recordingId === activeRecordingId) ?? null
+      records.find((record) => record.recordingId === drawerRecordingId) ?? null
     );
-  }, [activeRecordingId, records]);
+  }, [drawerRecordingId, records]);
 
   const enquiryRecords = useMemo(() => {
     return enquiryRecordingIds
@@ -321,7 +328,12 @@ export default function CatalogueIndexSurface(props: Props) {
   }, []);
 
   const openRecord = useCallback(
-    async (recordingId: string) => {
+    (recordingId: string) => {
+      setDrawerRecordingId(recordingId);
+      setActiveRecord(null);
+      setIsLoadingDetail(true);
+      setDetailErrorMessage(null);
+
       const nextQuery: Record<string, string> = {};
 
       if (shareToken) {
@@ -330,44 +342,53 @@ export default function CatalogueIndexSurface(props: Props) {
 
       nextQuery.recordingId = recordingId;
 
-      await router.push(
-        {
-          pathname: "/",
-          query: nextQuery,
-        },
-        undefined,
-        { shallow: true, scroll: false },
-      );
+      void router
+        .push(
+          {
+            pathname: "/",
+            query: nextQuery,
+          },
+          undefined,
+          { shallow: true, scroll: false },
+        )
+        .catch(() => {
+          setDrawerRecordingId(activeRecordingId);
+        });
     },
-    [router, shareToken],
+    [activeRecordingId, router, shareToken],
   );
 
-  const closeDrawer = useCallback(async () => {
+  const closeDrawer = useCallback(() => {
+    setDrawerRecordingId(null);
+    setActiveRecord(null);
+    setDetailErrorMessage(null);
+    setIsLoadingDetail(false);
+
     const nextQuery: Record<string, string> = {};
 
     if (shareToken) {
       nextQuery.st = shareToken;
     }
 
-    await router.push(
-      {
-        pathname: "/",
-        query: nextQuery,
-      },
-      undefined,
-      { shallow: true, scroll: false },
-    );
-
-    setActiveRecord(null);
-    setDetailErrorMessage(null);
-    setIsLoadingDetail(false);
-  }, [router, shareToken]);
+    void router
+      .push(
+        {
+          pathname: "/",
+          query: nextQuery,
+        },
+        undefined,
+        { shallow: true, scroll: false },
+      )
+      .catch(() => {
+        setDrawerRecordingId(activeRecordingId);
+      });
+  }, [activeRecordingId, router, shareToken]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadRecord(): Promise<void> {
-      if (!activeRecordingId) {
+      if (!drawerRecordingId) {
         setActiveRecord(null);
         setDetailErrorMessage(null);
         setIsLoadingDetail(false);
@@ -379,7 +400,7 @@ export default function CatalogueIndexSurface(props: Props) {
 
       try {
         const url = new URL(
-          `/api/catalogue/records/${encodeURIComponent(activeRecordingId)}`,
+          `/api/catalogue/records/${encodeURIComponent(drawerRecordingId)}`,
           window.location.origin,
         );
 
@@ -423,7 +444,7 @@ export default function CatalogueIndexSurface(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activeRecordingId, shareToken]);
+  }, [drawerRecordingId, shareToken]);
 
   return (
     <CataloguePlaybackProvider
@@ -502,7 +523,7 @@ export default function CatalogueIndexSurface(props: Props) {
         ) : viewMode === "table" ? (
           <CatalogueTable
             records={visibleRecords}
-            activeRecordingId={activeRecordingId}
+            activeRecordingId={drawerRecordingId}
             onSelect={openRecord}
             selectedRecordingIds={selectedRecordingIds}
             onToggleSelected={toggleSelectedRecording}
@@ -517,8 +538,9 @@ export default function CatalogueIndexSurface(props: Props) {
         )}
         <CatalogueDrawer
           record={activeRecord}
-          recordingId={activeRecordingId ?? activeListItem?.recordingId ?? null}
-          isOpen={Boolean(activeRecordingId)}
+          summaryRecord={activeListItem}
+          recordingId={drawerRecordingId}
+          isOpen={Boolean(drawerRecordingId)}
           isLoading={isLoadingDetail}
           errorMessage={detailErrorMessage}
           shareToken={shareToken}
