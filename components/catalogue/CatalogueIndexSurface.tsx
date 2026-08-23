@@ -574,11 +574,9 @@ export default function CatalogueIndexSurface(props: Props) {
 
         {catalogueScopeRecords.length > 0 ? (
           <CatalogueDiscoveryBar
-            query={searchQuery}
             activeFilters={activeFilters}
             visibleCount={visibleRecords.length}
             totalCount={catalogueScopeRecords.length}
-            onQueryChange={setSearchQuery}
             onToggleFilter={toggleFilter}
             onReset={resetDiscovery}
           />

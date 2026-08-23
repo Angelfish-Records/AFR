@@ -1534,6 +1534,13 @@
   border-color: rgba(118, 191, 255, 0.46);
 }
 
+.filterMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 18px;
+}
+
 .filterMeta {
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.48);
