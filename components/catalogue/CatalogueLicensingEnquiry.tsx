@@ -220,10 +220,10 @@ export default function CatalogueLicensingEnquiry(props: Props) {
 
         {isSubmitted ? (
           <div className={styles.successBlock}>
-            <h3>Enquiry received.</h3>
+            <h3>Thank you for your enquiry.</h3>
             <p>
               Angelfish Records has received the licensing request and will
-              respond using the contact details provided.
+              respond within 24 hours using the contact details provided.
             </p>
 
             <button
