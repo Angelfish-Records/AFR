@@ -13,16 +13,6 @@ export default function CatalogueShortlistBar(props: Props) {
 
   return (
     <div className={styles.shortlistBar}>
-      {!isDisabled ? (
-        <button
-          type="button"
-          className={styles.shortlistClearButton}
-          onClick={onClear}
-        >
-          CLEAR
-        </button>
-      ) : null}
-
       <button
         type="button"
         disabled={isDisabled}
@@ -35,6 +25,16 @@ export default function CatalogueShortlistBar(props: Props) {
           ? "SHORTLIST"
           : `${selectedCount} SHORTLISTED · REQUEST LICENCE`}
       </button>
+
+      {!isDisabled ? (
+        <button
+          type="button"
+          className={styles.shortlistClearButton}
+          onClick={onClear}
+        >
+          CLEAR
+        </button>
+      ) : null}
     </div>
   );
 }

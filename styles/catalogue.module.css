@@ -928,7 +928,13 @@
 .drawerBody {
   flex: 1;
   overflow-y: auto;
-  padding: 22px;
+  padding: 26px 28px 34px;
+}
+
+@media (max-width: 720px) {
+  .drawerBody {
+    padding: 20px 18px 28px;
+  }
 }
 
 .drawerStateBlock {
@@ -1007,7 +1013,11 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 22px;
+}
+
+.detailHeroTopRow > div:first-child {
+  min-width: 0;
 }
 
 @media (max-width: 720px) {
@@ -1030,6 +1040,7 @@
   font-size: clamp(2em, 4vw, 3em);
   line-height: 1.02;
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
 .detailArtist {
@@ -1041,6 +1052,44 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.detailReadiness {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 1.15fr) minmax(180px, 0.85fr);
+  gap: 10px;
+  align-items: stretch;
+  margin: 16px 0 14px;
+}
+
+.detailReadiness .rightsTile {
+  min-height: 100%;
+}
+
+.detailDelivery {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.detailDeliveryLabel {
+  font-size: 0.58rem;
+  line-height: 1.2;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 640px) {
+  .detailReadiness {
+    grid-template-columns: 1fr;
+  }
+}
+
 .detailLead {
   margin: 0;
   max-width: 780px;
@@ -1050,11 +1099,17 @@
 }
 
 .transportShell {
-  margin-top: 18px;
+  margin-top: 20px;
   padding: 16px 16px 14px;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(118, 191, 255, 0.13);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(118, 191, 255, 0.045),
+      rgba(255, 255, 255, 0.025)
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 .transportTopRow {
@@ -1187,8 +1242,10 @@
 }
 
 .sectionTitle {
-  margin: 0 0 14px;
-  font-size: 1.1em;
+  margin: 0 0 8px;
+  font-size: 1.06em;
+  line-height: 1.25;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -1198,13 +1255,20 @@
 
 .metaList {
   display: grid;
-  gap: 12px;
+  gap: 0;
 }
 
 .metaRow {
   display: grid;
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-  gap: 16px;
+  gap: 22px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.metaRow:last-child {
+  border-bottom: 0;
 }
 
 @media (max-width: 720px) {
@@ -1223,7 +1287,8 @@
 .metaValue {
   margin: 0;
   font-size: 0.98em;
-  line-height: 1.6;
+  line-height: 1.55;
+  font-weight: 520;
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -1816,9 +1881,32 @@
   color: rgba(22, 35, 47, 0.9);
 }
 
+.pageShellLight .metaRow {
+  border-bottom-color: rgba(31, 48, 64, 0.075);
+}
+
+.pageShellLight .detailDelivery {
+  border-color: rgba(31, 48, 64, 0.1);
+  background: rgba(31, 48, 64, 0.028);
+}
+
+.pageShellLight .detailDeliveryLabel {
+  color: rgba(38, 54, 69, 0.46);
+}
+
+.pageShellLight .sectionTitle {
+  color: rgba(20, 33, 45, 0.96);
+}
+
 .pageShellLight .transportShell {
-  border-color: rgba(31, 48, 64, 0.09);
-  background: rgba(31, 48, 64, 0.035);
+  border-color: rgba(56, 131, 185, 0.14);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(70, 148, 204, 0.045),
+      rgba(255, 255, 255, 0.56)
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .pageShellLight .transportStatus {

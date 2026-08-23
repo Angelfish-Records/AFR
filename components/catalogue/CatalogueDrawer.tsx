@@ -120,7 +120,23 @@ export default function CatalogueDrawer(props: Props) {
                   </p>
                 ) : null}
 
-                <CatalogueReadinessPills record={summaryRecord} />
+                <div className={styles.detailReadiness}>
+                  <CatalogueReadinessPills
+                    record={summaryRecord}
+                    mode="rights"
+                  />
+
+                  <div className={styles.detailDelivery}>
+                    <div className={styles.detailDeliveryLabel}>
+                      Available versions
+                    </div>
+                    <CatalogueReadinessPills
+                      record={summaryRecord}
+                      mode="delivery"
+                      compact
+                    />
+                  </div>
+                </div>
 
                 {summaryRecord.shortLogline ? (
                   <p className={styles.detailLead}>
@@ -219,7 +235,23 @@ export default function CatalogueDrawer(props: Props) {
                   </div>
                 </div>
 
-                <CatalogueReadinessPills record={record} />
+                <div className={styles.detailReadiness}>
+                  <CatalogueReadinessPills
+                    record={record}
+                    mode="rights"
+                  />
+
+                  <div className={styles.detailDelivery}>
+                    <div className={styles.detailDeliveryLabel}>
+                      Available versions
+                    </div>
+                    <CatalogueReadinessPills
+                      record={record}
+                      mode="delivery"
+                      compact
+                    />
+                  </div>
+                </div>
 
                 {record.shortLogline ? (
                   <p className={styles.detailLead}>{record.shortLogline}</p>
