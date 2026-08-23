@@ -143,7 +143,7 @@
 .tableHeaderRow {
   display: grid;
   grid-template-columns:
-    30px minmax(210px, 0.98fr) 96px minmax(220px, 0.92fr)
+    30px minmax(180px, 0.82fr) 126px minmax(220px, 0.92fr)
     minmax(170px, 0.66fr) minmax(220px, 0.9fr) 72px;
   gap: 14px;
   padding: 16px 20px 16px 16px;
@@ -168,7 +168,7 @@
   width: 100%;
   display: grid;
   grid-template-columns:
-    30px minmax(210px, 0.98fr) 96px minmax(220px, 0.92fr)
+    30px minmax(180px, 0.82fr) 126px minmax(220px, 0.92fr)
     minmax(170px, 0.66fr) minmax(220px, 0.9fr) 72px;
   gap: 14px;
   align-items: stretch;
@@ -329,6 +329,20 @@
   display: inline-flex;
   align-items: flex-start;
   gap: 8px;
+}
+
+.previewButtonGroupLarge {
+  gap: 10px;
+}
+
+.previewButtonGroupLarge .previewButtonIcon {
+  width: 45px;
+  height: 45px;
+  font-size: 1.05em;
+}
+
+.previewButtonGroupLarge .previewButtonLabel {
+  font-size: 0.74em;
 }
 
 .previewButton {
@@ -549,7 +563,7 @@
 }
 
 .cardBody {
-  padding: 20px;
+  padding: 18px;
 }
 
 .cardTopRow {
@@ -557,7 +571,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 11px;
 }
 
 .cardTopActions {
@@ -597,19 +611,44 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.56);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
-.cardReadinessRow {
-  margin: 0 0 14px;
+.cardRightsRow {
+  margin: 0 0 8px;
+}
+
+.cardRightsRow .rightsTile {
+  min-height: 0;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.cardDeliveryRow {
+  margin: 0 0 12px;
+}
+
+.cardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.cardFooter .tagRow {
+  flex: 1 1 190px;
+  min-width: 0;
 }
 
 .cardPreviewRow {
-  margin: 0 0 14px;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
 }
 
 .cardLogline {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   font-size: 0.92em;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.66);

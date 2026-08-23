@@ -91,8 +91,19 @@ export default function CatalogueGrid(props: Props) {
                   </div>
                 ) : null}
 
-                <div className={styles.cardReadinessRow}>
-                  <CatalogueReadinessPills record={record} compact />
+                <div className={styles.cardRightsRow}>
+                  <CatalogueReadinessPills
+                    record={record}
+                    mode="rights"
+                  />
+                </div>
+
+                <div className={styles.cardDeliveryRow}>
+                  <CatalogueReadinessPills
+                    record={record}
+                    mode="delivery"
+                    compact
+                  />
                 </div>
 
                 {record.shortLogline ? (
@@ -101,20 +112,23 @@ export default function CatalogueGrid(props: Props) {
                   </p>
                 ) : null}
 
-                <div className={styles.cardPreviewRow}>
-                  <CataloguePreviewButton
-                    recordingId={record.recordingId}
-                  />
-                </div>
+                <div className={styles.cardFooter}>
+                  <div className={styles.tagRow}>
+                    {metaText ? (
+                      <span className={styles.tag}>{metaText}</span>
+                    ) : (
+                      <span className={styles.tagMuted}>
+                        No genre or mood tags
+                      </span>
+                    )}
+                  </div>
 
-                <div className={styles.tagRow}>
-                  {metaText ? (
-                    <span className={styles.tag}>{metaText}</span>
-                  ) : (
-                    <span className={styles.tagMuted}>
-                      No genre or mood tags
-                    </span>
-                  )}
+                  <div className={styles.cardPreviewRow}>
+                    <CataloguePreviewButton
+                      recordingId={record.recordingId}
+                      size="large"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

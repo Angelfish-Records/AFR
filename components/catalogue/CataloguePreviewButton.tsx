@@ -6,10 +6,11 @@ import styles from "@/styles/catalogue.module.css";
 
 type Props = {
   recordingId: string;
+  size?: "default" | "large";
 };
 
 export default function CataloguePreviewButton(props: Props) {
-  const { recordingId } = props;
+  const { recordingId, size = "default" } = props;
   const { state, isRecordingActive, toggle } = useCataloguePlayback();
 
   const isFullActive = isRecordingActive(recordingId, "full");
@@ -40,7 +41,13 @@ export default function CataloguePreviewButton(props: Props) {
         : "Clip";
 
   return (
-    <div className={styles.previewButtonGroup}>
+    <div
+      className={`${styles.previewButtonGroup} ${
+        size === "large"
+          ? styles.previewButtonGroupLarge
+          : ""
+      }`}
+    >
       <button
         type="button"
         className={`${styles.previewButton} ${

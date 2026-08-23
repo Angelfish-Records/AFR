@@ -111,7 +111,10 @@ export default function CatalogueTable(props: Props) {
               </div>
 
               <div className={styles.tablePreviewCell}>
-                <CataloguePreviewButton recordingId={record.recordingId} />
+                <CataloguePreviewButton
+                  recordingId={record.recordingId}
+                  size="large"
+                />
               </div>
 
               <div className={styles.tableRightsCell}>
