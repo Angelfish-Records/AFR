@@ -449,55 +449,62 @@
 }
 
 .previewButtonLoading .previewButtonIcon {
-  border-color: rgba(130, 205, 255, 0.42);
+  border-color: rgba(122, 195, 247, 0.34);
   background:
     radial-gradient(
-      circle at 50% 32%,
-      rgba(210, 238, 255, 0.1),
-      transparent 58%
+      circle at center,
+      rgba(185, 226, 255, 0.14) 0%,
+      rgba(91, 165, 217, 0.075) 38%,
+      transparent 69%
     ),
-    rgba(72, 148, 204, 0.075);
+    rgba(60, 128, 179, 0.035);
   box-shadow:
-    inset 0 0 12px rgba(118, 191, 255, 0.08),
-    0 0 10px rgba(118, 191, 255, 0.06);
-  animation: cataloguePreviewCharge 1.9s ease-in-out infinite;
+    inset 0 0 9px rgba(121, 192, 243, 0.075),
+    0 0 10px rgba(88, 171, 230, 0.055);
+  animation:
+    cataloguePreviewApertureFocus
+    2.2s
+    ease-in-out
+    infinite;
 }
 
 .previewButtonLoading .previewButtonIcon::before {
   content: "";
   position: absolute;
   z-index: 0;
-  left: -28%;
-  bottom: -43%;
-  width: 156%;
-  height: 88%;
-  border-radius:
-    47% 53% 46% 54% /
-    22% 28% 72% 78%;
+  inset: 3px;
+  border-radius: 999px;
   background:
-    radial-gradient(
-      circle at 31% 16%,
-      rgba(225, 245, 255, 0.72) 0 4%,
-      rgba(175, 222, 252, 0.28) 10%,
-      transparent 22%
-    ),
-    radial-gradient(
-      circle at 69% 11%,
-      rgba(202, 236, 255, 0.54) 0 5%,
-      transparent 19%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(149, 216, 255, 0.34) 0%,
-      rgba(91, 180, 238, 0.58) 42%,
-      rgba(57, 132, 194, 0.72) 100%
+    conic-gradient(
+      from 14deg,
+      transparent 0deg 24deg,
+      rgba(121, 197, 248, 0.2) 34deg,
+      rgba(159, 218, 255, 0.9) 61deg,
+      rgba(225, 246, 255, 0.76) 79deg,
+      rgba(116, 194, 246, 0.26) 96deg,
+      transparent 110deg 236deg,
+      rgba(95, 179, 236, 0.16) 248deg,
+      rgba(159, 218, 255, 0.34) 267deg,
+      transparent 286deg 360deg
     );
-  filter: saturate(1.08);
-  transform-origin: 50% 65%;
+  -webkit-mask:
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - 2px),
+      #000 calc(100% - 1px)
+    );
+  mask:
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - 2px),
+      #000 calc(100% - 1px)
+    );
+  filter: drop-shadow(0 0 2px rgba(126, 204, 255, 0.42));
+  will-change: transform;
   animation:
-    cataloguePreviewPlasmaBody
-    2.15s
-    cubic-bezier(0.45, 0.05, 0.45, 0.95)
+    cataloguePreviewAperturePrimary
+    1.85s
+    linear
     infinite;
 }
 
@@ -505,56 +512,65 @@
   content: "";
   position: absolute;
   z-index: 1;
-  inset: 5%;
+  inset: 6px;
   border-radius: 999px;
   background:
-    radial-gradient(
-      circle at 24% 67%,
-      rgba(225, 246, 255, 0.78) 0 5%,
-      rgba(153, 216, 255, 0.34) 7%,
-      transparent 15%
-    ),
-    radial-gradient(
-      circle at 69% 59%,
-      rgba(197, 235, 255, 0.68) 0 6%,
-      rgba(113, 194, 245, 0.24) 9%,
-      transparent 18%
-    ),
-    radial-gradient(
-      circle at 48% 78%,
-      rgba(167, 222, 255, 0.48) 0 5%,
-      transparent 14%
+    conic-gradient(
+      from 218deg,
+      transparent 0deg 42deg,
+      rgba(118, 195, 247, 0.18) 55deg,
+      rgba(197, 233, 255, 0.62) 78deg,
+      rgba(116, 194, 246, 0.18) 98deg,
+      transparent 113deg 264deg,
+      rgba(153, 216, 255, 0.26) 278deg,
+      transparent 301deg 360deg
     );
-  opacity: 0.62;
-  transform-origin: center;
+  -webkit-mask:
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - 1.5px),
+      #000 calc(100% - 0.7px)
+    );
+  mask:
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - 1.5px),
+      #000 calc(100% - 0.7px)
+    );
+  opacity: 0.72;
+  will-change: transform;
   animation:
-    cataloguePreviewPlasmaLobes
-    1.65s
-    ease-in-out
-    infinite
-    alternate;
+    cataloguePreviewApertureSecondary
+    2.7s
+    linear
+    infinite;
 }
 
 .previewButtonLoading .previewButtonGlyph {
-  opacity: 0.38;
-  color: rgba(228, 246, 255, 0.92);
-  transform: scale(0.92);
+  opacity: 0.28;
+  color: rgba(217, 241, 255, 0.9);
+  transform: scale(0.88);
   animation:
-    cataloguePreviewGlyphBreath
-    1.9s
+    cataloguePreviewApertureGlyph
+    2.2s
     ease-in-out
     infinite;
 }
 
-.previewButtonLoading:hover .previewButtonIcon {
-  border-color: rgba(145, 215, 255, 0.5);
+.previewButtonLoading .previewButtonLabel {
+  color: rgba(169, 214, 245, 0.84);
+}
+
+.previewButton.previewButtonLoading:hover .previewButtonIcon {
+  border-color: rgba(139, 208, 255, 0.46);
   background:
     radial-gradient(
-      circle at 50% 32%,
-      rgba(210, 238, 255, 0.12),
-      transparent 58%
+      circle at center,
+      rgba(196, 232, 255, 0.17) 0%,
+      rgba(91, 165, 217, 0.09) 40%,
+      transparent 70%
     ),
-    rgba(72, 148, 204, 0.09);
+    rgba(60, 128, 179, 0.045);
 }
 
 .previewButton:hover .previewButtonIcon {
@@ -1785,6 +1801,37 @@
   background: rgba(30, 48, 65, 0.055);
 }
 
+.pageShellLight .previewButtonLoading .previewButtonIcon {
+  border-color: rgba(48, 132, 192, 0.34);
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(76, 155, 210, 0.13) 0%,
+      rgba(76, 155, 210, 0.055) 41%,
+      transparent 70%
+    ),
+    rgba(53, 126, 178, 0.025);
+  box-shadow:
+    inset 0 0 9px rgba(55, 137, 195, 0.075),
+    0 0 9px rgba(55, 137, 195, 0.055);
+}
+
+.pageShellLight .previewButtonLoading .previewButtonIcon::before {
+  filter: drop-shadow(0 0 2px rgba(42, 123, 182, 0.34));
+}
+
+.pageShellLight .previewButtonLoading .previewButtonIcon::after {
+  opacity: 0.82;
+}
+
+.pageShellLight .previewButtonLoading .previewButtonGlyph {
+  color: rgba(41, 111, 160, 0.88);
+}
+
+.pageShellLight .previewButtonLoading .previewButtonLabel {
+  color: rgba(38, 104, 151, 0.84);
+}
+
 .pageShellLight .previewButtonLabel {
   color: rgba(34, 50, 65, 0.64);
 }
@@ -1985,109 +2032,51 @@
 }
 
 
-@keyframes cataloguePreviewPlasmaBody {
-  0% {
-    border-radius:
-      47% 53% 46% 54% /
-      22% 28% 72% 78%;
-    transform:
-      translate3d(-2%, 17%, 0)
-      rotate(-4deg)
-      scaleY(0.96);
+@keyframes cataloguePreviewAperturePrimary {
+  from {
+    transform: rotate(0deg);
   }
 
-  28% {
-    border-radius:
-      56% 44% 52% 48% /
-      28% 20% 80% 72%;
-    transform:
-      translate3d(2%, 7%, 0)
-      rotate(2deg)
-      scaleY(1.04);
-  }
-
-  58% {
-    border-radius:
-      43% 57% 55% 45% /
-      18% 31% 69% 82%;
-    transform:
-      translate3d(-1%, 12%, 0)
-      rotate(-1deg)
-      scaleY(1);
-  }
-
-  82% {
-    border-radius:
-      53% 47% 44% 56% /
-      30% 21% 79% 70%;
-    transform:
-      translate3d(3%, 5%, 0)
-      rotate(3deg)
-      scaleY(1.05);
-  }
-
-  100% {
-    border-radius:
-      47% 53% 46% 54% /
-      22% 28% 72% 78%;
-    transform:
-      translate3d(-2%, 17%, 0)
-      rotate(-4deg)
-      scaleY(0.96);
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@keyframes cataloguePreviewPlasmaLobes {
-  0% {
-    opacity: 0.42;
-    transform:
-      translate3d(-5%, 4%, 0)
-      rotate(-7deg)
-      scale(0.94);
+@keyframes cataloguePreviewApertureSecondary {
+  from {
+    transform: rotate(0deg);
   }
 
-  45% {
-    opacity: 0.78;
-    transform:
-      translate3d(3%, -3%, 0)
-      rotate(5deg)
-      scale(1.05);
-  }
-
-  100% {
-    opacity: 0.56;
-    transform:
-      translate3d(-1%, 2%, 0)
-      rotate(-3deg)
-      scale(0.98);
+  to {
+    transform: rotate(-360deg);
   }
 }
 
-@keyframes cataloguePreviewCharge {
+@keyframes cataloguePreviewApertureFocus {
   0%,
   100% {
     box-shadow:
-      inset 0 0 10px rgba(118, 191, 255, 0.07),
-      0 0 8px rgba(118, 191, 255, 0.04);
+      inset 0 0 8px rgba(121, 192, 243, 0.065),
+      0 0 8px rgba(88, 171, 230, 0.035);
   }
 
   50% {
     box-shadow:
-      inset 0 0 15px rgba(154, 215, 255, 0.12),
-      0 0 13px rgba(118, 191, 255, 0.11);
+      inset 0 0 13px rgba(145, 207, 250, 0.12),
+      0 0 12px rgba(88, 171, 230, 0.1);
   }
 }
 
-@keyframes cataloguePreviewGlyphBreath {
+@keyframes cataloguePreviewApertureGlyph {
   0%,
   100% {
-    opacity: 0.3;
-    transform: scale(0.9);
+    opacity: 0.22;
+    transform: scale(0.86);
   }
 
   50% {
-    opacity: 0.48;
-    transform: scale(0.96);
+    opacity: 0.34;
+    transform: scale(0.92);
   }
 }
 
@@ -2151,23 +2140,17 @@
   }
 
   .previewButtonLoading .previewButtonIcon::before {
-    border-radius:
-      50% 50% 47% 53% /
-      24% 26% 74% 76%;
-    transform:
-      translate3d(0, 10%, 0)
-      rotate(0deg)
-      scaleY(1);
+    transform: rotate(26deg);
   }
 
   .previewButtonLoading .previewButtonIcon::after {
-    opacity: 0.5;
-    transform: none;
+    opacity: 0.62;
+    transform: rotate(-38deg);
   }
 
   .previewButtonLoading .previewButtonGlyph {
-    opacity: 0.42;
-    transform: scale(0.94);
+    opacity: 0.32;
+    transform: scale(0.9);
   }
 
   .previewButtonActive .previewButtonIcon {
