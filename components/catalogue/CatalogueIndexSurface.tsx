@@ -45,6 +45,8 @@ type DetailApiResponse = {
 
 const CATALOGUE_THEME_STORAGE_KEY = "afr-catalogue-theme";
 
+const SHOW_DISCOVERY_CONTROLS = false;
+
 function isCatalogueThemeMode(
   value: string | null,
 ): value is CatalogueThemeMode {
@@ -572,7 +574,8 @@ export default function CatalogueIndexSurface(props: Props) {
           />
         ) : null}
 
-        {catalogueScopeRecords.length > 0 ? (
+        {SHOW_DISCOVERY_CONTROLS &&
+        catalogueScopeRecords.length > 0 ? (
           <CatalogueDiscoveryBar
             activeFilters={activeFilters}
             visibleCount={visibleRecords.length}
