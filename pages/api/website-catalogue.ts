@@ -21,6 +21,8 @@ export default async function handler(
   try {
     const releases = await listWebsiteCatalogueReleases();
 
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
     res.setHeader(
       "Cache-Control",
       "public, s-maxage=60, stale-while-revalidate=300",
