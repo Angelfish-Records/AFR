@@ -40,7 +40,7 @@ function shouldBypassCatalogueRewrite(pathname: string): boolean {
     pathname.startsWith("/images") ||
     pathname.startsWith("/fonts") ||
     pathname.startsWith("/public") ||
-    pathname.startsWith("/catalogue") ||
+    pathname.startsWith("/sync-catalogue") ||
     /\.[a-z0-9]+$/i.test(pathname)
   );
 }
@@ -98,7 +98,7 @@ function applyInternalBasicAuth(req: NextRequest): NextResponse | null {
   return response;
 }
 
-function applyCatalogueCanonicalRedirect(
+function applyCatalogueRouteCanonicalRedirect(
   req: NextRequest,
 ): NextResponse | null {
   const catalogueHost =
@@ -109,14 +109,35 @@ function applyCatalogueCanonicalRedirect(
   if (!catalogueHost) return null;
 
   const isOnCatalogueHost = requestHost === catalogueHost;
-  const isCataloguePath =
+  const isLegacyCataloguePath =
     pathname === "/catalogue" || pathname.startsWith("/catalogue/");
+  const isInternalSyncPath =
+    pathname === "/sync-catalogue" ||
+    pathname.startsWith("/sync-catalogue/");
 
-  if (!isOnCatalogueHost && isCataloguePath) {
-    const nextPath =
-      pathname === "/catalogue" ? "/" : pathname.replace(/^\/catalogue/, "");
+  if (
+    isOnCatalogueHost &&
+    (isLegacyCataloguePath || isInternalSyncPath)
+  ) {
+    const prefix = isInternalSyncPath
+      ? "/sync-catalogue"
+      : "/catalogue";
 
-    const redirectUrl = new URL(`https://${catalogueHost}${nextPath}${search}`);
+    const strippedPath = pathname.slice(prefix.length);
+    const nextPath = strippedPath || "/";
+
+    const redirectUrl = new URL(
+      `https://${catalogueHost}${nextPath}${search}`,
+    );
+
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
+  if (!isOnCatalogueHost && isInternalSyncPath) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = "/catalogue";
+    redirectUrl.search = search;
+
     return NextResponse.redirect(redirectUrl, 308);
   }
 
@@ -139,7 +160,9 @@ function applyCatalogueSubdomainRewrite(req: NextRequest): NextResponse | null {
 
   const rewriteUrl = req.nextUrl.clone();
   rewriteUrl.pathname =
-    pathname === "/" ? "/catalogue" : `/catalogue${pathname}`;
+    pathname === "/"
+      ? "/sync-catalogue"
+      : `/sync-catalogue${pathname}`;
   rewriteUrl.search = search;
 
   return NextResponse.rewrite(rewriteUrl);
@@ -149,7 +172,7 @@ export function middleware(req: NextRequest): NextResponse {
   const authResponse = applyInternalBasicAuth(req);
   if (authResponse) return authResponse;
 
-  const redirectResponse = applyCatalogueCanonicalRedirect(req);
+  const redirectResponse = applyCatalogueRouteCanonicalRedirect(req);
   if (redirectResponse) return redirectResponse;
 
   const rewriteResponse = applyCatalogueSubdomainRewrite(req);
