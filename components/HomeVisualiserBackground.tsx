@@ -175,7 +175,6 @@ export default function HomeVisualiserBackground() {
       aria-hidden="true"
     >
       <canvas ref={canvasRef} />
-      <div className="home-visualiser-veil" />
     </div>
   );
 }
