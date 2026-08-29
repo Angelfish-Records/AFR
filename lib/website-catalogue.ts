@@ -1,4 +1,7 @@
-const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
+import { requireAirtableContentSnapshot } from "@/lib/catalogue/contentSnapshots";
+
+const AIRTABLE_API_BASE =
+  "https://api.airtable.com/v0";
 
 const WEBSITE_CATALOGUE_FIELDS = [
   "Release ID",
@@ -10,7 +13,8 @@ const WEBSITE_CATALOGUE_FIELDS = [
   "Website Link",
 ] as const;
 
-type AirtableReleaseFields = Record<string, unknown>;
+type AirtableReleaseFields =
+  Record<string, unknown>;
 
 type AirtableReleaseRecord = {
   id: string;
@@ -36,11 +40,18 @@ export type WebsiteCatalogueResponse = {
   count: number;
 };
 
+export type WebsiteCatalogueAirtableFetchResult = {
+  releases: WebsiteCatalogueRelease[];
+  pageCount: number;
+};
+
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(
+      `Missing required environment variable: ${name}`,
+    );
   }
 
   return value;
@@ -59,12 +70,16 @@ function asRequiredDisplayString(
     }
   }
 
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
     return String(value);
   }
 
   throw new Error(
-    `Published website catalogue record ${airtableRecordId} is missing "${fieldName}"`,
+    `Published website catalogue record ${airtableRecordId} ` +
+      `is missing "${fieldName}"`,
   );
 }
 
@@ -79,7 +94,8 @@ function isAirtableReleaseRecord(
     return false;
   }
 
-  const candidate = value as Record<string, unknown>;
+  const candidate =
+    value as Record<string, unknown>;
 
   return (
     typeof candidate.id === "string" &&
@@ -102,11 +118,14 @@ function parseAirtableResponse(
     );
   }
 
-  const candidate = value as Record<string, unknown>;
+  const candidate =
+    value as Record<string, unknown>;
 
   if (
     !Array.isArray(candidate.records) ||
-    !candidate.records.every(isAirtableReleaseRecord)
+    !candidate.records.every(
+      isAirtableReleaseRecord,
+    )
   ) {
     throw new Error(
       "Airtable website catalogue returned invalid records",
@@ -137,7 +156,8 @@ function mapPublishedRelease(
 
   if (fields["Live Listing"] !== true) {
     throw new Error(
-      `Non-live Airtable record ${record.id} reached the website catalogue mapper`,
+      `Non-live Airtable record ${record.id} ` +
+        "reached the website catalogue mapper",
     );
   }
 
@@ -178,61 +198,159 @@ function mapPublishedRelease(
 async function fetchWebsiteCataloguePage(
   offset?: string,
 ): Promise<AirtableReleaseListResponse> {
-  const token = requiredEnv("AIRTABLE_TOKEN");
-  const baseId = requiredEnv("AIRTABLE_CATALOGUE_ID");
-  const tableId = requiredEnv("AIRTABLE_RELEASES_TABLE");
-  const viewId = requiredEnv("AIRTABLE_WEBSITE_CATALOGUE_VIEW");
+  const token =
+    requiredEnv("AIRTABLE_TOKEN");
+  const baseId =
+    requiredEnv("AIRTABLE_CATALOGUE_ID");
+  const tableId =
+    requiredEnv("AIRTABLE_RELEASES_TABLE");
+  const viewId =
+    requiredEnv(
+      "AIRTABLE_WEBSITE_CATALOGUE_VIEW",
+    );
 
   const url = new URL(
-    `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}`,
+    `${AIRTABLE_API_BASE}/${baseId}/` +
+      encodeURIComponent(tableId),
   );
 
   url.searchParams.set("view", viewId);
   url.searchParams.set("pageSize", "100");
-  url.searchParams.set("filterByFormula", "{Live Listing}=1");
+  url.searchParams.set(
+    "filterByFormula",
+    "{Live Listing}=1",
+  );
 
-  for (const field of WEBSITE_CATALOGUE_FIELDS) {
-    url.searchParams.append("fields[]", field);
-  }
-
-  if (offset) {
-    url.searchParams.set("offset", offset);
-  }
-
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Airtable website catalogue request failed (${response.status})`,
+  for (
+    const field of WEBSITE_CATALOGUE_FIELDS
+  ) {
+    url.searchParams.append(
+      "fields[]",
+      field,
     );
   }
 
-  const payload: unknown = await response.json();
+  if (offset) {
+    url.searchParams.set(
+      "offset",
+      offset,
+    );
+  }
+
+  const response = await fetch(
+    url.toString(),
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type":
+          "application/json",
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Airtable website catalogue request failed " +
+        `(${response.status})`,
+    );
+  }
+
+  const payload: unknown =
+    await response.json();
+
   return parseAirtableResponse(payload);
 }
 
-export async function listWebsiteCatalogueReleases(): Promise<
-  WebsiteCatalogueRelease[]
-> {
-  const releases: WebsiteCatalogueRelease[] = [];
+export async function fetchWebsiteCatalogueReleasesFromAirtable(): Promise<WebsiteCatalogueAirtableFetchResult> {
+  const releases:
+    WebsiteCatalogueRelease[] = [];
+
   let offset: string | undefined;
+  let pageCount = 0;
 
   do {
-    const page = await fetchWebsiteCataloguePage(offset);
+    const page =
+      await fetchWebsiteCataloguePage(offset);
+
+    pageCount += 1;
 
     for (const record of page.records) {
-      releases.push(mapPublishedRelease(record));
+      releases.push(
+        mapPublishedRelease(record),
+      );
     }
 
     offset = page.offset;
   } while (offset);
+
+  return {
+    releases,
+    pageCount,
+  };
+}
+
+function isWebsiteCatalogueRelease(
+  value: unknown,
+): value is WebsiteCatalogueRelease {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return false;
+  }
+
+  const candidate =
+    value as Record<string, unknown>;
+
+  return (
+    typeof candidate.releaseId ===
+      "string" &&
+    typeof candidate.title === "string" &&
+    typeof candidate.artist === "string" &&
+    typeof candidate.year === "string" &&
+    typeof candidate.formats === "string" &&
+    typeof candidate.link === "string"
+  );
+}
+
+function parseWebsiteCatalogueSnapshotPayload(
+  payload: unknown,
+): WebsiteCatalogueRelease[] {
+  if (
+    !Array.isArray(payload) ||
+    !payload.every(
+      isWebsiteCatalogueRelease,
+    )
+  ) {
+    throw new Error(
+      "Website catalogue snapshot payload is invalid",
+    );
+  }
+
+  return payload;
+}
+
+export async function listWebsiteCatalogueReleases(): Promise<WebsiteCatalogueRelease[]> {
+  const snapshot =
+    await requireAirtableContentSnapshot(
+      "website_catalogue",
+    );
+
+  const releases =
+    parseWebsiteCatalogueSnapshotPayload(
+      snapshot.payload,
+    );
+
+  if (
+    snapshot.itemCount !== releases.length
+  ) {
+    throw new Error(
+      "Website catalogue snapshot count does not match its payload",
+    );
+  }
 
   return releases;
 }
