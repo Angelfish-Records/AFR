@@ -46,6 +46,7 @@ type DetailApiResponse = {
 const CATALOGUE_THEME_STORAGE_KEY = "afr-catalogue-theme";
 
 const SHOW_DISCOVERY_CONTROLS = false;
+const MOBILE_GRID_ONLY_MEDIA_QUERY = "(max-width: 759px)";
 
 function isCatalogueThemeMode(
   value: string | null,
@@ -92,6 +93,7 @@ export default function CatalogueIndexSurface(props: Props) {
   const router = useRouter();
 
   const [viewMode, setViewMode] = useState<CatalogueViewMode>("table");
+  const [isMobileGridOnly, setIsMobileGridOnly] = useState(false);
   const [themeMode, setThemeMode] = useState<CatalogueThemeMode>("dark");
   const [activeRecord, setActiveRecord] = useState<CatalogueRecord | null>(
     null,
@@ -124,6 +126,32 @@ export default function CatalogueIndexSurface(props: Props) {
       // Theme persistence is optional.
     }
   }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      MOBILE_GRID_ONLY_MEDIA_QUERY,
+    );
+
+    function updateMobileGridOnly(): void {
+      setIsMobileGridOnly(mediaQuery.matches);
+    }
+
+    updateMobileGridOnly();
+    mediaQuery.addEventListener(
+      "change",
+      updateMobileGridOnly,
+    );
+
+    return () => {
+      mediaQuery.removeEventListener(
+        "change",
+        updateMobileGridOnly,
+      );
+    };
+  }, []);
+
+  const effectiveViewMode: CatalogueViewMode =
+    isMobileGridOnly ? "grid" : viewMode;
 
   const toggleThemeMode = useCallback(() => {
     setThemeMode((current) => {
@@ -498,14 +526,22 @@ export default function CatalogueIndexSurface(props: Props) {
     >
       <CatalogueLayout theme={themeMode}>
         <div className={styles.logoHeader}>
-          <Image
-            src="/brand/AFR-logo-white-horizontal.png"
-            alt="Angelfish Records"
-            width={100}
-            height={132}
-            priority
-            className={styles.logoImage}
-          />
+          <a
+            href="https://angelfishrecords.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.logoLink}
+            aria-label="Open Angelfish Records home page in a new tab"
+          >
+            <Image
+              src="/brand/AFR-logo-white-horizontal.png"
+              alt="Angelfish Records"
+              width={100}
+              height={132}
+              priority
+              className={styles.logoImage}
+            />
+          </a>
         </div>
         <div className={styles.surfaceHeaderRow}>
           <div className={styles.surfaceControlLeft}>
@@ -600,7 +636,7 @@ export default function CatalogueIndexSurface(props: Props) {
             title="No tracks match these filters"
             body="Try another search term or reset the active filters."
           />
-        ) : viewMode === "table" ? (
+        ) : effectiveViewMode === "table" ? (
           <CatalogueTable
             records={visibleRecords}
             activeRecordingId={drawerRecordingId}

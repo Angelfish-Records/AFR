@@ -1,0 +1,197 @@
+.root {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  color: #1d1d1b;
+  font-family: "Merriweather", Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.76;
+  letter-spacing: -0.008em;
+  text-rendering: optimizeLegibility;
+}
+
+.root :global(p) {
+  margin: 0 0 1.45em;
+}
+
+.root :global(p:last-child) {
+  margin-bottom: 0;
+}
+
+.root :global(h2),
+.root :global(h3),
+.root :global(h4) {
+  color: inherit;
+  font-family: inherit;
+  text-wrap: balance;
+}
+
+.root :global(h2) {
+  margin: 2.35em 0 0.8em;
+  font-size: 1.55em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.root :global(h3) {
+  margin: 2em 0 0.7em;
+  font-size: 1.2em;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+
+.root :global(h4) {
+  margin: 1.8em 0 0.65em;
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.root :global(a) {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.17em;
+}
+
+.root :global(strong) {
+  font-weight: 700;
+}
+
+.root :global(em) {
+  font-style: italic;
+}
+
+.root :global(blockquote) {
+  margin: 2em 0;
+  padding: 0.05em 0 0.05em 1.2em;
+  border-left: 1px solid rgb(29 29 27 / 35%);
+  font-size: 1.08em;
+  font-style: italic;
+  line-height: 1.65;
+}
+
+.root :global(blockquote p:last-child) {
+  margin-bottom: 0;
+}
+
+.root :global(ul),
+.root :global(ol) {
+  margin: 0 0 1.45em;
+  padding-left: 1.45em;
+}
+
+.root :global(ul) {
+  list-style: disc outside;
+}
+
+.root :global(ol) {
+  list-style: decimal outside;
+}
+
+.root :global(li) {
+  display: list-item;
+  margin: 0.3em 0;
+  padding-left: 0.15em;
+}
+
+.root :global(li > ul),
+.root :global(li > ol) {
+  margin-top: 0.35em;
+  margin-bottom: 0.35em;
+}
+
+.root :global(hr) {
+  width: 72px;
+  height: 1px;
+  margin: 3.25em auto;
+  border: 0;
+  background: rgb(29 29 27 / 30%);
+}
+
+.root :global(figure) {
+  margin: 2.6em 0;
+}
+
+.root :global(img) {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+.root :global(figcaption) {
+  margin-top: 0.8em;
+  color: rgb(29 29 27 / 62%);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.67em;
+  line-height: 1.45;
+}
+
+.root :global(table) {
+  width: 100%;
+  margin: 2em 0;
+  border-collapse: collapse;
+  font-size: 0.86em;
+  line-height: 1.5;
+}
+
+.root :global(th),
+.root :global(td) {
+  padding: 0.65em 0.75em;
+  border-bottom: 1px solid rgb(29 29 27 / 18%);
+  text-align: left;
+  vertical-align: top;
+}
+
+.root :global(th) {
+  font-weight: 700;
+}
+
+.root :global(code) {
+  font-family: "Inconsolata", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+}
+
+.root :global(pre) {
+  overflow-x: auto;
+  margin: 2em 0;
+  padding: 1.2em 1.35em;
+  background: rgb(29 29 27 / 5%);
+  font-family: "Inconsolata", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.root :global(pre code) {
+  font-size: inherit;
+}
+
+@media (max-width: 768px) {
+  .root {
+    max-width: 100%;
+    font-size: 18px;
+    line-height: 1.72;
+    letter-spacing: -0.006em;
+  }
+
+  .root :global(h2) {
+    margin-top: 2.1em;
+    font-size: 1.42em;
+  }
+
+  .root :global(blockquote) {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 1em;
+  }
+
+  .root :global(table) {
+    font-size: 0.78em;
+  }
+}

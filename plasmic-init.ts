@@ -1,4 +1,5 @@
 import { initPlasmicLoader } from "@plasmicapp/loader-nextjs";
+import EssayBody from "@/components/essays/EssayBody";
 
 const projectId = process.env.PLASMIC_PROJECT_ID || "a1fFQhwqi4XTCQmGu8QoR6";
 const projectToken =
@@ -18,4 +19,12 @@ export const PLASMIC = initPlasmicLoader({
     },
   ],
   preview,
+});
+
+PLASMIC.registerComponent(EssayBody, {
+  name: "EssayBody",
+  displayName: "Essay Body",
+  props: {
+    children: "slot",
+  },
 });
