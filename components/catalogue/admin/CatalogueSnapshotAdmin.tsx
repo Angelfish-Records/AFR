@@ -199,8 +199,9 @@ export default function CatalogueSnapshotAdmin(
           </h2>
           <p className={styles.snapshotDescription}>
             Public catalogue traffic reads these durable
-            Neon snapshots. Airtable is contacted only
-            when you explicitly refresh them here.
+            Neon snapshots. Airtable is contacted by the
+            daily scheduled refresh or when you explicitly
+            refresh them here.
           </p>
         </div>
 
@@ -266,9 +267,10 @@ export default function CatalogueSnapshotAdmin(
         </div>
 
         <p className={styles.snapshotNote}>
-          A successful refresh replaces both snapshots
-          together. Empty or failed Airtable pulls leave
-          the current last-known-good data intact.
+          Automatic refresh runs daily at 18:00 UTC
+          (about 6–7am NZ). A successful refresh replaces
+          both snapshots together. Empty or failed Airtable
+          pulls leave the current last-known-good data intact.
         </p>
       </div>
     </section>
