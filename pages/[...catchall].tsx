@@ -1,5 +1,6 @@
 import * as React from "react";
 import dynamic from "next/dynamic";
+import Head from "next/head";
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
 import Error from "next/error";
 import { useRouter } from "next/router";
@@ -34,6 +35,7 @@ export default function PlasmicLoaderPage(props: Props) {
 
   const plasmicPage = (
     <PlasmicRootProvider
+      Head={Head}
       loader={PLASMIC}
       prefetchedData={plasmicData}
       prefetchedQueryData={queryCache}
@@ -92,10 +94,12 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
 
   const queryCache = await extractPlasmicQueryData(
     <PlasmicRootProvider
+      Head={Head}
       loader={PLASMIC}
       prefetchedData={plasmicData}
       pageRoute={pageMeta.path}
       pageParams={pageMeta.params}
+      pageQuery={context.query}
     >
       <PlasmicComponent component={pageMeta.displayName} />
     </PlasmicRootProvider>,
