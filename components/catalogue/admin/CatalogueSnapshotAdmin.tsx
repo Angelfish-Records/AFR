@@ -173,7 +173,7 @@ export default function CatalogueSnapshotAdmin(
       });
 
       setMessage(
-        `Refreshed both snapshots using ${parsed.totalAirtablePageCount} Airtable page ` +
+        `Refreshed catalogue snapshots using ${parsed.totalAirtablePageCount} Airtable page ` +
           `request${parsed.totalAirtablePageCount === 1 ? "" : "s"}. Reloading admin data…`,
       );
 

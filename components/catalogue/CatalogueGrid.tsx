@@ -126,6 +126,7 @@ export default function CatalogueGrid(props: Props) {
                   <div className={styles.cardPreviewRow}>
                     <CataloguePreviewButton
                       recordingId={record.recordingId}
+                      hasInstrumentalPlayback={record.hasInstrumentalPlayback}
                       size="large"
                     />
                   </div>

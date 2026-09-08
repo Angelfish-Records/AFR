@@ -3,6 +3,7 @@ import { sql } from "@vercel/postgres";
 
 export type AirtableContentSnapshotKey =
   | "sync_catalogue"
+  | "sync_catalogue_playback"
   | "website_catalogue";
 
 export type AirtableContentSnapshotMetadata = {
@@ -34,6 +35,10 @@ type SnapshotWriteInput = {
     payload: unknown;
     itemCount: number;
   };
+  syncCataloguePlayback: {
+    payload: unknown;
+    itemCount: number;
+  };
   websiteCatalogue: {
     payload: unknown;
     itemCount: number;
@@ -45,6 +50,7 @@ function isSnapshotKey(
 ): value is AirtableContentSnapshotKey {
   return (
     value === "sync_catalogue" ||
+    value === "sync_catalogue_playback" ||
     value === "website_catalogue"
   );
 }
@@ -195,6 +201,8 @@ export async function writeCatalogueContentSnapshots(
   if (
     !Number.isInteger(input.syncCatalogue.itemCount) ||
     input.syncCatalogue.itemCount < 0 ||
+    !Number.isInteger(input.syncCataloguePlayback.itemCount) ||
+    input.syncCataloguePlayback.itemCount < 0 ||
     !Number.isInteger(input.websiteCatalogue.itemCount) ||
     input.websiteCatalogue.itemCount < 0
   ) {
@@ -208,12 +216,18 @@ export async function writeCatalogueContentSnapshots(
     "sync catalogue",
   );
 
+  const playbackPayload = serializePayload(
+    input.syncCataloguePlayback.payload,
+    "sync catalogue playback",
+  );
+
   const websitePayload = serializePayload(
     input.websiteCatalogue.payload,
     "website catalogue",
   );
 
   const syncHash = hashPayload(syncPayload);
+  const playbackHash = hashPayload(playbackPayload);
   const websiteHash = hashPayload(websitePayload);
 
   const result = await sql<SnapshotRow>`
@@ -230,6 +244,13 @@ export async function writeCatalogueContentSnapshots(
         ${syncPayload}::jsonb,
         ${input.syncCatalogue.itemCount},
         ${syncHash},
+        now()
+      ),
+      (
+        'sync_catalogue_playback',
+        ${playbackPayload}::jsonb,
+        ${input.syncCataloguePlayback.itemCount},
+        ${playbackHash},
         now()
       ),
       (
@@ -252,9 +273,9 @@ export async function writeCatalogueContentSnapshots(
       refreshed_at
   `;
 
-  if (result.rows.length != 2) {
+  if (result.rows.length !== 3) {
     throw new Error(
-      "Snapshot refresh did not persist both catalogue snapshots",
+      "Snapshot refresh did not persist all catalogue snapshots",
     );
   }
 

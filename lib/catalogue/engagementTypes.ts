@@ -3,6 +3,7 @@ export const CATALOGUE_ENGAGEMENT_EVENT_TYPES = [
   "detail_open",
   "play_full",
   "play_clip",
+  "play_instrumental",
   "shortlist_add",
   "shortlist_remove",
   "licensing_open",
@@ -27,6 +28,7 @@ export type CatalogueEngagementTotals = {
   detailOpens: number;
   fullPlays: number;
   clipPlays: number;
+  instrumentalPlays: number;
   shortlistAdds: number;
   shortlistRemoves: number;
   licensingOpens: number;
@@ -40,6 +42,7 @@ export type CatalogueRecordingEngagement = {
   detailOpens: number;
   fullPlays: number;
   clipPlays: number;
+  instrumentalPlays: number;
   shortlistAdds: number;
 };
 

@@ -240,8 +240,15 @@ export default function CatalogueIndexSurface(props: Props) {
   }, [activeRecordingId, router.isReady, trackEvent]);
 
   const handlePlaybackStart = useCallback(
-    (recordingId: string, mode: "full" | "clip") => {
-      trackEvent(mode === "full" ? "play_full" : "play_clip", {
+    (recordingId: string, mode: "full" | "clip" | "instrumental") => {
+      const eventType =
+        mode === "full"
+          ? "play_full"
+          : mode === "clip"
+            ? "play_clip"
+            : "play_instrumental";
+
+      trackEvent(eventType, {
         recordingId,
       });
     },

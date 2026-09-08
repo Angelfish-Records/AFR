@@ -7,23 +7,25 @@ type PreviewResponse =
       ok: true;
       playbackUrl: string;
       expiresAt: number;
-      clipStartSeconds: number;
-      clipLengthSeconds: number;
+      clipStartSeconds: number | null;
+      clipLengthSeconds: number | null;
     }
   | {
       ok: false;
       error: string;
     };
 
-type PlaybackMode = "full" | "clip";
+export type PlaybackMode = "full" | "clip" | "instrumental";
+type PlaybackSourceKind = "original" | "instrumental";
 type PlaybackStatus = "idle" | "loading" | "playing" | "paused" | "error";
 
 type PlaybackSource = {
   recordingId: string;
+  sourceKind: PlaybackSourceKind;
   playbackUrl: string;
   expiresAt: number;
-  clipStartSeconds: number;
-  clipLengthSeconds: number;
+  clipStartSeconds: number | null;
+  clipLengthSeconds: number | null;
 };
 
 type PlaybackState = {
@@ -82,6 +84,17 @@ function hasUsableMediaSource(audio: HTMLAudioElement): boolean {
   }
 
   return true;
+}
+
+function sourceKindForMode(mode: PlaybackMode): PlaybackSourceKind {
+  return mode === "instrumental" ? "instrumental" : "original";
+}
+
+function sourceCacheKey(
+  recordingId: string,
+  sourceKind: PlaybackSourceKind,
+): string {
+  return `${recordingId}:${sourceKind}`;
 }
 
 export function CataloguePlaybackProvider(props: ProviderProps) {
@@ -149,8 +162,12 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
   );
 
   const fetchSource = React.useCallback(
-    async (recordingId: string): Promise<PlaybackSource> => {
-      const cached = sourceCacheRef.current.get(recordingId);
+    async (
+      recordingId: string,
+      sourceKind: PlaybackSourceKind,
+    ): Promise<PlaybackSource> => {
+      const cacheKey = sourceCacheKey(recordingId, sourceKind);
+      const cached = sourceCacheRef.current.get(cacheKey);
       const now = Math.floor(Date.now() / 1000);
 
       if (cached && cached.expiresAt > now + 20) {
@@ -158,15 +175,18 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       }
 
       const params = new URLSearchParams();
+      params.set(
+        "mode",
+        sourceKind === "instrumental" ? "instrumental" : "full",
+      );
 
       if (accessToken) {
         params.set("t", accessToken);
       }
 
-      const query = params.toString();
-      const url = `/api/catalogue/preview/${encodeURIComponent(recordingId)}${
-        query ? `?${query}` : ""
-      }`;
+      const url = `/api/catalogue/preview/${encodeURIComponent(
+        recordingId,
+      )}?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -188,13 +208,14 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
 
       const source: PlaybackSource = {
         recordingId,
+        sourceKind,
         playbackUrl: payload.playbackUrl,
         expiresAt: payload.expiresAt,
         clipStartSeconds: payload.clipStartSeconds,
         clipLengthSeconds: payload.clipLengthSeconds,
       };
 
-      sourceCacheRef.current.set(recordingId, source);
+      sourceCacheRef.current.set(cacheKey, source);
       return source;
     },
     [accessToken],
@@ -227,6 +248,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
         throw new Error("Audio element unavailable");
       }
 
+      const sourceKind = sourceKindForMode(mode);
       const isSameRecording = state.activeRecordingId === recordingId;
       const isSameMode = state.activeMode === mode;
       const isPausedSameTarget =
@@ -241,12 +263,13 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       }));
 
       try {
-        const source = await fetchSource(recordingId);
+        const source = await fetchSource(recordingId, sourceKind);
 
         const attachedSource = attachedSourceRef.current;
         const hasSameAttachedSource =
           attachedSource !== null &&
           attachedSource.recordingId === recordingId &&
+          attachedSource.sourceKind === sourceKind &&
           attachedSource.playbackUrl === source.playbackUrl;
 
         const canReuseAttachedSource =
@@ -256,11 +279,20 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
           await attachSource(source);
         }
 
-        const clipStartSeconds = source.clipStartSeconds;
-        const clipEndSeconds =
-          source.clipStartSeconds + source.clipLengthSeconds;
+        let clipStartSeconds: number | null = null;
+        let clipEndSeconds: number | null = null;
 
         if (mode === "clip") {
+          if (
+            source.clipStartSeconds === null ||
+            source.clipLengthSeconds === null
+          ) {
+            throw new Error("Clip timing metadata unavailable");
+          }
+
+          clipStartSeconds = source.clipStartSeconds;
+          clipEndSeconds =
+            source.clipStartSeconds + source.clipLengthSeconds;
           audio.currentTime = clipStartSeconds;
         } else if (!isPausedSameTarget) {
           audio.currentTime = 0;

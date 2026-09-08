@@ -29,5 +29,6 @@ export function toCatalogueListItem(
     genreLabels: record.genreLabels,
     moodTags: record.moodTags,
     shortLogline: record.shortLogline,
+    hasInstrumentalPlayback: record.hasInstrumentalPlayback,
   };
 }

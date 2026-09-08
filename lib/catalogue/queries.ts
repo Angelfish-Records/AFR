@@ -6,6 +6,7 @@ import {
 import { requireAirtableContentSnapshot } from "@/lib/catalogue/contentSnapshots";
 import { mapRecordingRecord } from "@/lib/catalogue/mappers";
 import type {
+  AirtableCellValue,
   AirtableRecord,
   AirtableRecordFields,
   CatalogueRecord,
@@ -19,8 +20,21 @@ type AirtableListResponse<
   offset?: string;
 };
 
+export type CataloguePlaybackSourceMetadata = {
+  recordingId: string;
+  playbackId: string;
+  durationMs: number;
+};
+
+export type CataloguePlaybackSnapshotEntry = {
+  recordingId: string;
+  original: CataloguePlaybackSourceMetadata;
+  instrumental: CataloguePlaybackSourceMetadata | null;
+};
+
 export type CatalogueAirtableFetchResult = {
   records: CatalogueRecord[];
+  playback: CataloguePlaybackSnapshotEntry[];
   pageCount: number;
 };
 
@@ -49,6 +63,123 @@ function sortCatalogueRecords(
         right.recordingId,
       ),
     );
+}
+
+function sortPlaybackEntries(
+  entries: CataloguePlaybackSnapshotEntry[],
+): CataloguePlaybackSnapshotEntry[] {
+  return entries
+    .slice()
+    .sort((left, right) =>
+      compareRecordingIds(
+        left.recordingId,
+        right.recordingId,
+      ),
+    );
+}
+
+function asNonEmptyString(
+  value: AirtableCellValue,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function asPositiveInteger(
+  value: AirtableCellValue,
+): number | null {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    return null;
+  }
+
+  const rounded = Math.round(value);
+  return rounded > 0 ? rounded : null;
+}
+
+function asLinkedRecordIds(
+  value: AirtableCellValue,
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (item): item is string =>
+      typeof item === "string" &&
+      /^rec[A-Za-z0-9]+$/.test(item),
+  );
+}
+
+function normalizeRecordingType(
+  value: AirtableCellValue,
+): string {
+  return asNonEmptyString(value)?.toLowerCase() ?? "";
+}
+
+function requirePlaybackSource(
+  row: AirtableRecord<RecordingAirtableFields>,
+  label: string,
+): CataloguePlaybackSourceMetadata {
+  const recordingId = asNonEmptyString(
+    row.fields["Recording ID"],
+  );
+  const playbackId = asNonEmptyString(
+    row.fields["Mux Playback ID"],
+  );
+  const durationMs = asPositiveInteger(
+    row.fields["Mux Duration ms"],
+  );
+
+  if (!recordingId || !playbackId || durationMs === null) {
+    throw new Error(
+      `${label} ${recordingId ?? row.id} is missing valid Mux playback metadata`,
+    );
+  }
+
+  return {
+    recordingId,
+    playbackId,
+    durationMs,
+  };
+}
+
+function optionalInstrumentalPlaybackSource(
+  row: AirtableRecord<RecordingAirtableFields>,
+): CataloguePlaybackSourceMetadata | null {
+  const playbackId = asNonEmptyString(
+    row.fields["Mux Playback ID"],
+  );
+
+  if (!playbackId) {
+    return null;
+  }
+
+  const recordingId = asNonEmptyString(
+    row.fields["Recording ID"],
+  );
+  const durationMs = asPositiveInteger(
+    row.fields["Mux Duration ms"],
+  );
+
+  if (!recordingId || durationMs === null) {
+    throw new Error(
+      `Instrumental ${recordingId ?? row.id} has a Mux Playback ID but no valid Mux Duration ms`,
+    );
+  }
+
+  return {
+    recordingId,
+    playbackId,
+    durationMs,
+  };
 }
 
 async function listRecordingRowsFromAirtable(): Promise<{
@@ -96,15 +227,174 @@ async function listRecordingRowsFromAirtable(): Promise<{
   };
 }
 
-export async function fetchCatalogueRecordsFromAirtable(): Promise<CatalogueAirtableFetchResult> {
-  const { rows, pageCount } =
-    await listRecordingRowsFromAirtable();
+async function listRecordingRowsByAirtableIds(
+  recordIds: string[],
+): Promise<{
+  rows: Array<AirtableRecord<RecordingAirtableFields>>;
+  pageCount: number;
+}> {
+  if (recordIds.length === 0) {
+    return {
+      rows: [],
+      pageCount: 0,
+    };
+  }
+
+  const {
+    baseId,
+    recordingsTableId,
+  } = getAirtableConfig();
+
+  const uniqueRecordIds = Array.from(
+    new Set(recordIds),
+  );
+
+  const formula =
+    uniqueRecordIds.length === 1
+      ? `RECORD_ID()='${uniqueRecordIds[0]}'`
+      : `OR(${uniqueRecordIds
+          .map(
+            (recordId) =>
+              `RECORD_ID()='${recordId}'`,
+          )
+          .join(",")})`;
+
+  const accumulated: Array<
+    AirtableRecord<RecordingAirtableFields>
+  > = [];
+
+  let offset: string | undefined;
+  let pageCount = 0;
+
+  do {
+    const response =
+      await airtableGet<
+        AirtableListResponse<RecordingAirtableFields>
+      >({
+        path:
+          `${baseId}/` +
+          encodeURIComponent(recordingsTableId),
+        searchParams: {
+          filterByFormula: formula,
+          pageSize: "100",
+          ...(offset ? { offset } : {}),
+        },
+      });
+
+    pageCount += 1;
+    accumulated.push(...response.records);
+    offset = response.offset;
+  } while (offset);
+
+  if (accumulated.length !== uniqueRecordIds.length) {
+    throw new Error(
+      `Catalogue family lookup resolved ${accumulated.length} of ${uniqueRecordIds.length} Airtable recording rows`,
+    );
+  }
 
   return {
-    records: sortCatalogueRecords(
-      rows.map(mapRecordingRecord),
-    ),
+    rows: accumulated,
     pageCount,
+  };
+}
+
+export async function fetchCatalogueRecordsFromAirtable(): Promise<CatalogueAirtableFetchResult> {
+  const canonicalResult =
+    await listRecordingRowsFromAirtable();
+
+  const familyRecordIds = Array.from(
+    new Set(
+      canonicalResult.rows.flatMap((row) =>
+        asLinkedRecordIds(
+          row.fields["Family Recordings"],
+        ),
+      ),
+    ),
+  );
+
+  const familyResult =
+    await listRecordingRowsByAirtableIds(
+      familyRecordIds,
+    );
+
+  const familyById = new Map(
+    familyResult.rows.map((row) => [
+      row.id,
+      row,
+    ]),
+  );
+
+  const records: CatalogueRecord[] = [];
+  const playback: CataloguePlaybackSnapshotEntry[] = [];
+
+  for (const canonicalRow of canonicalResult.rows) {
+    const mapped = mapRecordingRecord(canonicalRow);
+    const linkedIds = asLinkedRecordIds(
+      canonicalRow.fields["Family Recordings"],
+    );
+
+    if (linkedIds.length === 0) {
+      throw new Error(
+        `Catalogue record ${mapped.recordingId} has no Family Recordings relationship`,
+      );
+    }
+
+    const familyRows = linkedIds.map((airtableRecordId) => {
+      const row = familyById.get(airtableRecordId);
+
+      if (!row) {
+        throw new Error(
+          `Catalogue record ${mapped.recordingId} references missing family row ${airtableRecordId}`,
+        );
+      }
+
+      return row;
+    });
+
+    const instrumentalRows = familyRows.filter(
+      (row) =>
+        normalizeRecordingType(
+          row.fields["Recording Type"],
+        ) === "instrumental",
+    );
+
+    if (instrumentalRows.length > 1) {
+      throw new Error(
+        `Catalogue record ${mapped.recordingId} has multiple Instrumental family rows`,
+      );
+    }
+
+    const original = requirePlaybackSource(
+      canonicalRow,
+      "Original recording",
+    );
+
+    const instrumental =
+      instrumentalRows.length === 1
+        ? optionalInstrumentalPlaybackSource(
+            instrumentalRows[0],
+          )
+        : null;
+
+    records.push({
+      ...mapped,
+      hasInstrumentalPlayback:
+        instrumental !== null,
+    });
+
+    playback.push({
+      recordingId: mapped.recordingId,
+      original,
+      instrumental,
+    });
+  }
+
+  return {
+    records: sortCatalogueRecords(records),
+    playback: sortPlaybackEntries(playback),
+    pageCount:
+      canonicalResult.pageCount +
+      familyResult.pageCount,
   };
 }
 
@@ -150,9 +440,14 @@ function isNullableFiniteNumber(
   );
 }
 
-function isCatalogueRecord(
+type SnapshotCatalogueRecord =
+  Omit<CatalogueRecord, "hasInstrumentalPlayback"> & {
+    hasInstrumentalPlayback?: boolean;
+  };
+
+function isCatalogueRecordShape(
   value: unknown,
-): value is CatalogueRecord {
+): value is SnapshotCatalogueRecord {
   if (!isObject(value)) {
     return false;
   }
@@ -199,8 +494,22 @@ function isCatalogueRecord(
     ) &&
     isNullableFiniteNumber(
       value.previewStartSeconds,
+    ) &&
+    (
+      value.hasInstrumentalPlayback === undefined ||
+      typeof value.hasInstrumentalPlayback === "boolean"
     )
   );
+}
+
+function normalizeCatalogueRecord(
+  value: SnapshotCatalogueRecord,
+): CatalogueRecord {
+  return {
+    ...value,
+    hasInstrumentalPlayback:
+      value.hasInstrumentalPlayback === true,
+  };
 }
 
 function parseCatalogueSnapshotPayload(
@@ -208,14 +517,61 @@ function parseCatalogueSnapshotPayload(
 ): CatalogueRecord[] {
   if (
     !Array.isArray(payload) ||
-    !payload.every(isCatalogueRecord)
+    !payload.every(isCatalogueRecordShape)
   ) {
     throw new Error(
       "Sync catalogue snapshot payload is invalid",
     );
   }
 
-  return payload;
+  return payload.map(normalizeCatalogueRecord);
+}
+
+function isPlaybackSourceMetadata(
+  value: unknown,
+): value is CataloguePlaybackSourceMetadata {
+  return (
+    isObject(value) &&
+    typeof value.recordingId === "string" &&
+    value.recordingId.length > 0 &&
+    typeof value.playbackId === "string" &&
+    value.playbackId.length > 0 &&
+    typeof value.durationMs === "number" &&
+    Number.isInteger(value.durationMs) &&
+    value.durationMs > 0
+  );
+}
+
+function isPlaybackSnapshotEntry(
+  value: unknown,
+): value is CataloguePlaybackSnapshotEntry {
+  return (
+    isObject(value) &&
+    typeof value.recordingId === "string" &&
+    value.recordingId.length > 0 &&
+    isPlaybackSourceMetadata(value.original) &&
+    (
+      value.instrumental === null ||
+      isPlaybackSourceMetadata(
+        value.instrumental,
+      )
+    )
+  );
+}
+
+function parsePlaybackSnapshotPayload(
+  payload: unknown,
+): CataloguePlaybackSnapshotEntry[] {
+  if (
+    !Array.isArray(payload) ||
+    !payload.every(isPlaybackSnapshotEntry)
+  ) {
+    throw new Error(
+      "Sync catalogue playback snapshot payload is invalid",
+    );
+  }
+
+  return sortPlaybackEntries(payload);
 }
 
 export async function listCatalogueRecords(): Promise<CatalogueRecord[]> {
@@ -256,6 +612,47 @@ export async function getCatalogueRecordByRecordingId(
       (record) =>
         record.recordingId ===
         normalizedRecordingId,
+    ) ?? null
+  );
+}
+
+export async function listCataloguePlaybackEntries(): Promise<CataloguePlaybackSnapshotEntry[]> {
+  const snapshot =
+    await requireAirtableContentSnapshot(
+      "sync_catalogue_playback",
+    );
+
+  const entries =
+    parsePlaybackSnapshotPayload(
+      snapshot.payload,
+    );
+
+  if (snapshot.itemCount !== entries.length) {
+    throw new Error(
+      "Sync catalogue playback snapshot count does not match its payload",
+    );
+  }
+
+  return entries;
+}
+
+export async function getCataloguePlaybackEntryByRecordingId(
+  recordingId: string,
+): Promise<CataloguePlaybackSnapshotEntry | null> {
+  const normalizedRecordingId =
+    recordingId.trim();
+
+  if (!normalizedRecordingId) {
+    return null;
+  }
+
+  const entries =
+    await listCataloguePlaybackEntries();
+
+  return (
+    entries.find(
+      (entry) =>
+        entry.recordingId === normalizedRecordingId,
     ) ?? null
   );
 }

@@ -186,5 +186,6 @@ export function mapRecordingRecord(
     lyricsPdfLink: asUrl(fields["Lyrics PDF Link"]),
     chainOfTitlePdfLink: asUrl(fields["Chain-of-Title PDF Link"]),
     previewStartSeconds,
+    hasInstrumentalPlayback: false,
   };
 }

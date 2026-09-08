@@ -25,6 +25,7 @@ type TotalsRow = {
   detail_opens: number;
   full_plays: number;
   clip_plays: number;
+  instrumental_plays: number;
   shortlist_adds: number;
   shortlist_removes: number;
   licensing_opens: number;
@@ -41,6 +42,7 @@ type RecordingRow = {
   detail_opens: number;
   full_plays: number;
   clip_plays: number;
+  instrumental_plays: number;
   shortlist_adds: number;
 };
 
@@ -116,6 +118,8 @@ export async function getCatalogueEngagementSummary(
         as full_plays,
       count(*) filter (where event_type = 'play_clip')::int
         as clip_plays,
+      count(*) filter (where event_type = 'play_instrumental')::int
+        as instrumental_plays,
       count(*) filter (where event_type = 'shortlist_add')::int
         as shortlist_adds,
       count(*) filter (where event_type = 'shortlist_remove')::int
@@ -145,6 +149,8 @@ export async function getCatalogueEngagementSummary(
         as full_plays,
       count(*) filter (where event_type = 'play_clip')::int
         as clip_plays,
+      count(*) filter (where event_type = 'play_instrumental')::int
+        as instrumental_plays,
       count(*) filter (where event_type = 'shortlist_add')::int
         as shortlist_adds
     from catalogue_engagement_events
@@ -156,6 +162,7 @@ export async function getCatalogueEngagementSummary(
         count(*) filter (where event_type = 'detail_open') +
         count(*) filter (where event_type = 'play_full') +
         count(*) filter (where event_type = 'play_clip') +
+        count(*) filter (where event_type = 'play_instrumental') +
         count(*) filter (where event_type = 'shortlist_add')
       ) desc,
       recording_id asc
@@ -228,6 +235,7 @@ export async function getCatalogueEngagementSummary(
     detail_opens: 0,
     full_plays: 0,
     clip_plays: 0,
+    instrumental_plays: 0,
     shortlist_adds: 0,
     shortlist_removes: 0,
     licensing_opens: 0,
@@ -245,6 +253,7 @@ export async function getCatalogueEngagementSummary(
       detailOpens: row.detail_opens,
       fullPlays: row.full_plays,
       clipPlays: row.clip_plays,
+      instrumentalPlays: row.instrumental_plays,
       shortlistAdds: row.shortlist_adds,
     }));
 
@@ -271,6 +280,7 @@ export async function getCatalogueEngagementSummary(
       detailOpens: totals.detail_opens,
       fullPlays: totals.full_plays,
       clipPlays: totals.clip_plays,
+      instrumentalPlays: totals.instrumental_plays,
       shortlistAdds: totals.shortlist_adds,
       shortlistRemoves: totals.shortlist_removes,
       licensingOpens: totals.licensing_opens,
@@ -289,6 +299,7 @@ export function isRecordingEngagementEvent(
     eventType === "detail_open" ||
     eventType === "play_full" ||
     eventType === "play_clip" ||
+    eventType === "play_instrumental" ||
     eventType === "shortlist_add" ||
     eventType === "shortlist_remove"
   );

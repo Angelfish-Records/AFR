@@ -191,7 +191,7 @@
 .tableHeaderRow {
   display: grid;
   grid-template-columns:
-    30px minmax(180px, 0.82fr) 126px minmax(220px, 0.92fr)
+    30px minmax(180px, 0.82fr) 176px minmax(220px, 0.92fr)
     minmax(170px, 0.66fr) minmax(220px, 0.9fr) 72px;
   gap: 14px;
   padding: 16px 20px 16px 16px;
@@ -216,7 +216,7 @@
   width: 100%;
   display: grid;
   grid-template-columns:
-    30px minmax(180px, 0.82fr) 126px minmax(220px, 0.92fr)
+    30px minmax(180px, 0.82fr) 176px minmax(220px, 0.92fr)
     minmax(170px, 0.66fr) minmax(220px, 0.9fr) 72px;
   gap: 14px;
   align-items: stretch;

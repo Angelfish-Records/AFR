@@ -23,6 +23,10 @@ export type CatalogueSnapshotRefreshResult = {
     airtablePageCount: number;
     refreshedAt: string;
   };
+  syncCataloguePlayback: {
+    itemCount: number;
+    refreshedAt: string;
+  };
   websiteCatalogue: {
     itemCount: number;
     airtablePageCount: number;
@@ -69,6 +73,12 @@ export async function refreshCatalogueContentSnapshots(): Promise<CatalogueSnaps
       );
     }
 
+    if (syncResult.playback.length !== syncResult.records.length) {
+      throw new Error(
+        "Refusing to replace catalogue snapshots with an incomplete playback graph",
+      );
+    }
+
     if (websiteResult.releases.length === 0) {
       throw new Error(
         "Refusing to replace the last-known-good website catalogue with an empty Airtable result",
@@ -81,6 +91,10 @@ export async function refreshCatalogueContentSnapshots(): Promise<CatalogueSnaps
           payload: syncResult.records,
           itemCount: syncResult.records.length,
         },
+        syncCataloguePlayback: {
+          payload: syncResult.playback,
+          itemCount: syncResult.playback.length,
+        },
         websiteCatalogue: {
           payload: websiteResult.releases,
           itemCount: websiteResult.releases.length,
@@ -90,6 +104,11 @@ export async function refreshCatalogueContentSnapshots(): Promise<CatalogueSnaps
     const syncMetadata = requireMetadata(
       metadata,
       "sync_catalogue",
+    );
+
+    const playbackMetadata = requireMetadata(
+      metadata,
+      "sync_catalogue_playback",
     );
 
     const websiteMetadata = requireMetadata(
@@ -102,6 +121,10 @@ export async function refreshCatalogueContentSnapshots(): Promise<CatalogueSnaps
         itemCount: syncMetadata.itemCount,
         airtablePageCount: syncResult.pageCount,
         refreshedAt: syncMetadata.refreshedAt,
+      },
+      syncCataloguePlayback: {
+        itemCount: playbackMetadata.itemCount,
+        refreshedAt: playbackMetadata.refreshedAt,
       },
       websiteCatalogue: {
         itemCount: websiteMetadata.itemCount,

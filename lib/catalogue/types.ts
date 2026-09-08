@@ -27,6 +27,7 @@ export type CatalogueRecord = {
   lyricsPdfLink: string | null;
   chainOfTitlePdfLink: string | null;
   previewStartSeconds: number | null;
+  hasInstrumentalPlayback: boolean;
 };
 
 export type CatalogueRecordListItem = Pick<
@@ -47,6 +48,7 @@ export type CatalogueRecordListItem = Pick<
   | "genreLabels"
   | "moodTags"
   | "shortLogline"
+  | "hasInstrumentalPlayback"
 >;
 
 export type AirtableAttachment = {
@@ -83,6 +85,7 @@ export type RecordingAirtableFields = {
   "One-Stop Status"?: AirtableCellValue;
   "Explicit Flag"?: AirtableCellValue;
   "Family Recording Types [Lookup]"?: AirtableCellValue;
+  "Family Recordings"?: AirtableCellValue;
   "Stems Available"?: AirtableCellValue;
   "Sample Clearance Status"?: AirtableCellValue;
   "Rights Coverage"?: AirtableCellValue;
@@ -102,4 +105,6 @@ export type RecordingAirtableFields = {
   "Lyrics PDF Link"?: AirtableCellValue;
   "Chain-of-Title PDF Link"?: AirtableCellValue;
   "Preview Start Seconds"?: AirtableCellValue;
+  "Mux Playback ID"?: AirtableCellValue;
+  "Mux Duration ms"?: AirtableCellValue;
 };

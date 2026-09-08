@@ -9,6 +9,7 @@ type Props = {
   recordingId: string;
   duration?: string | null;
   previewStartSeconds?: number | null;
+  hasInstrumentalPlayback?: boolean;
 };
 
 function formatSeconds(totalSeconds: number): string {
@@ -19,11 +20,18 @@ function formatSeconds(totalSeconds: number): string {
 }
 
 export default function CataloguePlaybackTransport(props: Props) {
-  const { recordingId, duration = null, previewStartSeconds = null } = props;
+  const {
+    recordingId,
+    duration = null,
+    previewStartSeconds = null,
+    hasInstrumentalPlayback = false,
+  } = props;
   const { state, seekTo } = useCataloguePlayback();
 
   const isActive = state.activeRecordingId === recordingId;
   const currentTime = isActive ? state.currentTimeSeconds : 0;
+  const isInstrumentalActive =
+    isActive && state.activeMode === "instrumental";
   const durationSeconds =
     isActive && state.durationSeconds !== null ? state.durationSeconds : null;
 
@@ -141,6 +149,7 @@ export default function CataloguePlaybackTransport(props: Props) {
   const clipStartPercent =
     durationSeconds &&
     durationSeconds > 0 &&
+    !isInstrumentalActive &&
     previewStartSeconds !== null &&
     previewStartSeconds >= 0
       ? Math.min(100, (previewStartSeconds / durationSeconds) * 100)
@@ -167,7 +176,9 @@ export default function CataloguePlaybackTransport(props: Props) {
         : state.status === "playing"
           ? state.activeMode === "clip"
             ? "Playing preview clip"
-            : "Playing full track"
+            : state.activeMode === "instrumental"
+              ? "Playing instrumental"
+              : "Playing full track"
           : state.status === "paused"
             ? "Paused"
             : "Ready"
@@ -176,14 +187,18 @@ export default function CataloguePlaybackTransport(props: Props) {
   return (
     <div className={styles.transportShell}>
       <div className={styles.transportTopRow}>
-        <CataloguePreviewButton recordingId={recordingId} />
+        <CataloguePreviewButton
+          recordingId={recordingId}
+          hasInstrumentalPlayback={hasInstrumentalPlayback}
+        />
         <div className={styles.transportMeta}>
           <div className={styles.transportStatus}>{statusLabel}</div>
           <div className={styles.transportTiming}>
             <span>{formatSeconds(currentTime)}</span>
             <span>
-              {duration ??
-                (durationSeconds ? formatSeconds(durationSeconds) : "—")}
+              {isActive && durationSeconds !== null
+                ? formatSeconds(durationSeconds)
+                : (duration ?? "—")}
             </span>
           </div>
         </div>
@@ -230,7 +245,7 @@ export default function CataloguePlaybackTransport(props: Props) {
         />
       </div>
 
-      {previewStartSeconds !== null ? (
+      {previewStartSeconds !== null && !isInstrumentalActive ? (
         <div className={styles.transportFootnote}>
           Clip starts at {formatSeconds(previewStartSeconds)}.
         </div>

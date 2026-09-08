@@ -6,33 +6,42 @@ import styles from "@/styles/catalogue.module.css";
 
 type Props = {
   recordingId: string;
+  hasInstrumentalPlayback?: boolean;
   size?: "default" | "large";
 };
 
 export default function CataloguePreviewButton(props: Props) {
-  const { recordingId, size = "default" } = props;
+  const {
+    recordingId,
+    hasInstrumentalPlayback = false,
+    size = "default",
+  } = props;
   const { state, isRecordingActive, toggle } = useCataloguePlayback();
 
   const isFullActive = isRecordingActive(recordingId, "full");
   const isClipActive = isRecordingActive(recordingId, "clip");
+  const isInstrumentalActive = isRecordingActive(recordingId, "instrumental");
 
   const isFullLoading =
     isFullActive && state.status === "loading";
-
   const isClipLoading =
     isClipActive && state.status === "loading";
+  const isInstrumentalLoading =
+    isInstrumentalActive && state.status === "loading";
 
   const isFullPlaying =
     isFullActive && state.status === "playing";
-
   const isClipPlaying =
     isClipActive && state.status === "playing";
+  const isInstrumentalPlaying =
+    isInstrumentalActive && state.status === "playing";
 
   const isFullError =
     isFullActive && state.status === "error";
-
   const isClipError =
     isClipActive && state.status === "error";
+  const isInstrumentalError =
+    isInstrumentalActive && state.status === "error";
 
   const fullLabel = isFullPlaying
     ? "Pause"
@@ -46,6 +55,12 @@ export default function CataloguePreviewButton(props: Props) {
       ? "Retry"
       : "Clip";
 
+  const instrumentalLabel = isInstrumentalPlaying
+    ? "Pause"
+    : isInstrumentalError
+      ? "Retry"
+      : "Inst.";
+
   const fullAriaLabel = isFullLoading
     ? `Loading full track for ${recordingId}`
     : `${fullLabel} full track for ${recordingId}`;
@@ -53,6 +68,10 @@ export default function CataloguePreviewButton(props: Props) {
   const clipAriaLabel = isClipLoading
     ? `Loading 30 second clip for ${recordingId}`
     : `${clipLabel} 30 second clip for ${recordingId}`;
+
+  const instrumentalAriaLabel = isInstrumentalLoading
+    ? `Loading instrumental for ${recordingId}`
+    : `${instrumentalLabel} instrumental for ${recordingId}`;
 
   return (
     <div
@@ -113,6 +132,35 @@ export default function CataloguePreviewButton(props: Props) {
           {clipLabel}
         </span>
       </button>
+
+      {hasInstrumentalPlayback ? (
+        <button
+          type="button"
+          className={`${styles.previewButton} ${
+            styles.previewButtonSecondary
+          } ${
+            isInstrumentalPlaying ? styles.previewButtonActive : ""
+          } ${
+            isInstrumentalLoading ? styles.previewButtonLoading : ""
+          }`}
+          onClick={(event) => {
+            event.stopPropagation();
+            void toggle(recordingId, "instrumental");
+          }}
+          aria-label={instrumentalAriaLabel}
+          aria-busy={isInstrumentalLoading}
+        >
+          <span className={styles.previewButtonIcon}>
+            <span className={styles.previewButtonGlyph}>
+              {isInstrumentalPlaying ? "❚❚" : "◇"}
+            </span>
+          </span>
+
+          <span className={styles.previewButtonLabel}>
+            {instrumentalLabel}
+          </span>
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -48,6 +48,11 @@ export default function CatalogueEngagementAdmin(props: Props) {
       detail: null,
     },
     {
+      label: "Instrumental plays",
+      value: summary.totals.instrumentalPlays,
+      detail: null,
+    },
+    {
       label: "Shortlist adds",
       value: summary.totals.shortlistAdds,
       detail:
@@ -120,6 +125,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
                   <th scope="col">Opens</th>
                   <th scope="col">Full</th>
                   <th scope="col">Clips</th>
+                  <th scope="col">Inst.</th>
                   <th scope="col">Shortlists</th>
                 </tr>
               </thead>
@@ -139,6 +145,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
                     <td>{formatNumber(record.detailOpens)}</td>
                     <td>{formatNumber(record.fullPlays)}</td>
                     <td>{formatNumber(record.clipPlays)}</td>
+                    <td>{formatNumber(record.instrumentalPlays)}</td>
                     <td>{formatNumber(record.shortlistAdds)}</td>
                   </tr>
                 ))}

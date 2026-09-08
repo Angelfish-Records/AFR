@@ -53,23 +53,26 @@ function isAuthorizedCronRequest(
 }
 
 async function wereSnapshotsRefreshedRecently(): Promise<boolean> {
-  const [syncSnapshot, websiteSnapshot] =
+  const [syncSnapshot, playbackSnapshot, websiteSnapshot] =
     await Promise.all([
       readAirtableContentSnapshot(
         "sync_catalogue",
+      ),
+      readAirtableContentSnapshot(
+        "sync_catalogue_playback",
       ),
       readAirtableContentSnapshot(
         "website_catalogue",
       ),
     ]);
 
-  if (!syncSnapshot || !websiteSnapshot) {
+  if (!syncSnapshot || !playbackSnapshot || !websiteSnapshot) {
     return false;
   }
 
   const now = Date.now();
 
-  return [syncSnapshot, websiteSnapshot].every(
+  return [syncSnapshot, playbackSnapshot, websiteSnapshot].every(
     (snapshot) => {
       const refreshedAt =
         new Date(snapshot.refreshedAt).getTime();
@@ -150,6 +153,8 @@ export default async function handler(
       {
         syncItemCount:
           result.syncCatalogue.itemCount,
+        playbackItemCount:
+          result.syncCataloguePlayback.itemCount,
         websiteItemCount:
           result.websiteCatalogue.itemCount,
         airtablePageCount:

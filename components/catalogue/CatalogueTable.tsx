@@ -113,6 +113,7 @@ export default function CatalogueTable(props: Props) {
               <div className={styles.tablePreviewCell}>
                 <CataloguePreviewButton
                   recordingId={record.recordingId}
+                  hasInstrumentalPlayback={record.hasInstrumentalPlayback}
                   size="large"
                 />
               </div>

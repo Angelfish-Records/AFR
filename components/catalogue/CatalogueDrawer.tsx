@@ -261,6 +261,7 @@ export default function CatalogueDrawer(props: Props) {
                   recordingId={record.recordingId}
                   duration={record.duration}
                   previewStartSeconds={record.previewStartSeconds}
+                  hasInstrumentalPlayback={record.hasInstrumentalPlayback}
                 />
               </header>
 

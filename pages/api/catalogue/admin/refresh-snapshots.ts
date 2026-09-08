@@ -16,6 +16,10 @@ type RefreshResponse =
         airtablePageCount: number;
         refreshedAt: string;
       };
+      syncCataloguePlayback: {
+        itemCount: number;
+        refreshedAt: string;
+      };
       websiteCatalogue: {
         itemCount: number;
         airtablePageCount: number;

@@ -2,7 +2,10 @@ import crypto from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { importPKCS8, SignJWT } from "jose";
 import { touchCatalogueApiAttribution } from "@/lib/catalogue/access";
-import { getCatalogueRecordByRecordingId } from "@/lib/catalogue/queries";
+import {
+  getCataloguePlaybackEntryByRecordingId,
+  getCatalogueRecordByRecordingId,
+} from "@/lib/catalogue/queries";
 
 function mustEnv(...names: string[]): string {
   for (const name of names) {
@@ -44,7 +47,7 @@ function toPkcs8Pem(pem: string): string {
   }) as string;
 }
 
-function getTokenLifetimeSeconds(durationMs: number | null): number {
+function getTokenLifetimeSeconds(durationMs: number): number {
   const configuredRaw = Number(process.env.MUX_TOKEN_TTL_SECONDS ?? "900");
 
   const configuredSeconds =
@@ -52,31 +55,19 @@ function getTokenLifetimeSeconds(durationMs: number | null): number {
       ? Math.floor(configuredRaw)
       : 900;
 
-  const minimumSeconds =
-    typeof durationMs === "number" && durationMs > 0
-      ? Math.ceil(durationMs / 1000) + 60
-      : 0;
+  const minimumSeconds = Math.ceil(durationMs / 1000) + 60;
 
   return Math.max(configuredSeconds, minimumSeconds);
 }
 
-type ArtistPlaybackLookupResponse =
-  | {
-      ok: true;
-      playbackId: string;
-      durationMs: number | null;
-    }
-  | {
-      ok: false;
-      error: string;
-    };
+type PlaybackMode = "full" | "clip" | "instrumental";
 
 type PreviewOkResponse = {
   ok: true;
   playbackUrl: string;
   expiresAt: number;
-  clipStartSeconds: number;
-  clipLengthSeconds: number;
+  clipStartSeconds: number | null;
+  clipLengthSeconds: number | null;
 };
 
 type PreviewErrorResponse = {
@@ -85,6 +76,28 @@ type PreviewErrorResponse = {
 };
 
 type PreviewResponse = PreviewOkResponse | PreviewErrorResponse;
+
+function parsePlaybackMode(value: unknown): PlaybackMode | null {
+  if (value === undefined) {
+    return "full";
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  if (
+    normalized === "full" ||
+    normalized === "clip" ||
+    normalized === "instrumental"
+  ) {
+    return normalized;
+  }
+
+  return null;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -102,6 +115,7 @@ export default async function handler(
   await touchCatalogueApiAttribution(req);
 
   const recordingId = String(req.query.recordingId ?? "").trim();
+  const mode = parsePlaybackMode(req.query.mode);
 
   if (!recordingId) {
     res.status(400).json({
@@ -111,9 +125,19 @@ export default async function handler(
     return;
   }
 
+  if (!mode) {
+    res.status(400).json({
+      ok: false,
+      error: "Unsupported playback mode",
+    });
+    return;
+  }
+
   try {
-    const catalogueRecord =
-      await getCatalogueRecordByRecordingId(recordingId);
+    const [catalogueRecord, playbackEntry] = await Promise.all([
+      getCatalogueRecordByRecordingId(recordingId),
+      getCataloguePlaybackEntryByRecordingId(recordingId),
+    ]);
 
     if (!catalogueRecord) {
       res.status(404).json({
@@ -123,40 +147,26 @@ export default async function handler(
       return;
     }
 
-    const artistSiteBaseUrl = mustEnv("ARTIST_SITE_BASE_URL").replace(
-      /\/$/,
-      "",
-    );
-
-    const lookupResponse = await fetch(
-      `${artistSiteBaseUrl}/api/catalogue/playback/${encodeURIComponent(
-        recordingId,
-      )}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      },
-    );
-
-    const lookupPayload =
-      (await lookupResponse.json()) as ArtistPlaybackLookupResponse;
-
-    if (
-      !lookupResponse.ok ||
-      !lookupPayload.ok ||
-      !lookupPayload.playbackId.trim()
-    ) {
+    if (!playbackEntry) {
       res.status(404).json({
         ok: false,
-        error: "Playback ID not found",
+        error: "Playback metadata not found",
       });
       return;
     }
 
-    const playbackId = lookupPayload.playbackId.trim();
+    const playbackSource =
+      mode === "instrumental"
+        ? playbackEntry.instrumental
+        : playbackEntry.original;
+
+    if (!playbackSource) {
+      res.status(404).json({
+        ok: false,
+        error: "Instrumental playback not available",
+      });
+      return;
+    }
 
     const keyId = mustEnv("MUX_SIGNING_KEY_ID");
     const rawSigningKey = mustEnv("MUX_SIGNING_KEY_SECRET");
@@ -165,14 +175,14 @@ export default async function handler(
     const privateKey = await importPKCS8(pem, "RS256");
 
     const now = Math.floor(Date.now() / 1000);
-    const ttlSeconds = getTokenLifetimeSeconds(lookupPayload.durationMs);
+    const ttlSeconds = getTokenLifetimeSeconds(playbackSource.durationMs);
     const expiresAt = now + ttlSeconds;
 
     const playbackRestrictionId =
       process.env.MUX_PLAYBACK_RESTRICTION_ID?.trim() || undefined;
 
     const jwt = await new SignJWT({
-      sub: playbackId,
+      sub: playbackSource.playbackId,
       aud: "v",
       exp: expiresAt,
       ...(playbackRestrictionId
@@ -189,7 +199,7 @@ export default async function handler(
       .sign(privateKey);
 
     const playbackUrl =
-      `https://stream.mux.com/${playbackId}/audio.m4a` +
+      `https://stream.mux.com/${playbackSource.playbackId}/audio.m4a` +
       `?token=${encodeURIComponent(jwt)}`;
 
     res.setHeader("Cache-Control", "private, no-store");
@@ -198,12 +208,17 @@ export default async function handler(
       ok: true,
       playbackUrl,
       expiresAt,
-      clipStartSeconds: catalogueRecord.previewStartSeconds ?? 0,
-      clipLengthSeconds: 30,
+      clipStartSeconds:
+        mode === "instrumental"
+          ? null
+          : (catalogueRecord.previewStartSeconds ?? 0),
+      clipLengthSeconds:
+        mode === "instrumental" ? null : 30,
     });
   } catch (error) {
     console.error("[catalogue preview] Failed to generate signed playback URL", {
       recordingId,
+      mode,
       error,
     });
 
