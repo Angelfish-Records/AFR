@@ -87,15 +87,13 @@ export default function CatalogueTable(props: Props) {
               <div className={styles.tableTrackCell}>
                 <div className={styles.tableTrackTopLine}>
                   <span className={styles.tableRecordingId}>
-                    {record.recordingId}
+                    {record.workId}
                   </span>
                 </div>
 
                 <div className={styles.tableTrackTitle}>{record.title}</div>
 
-                <div className={styles.tableDetailHint}>
-                  Open detailed view
-                </div>
+                <div className={styles.tableDetailHint}>Open detailed view</div>
 
                 {record.artistName ? (
                   <div className={styles.tableTrackArtist}>
@@ -119,10 +117,7 @@ export default function CatalogueTable(props: Props) {
               </div>
 
               <div className={styles.tableRightsCell}>
-                <CatalogueReadinessPills
-                  record={record}
-                  mode="rights"
-                />
+                <CatalogueReadinessPills record={record} mode="rights" />
               </div>
 
               <div className={styles.tableDeliveryCell}>
@@ -133,9 +128,7 @@ export default function CatalogueTable(props: Props) {
                 />
               </div>
 
-              <div className={styles.tableCellMuted}>
-                {metaText || "—"}
-              </div>
+              <div className={styles.tableCellMuted}>{metaText || "—"}</div>
 
               <div className={styles.tableDurationCell}>
                 {record.duration ?? "—"}

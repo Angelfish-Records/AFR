@@ -15,12 +15,7 @@ function joinCompact(values: string[], maxItems: number): string {
 }
 
 export default function CatalogueGrid(props: Props) {
-  const {
-    records,
-    onSelect,
-    selectedRecordingIds,
-    onToggleSelected,
-  } = props;
+  const { records, onSelect, selectedRecordingIds, onToggleSelected } = props;
 
   return (
     <section className={styles.grid}>
@@ -54,9 +49,7 @@ export default function CatalogueGrid(props: Props) {
             <div className={styles.cardButton}>
               <div className={styles.cardBody}>
                 <div className={styles.cardTopRow}>
-                  <div className={styles.cardKicker}>
-                    {record.recordingId}
-                  </div>
+                  <div className={styles.cardKicker}>{record.workId}</div>
 
                   <div className={styles.cardTopActions}>
                     <div className={styles.cardMetaPill}>
@@ -70,9 +63,7 @@ export default function CatalogueGrid(props: Props) {
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() =>
-                          onToggleSelected(record.recordingId)
-                        }
+                        onChange={() => onToggleSelected(record.recordingId)}
                         aria-label={`${isSelected ? "Remove" : "Add"} ${
                           record.title
                         } ${isSelected ? "from" : "to"} shortlist`}
@@ -86,16 +77,11 @@ export default function CatalogueGrid(props: Props) {
                 <h2 className={styles.cardTitle}>{record.title}</h2>
 
                 {record.artistName ? (
-                  <div className={styles.cardArtist}>
-                    {record.artistName}
-                  </div>
+                  <div className={styles.cardArtist}>{record.artistName}</div>
                 ) : null}
 
                 <div className={styles.cardRightsRow}>
-                  <CatalogueReadinessPills
-                    record={record}
-                    mode="rights"
-                  />
+                  <CatalogueReadinessPills record={record} mode="rights" />
                 </div>
 
                 <div className={styles.cardDeliveryRow}>
@@ -107,9 +93,7 @@ export default function CatalogueGrid(props: Props) {
                 </div>
 
                 {record.shortLogline ? (
-                  <p className={styles.cardLogline}>
-                    {record.shortLogline}
-                  </p>
+                  <p className={styles.cardLogline}>{record.shortLogline}</p>
                 ) : null}
 
                 <div className={styles.cardFooter}>

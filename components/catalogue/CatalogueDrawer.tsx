@@ -67,10 +67,7 @@ export default function CatalogueDrawer(props: Props) {
   }, [recordingId, shareToken]);
 
   const optimisticTitle =
-    record?.title ??
-    summaryRecord?.title ??
-    recordingId ??
-    "Track detail";
+    record?.title ?? summaryRecord?.title ?? recordingId ?? "Track detail";
 
   return (
     <>
@@ -106,13 +103,9 @@ export default function CatalogueDrawer(props: Props) {
           {isLoading && summaryRecord ? (
             <div className={styles.drawerOptimistic}>
               <header className={styles.detailHero}>
-                <p className={styles.detailKicker}>
-                  {summaryRecord.recordingId}
-                </p>
+                <p className={styles.detailKicker}>{summaryRecord.workId}</p>
 
-                <h1 className={styles.detailTitle}>
-                  {summaryRecord.title}
-                </h1>
+                <h1 className={styles.detailTitle}>{summaryRecord.title}</h1>
 
                 {summaryRecord.artistName ? (
                   <p className={styles.detailArtist}>
@@ -157,10 +150,7 @@ export default function CatalogueDrawer(props: Props) {
                 <span>Loading full track details</span>
               </div>
 
-              <div
-                className={styles.drawerSkeleton}
-                aria-hidden="true"
-              >
+              <div className={styles.drawerSkeleton} aria-hidden="true">
                 <span />
                 <span />
                 <span />
@@ -188,13 +178,11 @@ export default function CatalogueDrawer(props: Props) {
               <header className={styles.detailHero}>
                 <div className={styles.detailHeroTopRow}>
                   <div>
-                    <p className={styles.detailKicker}>{record.recordingId}</p>
+                    <p className={styles.detailKicker}>{record.workId}</p>
                     <h1 className={styles.detailTitle}>{record.title}</h1>
 
                     {record.artistName ? (
-                      <p className={styles.detailArtist}>
-                        {record.artistName}
-                      </p>
+                      <p className={styles.detailArtist}>{record.artistName}</p>
                     ) : null}
                   </div>
 
@@ -236,10 +224,7 @@ export default function CatalogueDrawer(props: Props) {
                 </div>
 
                 <div className={styles.detailReadiness}>
-                  <CatalogueReadinessPills
-                    record={record}
-                    mode="rights"
-                  />
+                  <CatalogueReadinessPills record={record} mode="rights" />
 
                   <div className={styles.detailDelivery}>
                     <div className={styles.detailDeliveryLabel}>

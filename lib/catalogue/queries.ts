@@ -1,8 +1,5 @@
 // lib/catalogue/queries.ts
-import {
-  airtableGet,
-  getAirtableConfig,
-} from "@/lib/catalogue/airtable";
+import { airtableGet, getAirtableConfig } from "@/lib/catalogue/airtable";
 import { requireAirtableContentSnapshot } from "@/lib/catalogue/contentSnapshots";
 import { mapRecordingRecord } from "@/lib/catalogue/mappers";
 import type {
@@ -13,9 +10,7 @@ import type {
   RecordingAirtableFields,
 } from "@/lib/catalogue/types";
 
-type AirtableListResponse<
-  TFields extends AirtableRecordFields,
-> = {
+type AirtableListResponse<TFields extends AirtableRecordFields> = {
   records: Array<AirtableRecord<TFields>>;
   offset?: string;
 };
@@ -38,30 +33,18 @@ export type CatalogueAirtableFetchResult = {
   pageCount: number;
 };
 
-function compareRecordingIds(
-  left: string,
-  right: string,
-): number {
-  return left.localeCompare(
-    right,
-    undefined,
-    {
-      numeric: true,
-      sensitivity: "base",
-    },
-  );
+function compareRecordingIds(left: string, right: string): number {
+  return left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
 }
 
-function sortCatalogueRecords(
-  records: CatalogueRecord[],
-): CatalogueRecord[] {
+function sortCatalogueRecords(records: CatalogueRecord[]): CatalogueRecord[] {
   return records
     .slice()
     .sort((left, right) =>
-      compareRecordingIds(
-        left.recordingId,
-        right.recordingId,
-      ),
+      compareRecordingIds(left.recordingId, right.recordingId),
     );
 }
 
@@ -71,16 +54,11 @@ function sortPlaybackEntries(
   return entries
     .slice()
     .sort((left, right) =>
-      compareRecordingIds(
-        left.recordingId,
-        right.recordingId,
-      ),
+      compareRecordingIds(left.recordingId, right.recordingId),
     );
 }
 
-function asNonEmptyString(
-  value: AirtableCellValue,
-): string | null {
+function asNonEmptyString(value: AirtableCellValue): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -89,14 +67,8 @@ function asNonEmptyString(
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function asPositiveInteger(
-  value: AirtableCellValue,
-): number | null {
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value <= 0
-  ) {
+function asPositiveInteger(value: AirtableCellValue): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     return null;
   }
 
@@ -104,23 +76,18 @@ function asPositiveInteger(
   return rounded > 0 ? rounded : null;
 }
 
-function asLinkedRecordIds(
-  value: AirtableCellValue,
-): string[] {
+function asLinkedRecordIds(value: AirtableCellValue): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value.filter(
     (item): item is string =>
-      typeof item === "string" &&
-      /^rec[A-Za-z0-9]+$/.test(item),
+      typeof item === "string" && /^rec[A-Za-z0-9]+$/.test(item),
   );
 }
 
-function normalizeRecordingType(
-  value: AirtableCellValue,
-): string {
+function normalizeRecordingType(value: AirtableCellValue): string {
   return asNonEmptyString(value)?.toLowerCase() ?? "";
 }
 
@@ -128,15 +95,9 @@ function requirePlaybackSource(
   row: AirtableRecord<RecordingAirtableFields>,
   label: string,
 ): CataloguePlaybackSourceMetadata {
-  const recordingId = asNonEmptyString(
-    row.fields["Recording ID"],
-  );
-  const playbackId = asNonEmptyString(
-    row.fields["Mux Playback ID"],
-  );
-  const durationMs = asPositiveInteger(
-    row.fields["Mux Duration ms"],
-  );
+  const recordingId = asNonEmptyString(row.fields["Recording ID"]);
+  const playbackId = asNonEmptyString(row.fields["Mux Playback ID"]);
+  const durationMs = asPositiveInteger(row.fields["Mux Duration ms"]);
 
   if (!recordingId || !playbackId || durationMs === null) {
     throw new Error(
@@ -154,20 +115,14 @@ function requirePlaybackSource(
 function optionalInstrumentalPlaybackSource(
   row: AirtableRecord<RecordingAirtableFields>,
 ): CataloguePlaybackSourceMetadata | null {
-  const playbackId = asNonEmptyString(
-    row.fields["Mux Playback ID"],
-  );
+  const playbackId = asNonEmptyString(row.fields["Mux Playback ID"]);
 
   if (!playbackId) {
     return null;
   }
 
-  const recordingId = asNonEmptyString(
-    row.fields["Recording ID"],
-  );
-  const durationMs = asPositiveInteger(
-    row.fields["Mux Duration ms"],
-  );
+  const recordingId = asNonEmptyString(row.fields["Recording ID"]);
+  const durationMs = asPositiveInteger(row.fields["Mux Duration ms"]);
 
   if (!recordingId || durationMs === null) {
     throw new Error(
@@ -183,38 +138,27 @@ function optionalInstrumentalPlaybackSource(
 }
 
 async function listRecordingRowsFromAirtable(): Promise<{
-  rows: Array<
-    AirtableRecord<RecordingAirtableFields>
-  >;
+  rows: Array<AirtableRecord<RecordingAirtableFields>>;
   pageCount: number;
 }> {
-  const {
-    baseId,
-    recordingsTableId,
-    recordingsViewId,
-  } = getAirtableConfig();
+  const { baseId, recordingsTableId, recordingsViewId } = getAirtableConfig();
 
-  const accumulated: Array<
-    AirtableRecord<RecordingAirtableFields>
-  > = [];
+  const accumulated: Array<AirtableRecord<RecordingAirtableFields>> = [];
 
   let offset: string | undefined;
   let pageCount = 0;
 
   do {
-    const response =
-      await airtableGet<
-        AirtableListResponse<RecordingAirtableFields>
-      >({
-        path:
-          `${baseId}/` +
-          encodeURIComponent(recordingsTableId),
-        searchParams: {
-          view: recordingsViewId,
-          pageSize: "100",
-          ...(offset ? { offset } : {}),
-        },
-      });
+    const response = await airtableGet<
+      AirtableListResponse<RecordingAirtableFields>
+    >({
+      path: `${baseId}/` + encodeURIComponent(recordingsTableId),
+      searchParams: {
+        view: recordingsViewId,
+        pageSize: "100",
+        ...(offset ? { offset } : {}),
+      },
+    });
 
     pageCount += 1;
     accumulated.push(...response.records);
@@ -227,9 +171,7 @@ async function listRecordingRowsFromAirtable(): Promise<{
   };
 }
 
-async function listRecordingRowsByAirtableIds(
-  recordIds: string[],
-): Promise<{
+async function listRecordingRowsByAirtableIds(recordIds: string[]): Promise<{
   rows: Array<AirtableRecord<RecordingAirtableFields>>;
   pageCount: number;
 }> {
@@ -240,46 +182,33 @@ async function listRecordingRowsByAirtableIds(
     };
   }
 
-  const {
-    baseId,
-    recordingsTableId,
-  } = getAirtableConfig();
+  const { baseId, recordingsTableId } = getAirtableConfig();
 
-  const uniqueRecordIds = Array.from(
-    new Set(recordIds),
-  );
+  const uniqueRecordIds = Array.from(new Set(recordIds));
 
   const formula =
     uniqueRecordIds.length === 1
       ? `RECORD_ID()='${uniqueRecordIds[0]}'`
       : `OR(${uniqueRecordIds
-          .map(
-            (recordId) =>
-              `RECORD_ID()='${recordId}'`,
-          )
+          .map((recordId) => `RECORD_ID()='${recordId}'`)
           .join(",")})`;
 
-  const accumulated: Array<
-    AirtableRecord<RecordingAirtableFields>
-  > = [];
+  const accumulated: Array<AirtableRecord<RecordingAirtableFields>> = [];
 
   let offset: string | undefined;
   let pageCount = 0;
 
   do {
-    const response =
-      await airtableGet<
-        AirtableListResponse<RecordingAirtableFields>
-      >({
-        path:
-          `${baseId}/` +
-          encodeURIComponent(recordingsTableId),
-        searchParams: {
-          filterByFormula: formula,
-          pageSize: "100",
-          ...(offset ? { offset } : {}),
-        },
-      });
+    const response = await airtableGet<
+      AirtableListResponse<RecordingAirtableFields>
+    >({
+      path: `${baseId}/` + encodeURIComponent(recordingsTableId),
+      searchParams: {
+        filterByFormula: formula,
+        pageSize: "100",
+        ...(offset ? { offset } : {}),
+      },
+    });
 
     pageCount += 1;
     accumulated.push(...response.records);
@@ -299,30 +228,19 @@ async function listRecordingRowsByAirtableIds(
 }
 
 export async function fetchCatalogueRecordsFromAirtable(): Promise<CatalogueAirtableFetchResult> {
-  const canonicalResult =
-    await listRecordingRowsFromAirtable();
+  const canonicalResult = await listRecordingRowsFromAirtable();
 
   const familyRecordIds = Array.from(
     new Set(
       canonicalResult.rows.flatMap((row) =>
-        asLinkedRecordIds(
-          row.fields["Family Recordings"],
-        ),
+        asLinkedRecordIds(row.fields["Family Recordings"]),
       ),
     ),
   );
 
-  const familyResult =
-    await listRecordingRowsByAirtableIds(
-      familyRecordIds,
-    );
+  const familyResult = await listRecordingRowsByAirtableIds(familyRecordIds);
 
-  const familyById = new Map(
-    familyResult.rows.map((row) => [
-      row.id,
-      row,
-    ]),
-  );
+  const familyById = new Map(familyResult.rows.map((row) => [row.id, row]));
 
   const records: CatalogueRecord[] = [];
   const playback: CataloguePlaybackSnapshotEntry[] = [];
@@ -353,9 +271,7 @@ export async function fetchCatalogueRecordsFromAirtable(): Promise<CatalogueAirt
 
     const instrumentalRows = familyRows.filter(
       (row) =>
-        normalizeRecordingType(
-          row.fields["Recording Type"],
-        ) === "instrumental",
+        normalizeRecordingType(row.fields["Recording Type"]) === "instrumental",
     );
 
     if (instrumentalRows.length > 1) {
@@ -364,22 +280,16 @@ export async function fetchCatalogueRecordsFromAirtable(): Promise<CatalogueAirt
       );
     }
 
-    const original = requirePlaybackSource(
-      canonicalRow,
-      "Original recording",
-    );
+    const original = requirePlaybackSource(canonicalRow, "Original recording");
 
     const instrumental =
       instrumentalRows.length === 1
-        ? optionalInstrumentalPlaybackSource(
-            instrumentalRows[0],
-          )
+        ? optionalInstrumentalPlaybackSource(instrumentalRows[0])
         : null;
 
     records.push({
       ...mapped,
-      hasInstrumentalPlayback:
-        instrumental !== null,
+      hasInstrumentalPlayback: instrumental !== null,
     });
 
     playback.push({
@@ -392,58 +302,37 @@ export async function fetchCatalogueRecordsFromAirtable(): Promise<CatalogueAirt
   return {
     records: sortCatalogueRecords(records),
     playback: sortPlaybackEntries(playback),
-    pageCount:
-      canonicalResult.pageCount +
-      familyResult.pageCount,
+    pageCount: canonicalResult.pageCount + familyResult.pageCount,
   };
 }
 
-function isObject(
-  value: unknown,
-): value is Record<string, unknown> {
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isStringArray(value: unknown): value is string[] {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
+    Array.isArray(value) && value.every((item) => typeof item === "string")
   );
 }
 
-function isNullableString(
-  value: unknown,
-): value is string | null {
+function isNullableFiniteNumber(value: unknown): value is number | null {
   return (
-    value === null ||
-    typeof value === "string"
+    value === null || (typeof value === "number" && Number.isFinite(value))
   );
 }
 
-function isStringArray(
-  value: unknown,
-): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) => typeof item === "string",
-    )
-  );
-}
-
-function isNullableFiniteNumber(
-  value: unknown,
-): value is number | null {
-  return (
-    value === null ||
-    (
-      typeof value === "number" &&
-      Number.isFinite(value)
-    )
-  );
-}
-
-type SnapshotCatalogueRecord =
-  Omit<CatalogueRecord, "hasInstrumentalPlayback"> & {
-    hasInstrumentalPlayback?: boolean;
-  };
+type SnapshotCatalogueRecord = Omit<
+  CatalogueRecord,
+  "hasInstrumentalPlayback" | "workId"
+> & {
+  workId?: string;
+  hasInstrumentalPlayback?: boolean;
+};
 
 function isCatalogueRecordShape(
   value: unknown,
@@ -455,25 +344,19 @@ function isCatalogueRecordShape(
   return (
     typeof value.id === "string" &&
     typeof value.recordingId === "string" &&
+    (value.workId === undefined ||
+      (typeof value.workId === "string" && value.workId.trim().length > 0)) &&
     typeof value.title === "string" &&
     isNullableString(value.artistName) &&
-    isNullableString(
-      value.syncReadinessSummary,
-    ) &&
+    isNullableString(value.syncReadinessSummary) &&
     isNullableString(value.recordingType) &&
     isNullableString(value.oneStopStatus) &&
     isNullableString(value.explicitFlag) &&
-    isStringArray(
-      value.familyRecordingTypes,
-    ) &&
+    isStringArray(value.familyRecordingTypes) &&
     isNullableString(value.stemsAvailable) &&
-    isNullableString(
-      value.sampleClearanceStatus,
-    ) &&
+    isNullableString(value.sampleClearanceStatus) &&
     isNullableString(value.rightsCoverage) &&
-    isNullableString(
-      value.releaseDateCurrent,
-    ) &&
+    isNullableString(value.releaseDateCurrent) &&
     isNullableString(value.isrc) &&
     isNullableString(value.masterOwner) &&
     isNullableString(value.duration) &&
@@ -484,21 +367,13 @@ function isCatalogueRecordShape(
     isStringArray(value.genreLabels) &&
     isStringArray(value.moodTags) &&
     isNullableString(value.shortLogline) &&
-    isNullableString(
-      value.rightsAdministrator,
-    ) &&
+    isNullableString(value.rightsAdministrator) &&
     isNullableString(value.lastReviewed) &&
     isNullableString(value.lyricsPdfLink) &&
-    isNullableString(
-      value.chainOfTitlePdfLink,
-    ) &&
-    isNullableFiniteNumber(
-      value.previewStartSeconds,
-    ) &&
-    (
-      value.hasInstrumentalPlayback === undefined ||
-      typeof value.hasInstrumentalPlayback === "boolean"
-    )
+    isNullableString(value.chainOfTitlePdfLink) &&
+    isNullableFiniteNumber(value.previewStartSeconds) &&
+    (value.hasInstrumentalPlayback === undefined ||
+      typeof value.hasInstrumentalPlayback === "boolean")
   );
 }
 
@@ -507,21 +382,17 @@ function normalizeCatalogueRecord(
 ): CatalogueRecord {
   return {
     ...value,
-    hasInstrumentalPlayback:
-      value.hasInstrumentalPlayback === true,
+    workId:
+      typeof value.workId === "string" && value.workId.trim().length > 0
+        ? value.workId.trim()
+        : value.recordingId,
+    hasInstrumentalPlayback: value.hasInstrumentalPlayback === true,
   };
 }
 
-function parseCatalogueSnapshotPayload(
-  payload: unknown,
-): CatalogueRecord[] {
-  if (
-    !Array.isArray(payload) ||
-    !payload.every(isCatalogueRecordShape)
-  ) {
-    throw new Error(
-      "Sync catalogue snapshot payload is invalid",
-    );
+function parseCatalogueSnapshotPayload(payload: unknown): CatalogueRecord[] {
+  if (!Array.isArray(payload) || !payload.every(isCatalogueRecordShape)) {
+    throw new Error("Sync catalogue snapshot payload is invalid");
   }
 
   return payload.map(normalizeCatalogueRecord);
@@ -550,45 +421,28 @@ function isPlaybackSnapshotEntry(
     typeof value.recordingId === "string" &&
     value.recordingId.length > 0 &&
     isPlaybackSourceMetadata(value.original) &&
-    (
-      value.instrumental === null ||
-      isPlaybackSourceMetadata(
-        value.instrumental,
-      )
-    )
+    (value.instrumental === null ||
+      isPlaybackSourceMetadata(value.instrumental))
   );
 }
 
 function parsePlaybackSnapshotPayload(
   payload: unknown,
 ): CataloguePlaybackSnapshotEntry[] {
-  if (
-    !Array.isArray(payload) ||
-    !payload.every(isPlaybackSnapshotEntry)
-  ) {
-    throw new Error(
-      "Sync catalogue playback snapshot payload is invalid",
-    );
+  if (!Array.isArray(payload) || !payload.every(isPlaybackSnapshotEntry)) {
+    throw new Error("Sync catalogue playback snapshot payload is invalid");
   }
 
   return sortPlaybackEntries(payload);
 }
 
 export async function listCatalogueRecords(): Promise<CatalogueRecord[]> {
-  const snapshot =
-    await requireAirtableContentSnapshot(
-      "sync_catalogue",
-    );
+  const snapshot = await requireAirtableContentSnapshot("sync_catalogue");
 
-  const records =
-    parseCatalogueSnapshotPayload(
-      snapshot.payload,
-    );
+  const records = parseCatalogueSnapshotPayload(snapshot.payload);
 
   if (snapshot.itemCount !== records.length) {
-    throw new Error(
-      "Sync catalogue snapshot count does not match its payload",
-    );
+    throw new Error("Sync catalogue snapshot count does not match its payload");
   }
 
   return sortCatalogueRecords(records);
@@ -597,35 +451,28 @@ export async function listCatalogueRecords(): Promise<CatalogueRecord[]> {
 export async function getCatalogueRecordByRecordingId(
   recordingId: string,
 ): Promise<CatalogueRecord | null> {
-  const normalizedRecordingId =
-    recordingId.trim();
+  const normalizedRecordingId = recordingId.trim();
 
   if (!normalizedRecordingId) {
     return null;
   }
 
-  const records =
-    await listCatalogueRecords();
+  const records = await listCatalogueRecords();
 
   return (
-    records.find(
-      (record) =>
-        record.recordingId ===
-        normalizedRecordingId,
-    ) ?? null
+    records.find((record) => record.recordingId === normalizedRecordingId) ??
+    null
   );
 }
 
-export async function listCataloguePlaybackEntries(): Promise<CataloguePlaybackSnapshotEntry[]> {
-  const snapshot =
-    await requireAirtableContentSnapshot(
-      "sync_catalogue_playback",
-    );
+export async function listCataloguePlaybackEntries(): Promise<
+  CataloguePlaybackSnapshotEntry[]
+> {
+  const snapshot = await requireAirtableContentSnapshot(
+    "sync_catalogue_playback",
+  );
 
-  const entries =
-    parsePlaybackSnapshotPayload(
-      snapshot.payload,
-    );
+  const entries = parsePlaybackSnapshotPayload(snapshot.payload);
 
   if (snapshot.itemCount !== entries.length) {
     throw new Error(
@@ -639,20 +486,15 @@ export async function listCataloguePlaybackEntries(): Promise<CataloguePlaybackS
 export async function getCataloguePlaybackEntryByRecordingId(
   recordingId: string,
 ): Promise<CataloguePlaybackSnapshotEntry | null> {
-  const normalizedRecordingId =
-    recordingId.trim();
+  const normalizedRecordingId = recordingId.trim();
 
   if (!normalizedRecordingId) {
     return null;
   }
 
-  const entries =
-    await listCataloguePlaybackEntries();
+  const entries = await listCataloguePlaybackEntries();
 
   return (
-    entries.find(
-      (entry) =>
-        entry.recordingId === normalizedRecordingId,
-    ) ?? null
+    entries.find((entry) => entry.recordingId === normalizedRecordingId) ?? null
   );
 }

@@ -1,4 +1,7 @@
-import type { CatalogueRecord, CatalogueRecordListItem } from "@/lib/catalogue/types";
+import type {
+  CatalogueRecord,
+  CatalogueRecordListItem,
+} from "@/lib/catalogue/types";
 
 export type CatalogueListResponse = {
   records: CatalogueRecordListItem[];
@@ -15,6 +18,7 @@ export function toCatalogueListItem(
   return {
     id: record.id,
     recordingId: record.recordingId,
+    workId: record.workId,
     title: record.title,
     artistName: record.artistName,
     syncReadinessSummary: record.syncReadinessSummary,

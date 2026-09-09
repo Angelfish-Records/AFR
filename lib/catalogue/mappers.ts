@@ -141,6 +141,7 @@ export function mapRecordingRecord(
     "Recording ID",
     record.id,
   );
+  const workId = requireString(fields["Work ID"], "Work ID", record.id);
   const title = requireString(
     fields["Recording Title (Display)"],
     "Recording Title (Display)",
@@ -156,6 +157,7 @@ export function mapRecordingRecord(
   return {
     id: record.id,
     recordingId,
+    workId,
     title,
     artistName: asJoinedString(fields["Artist (Derived)"]),
     syncReadinessSummary: asString(fields["Sync Readiness Summary"]),
