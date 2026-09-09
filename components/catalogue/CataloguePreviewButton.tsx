@@ -88,7 +88,7 @@ export default function CataloguePreviewButton(props: Props) {
           >
             <span className={styles.previewButtonIcon}>
               <span className={styles.previewButtonGlyph}>
-                {isInstrumentalPlaying ? "❚❚" : "◇"}
+                {isInstrumentalPlaying ? "❚❚" : "▶"}
               </span>
             </span>
 
@@ -136,7 +136,7 @@ export default function CataloguePreviewButton(props: Props) {
       >
         <span className={styles.previewButtonIcon}>
           <span className={styles.previewButtonGlyph}>
-            {isFullPlaying ? "❚❚" : "▶"}
+            {isFullPlaying ? "❚❚" : "▷"}
           </span>
         </span>
 
