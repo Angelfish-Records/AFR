@@ -21,8 +21,7 @@ function mustEnv(...names: string[]): string {
 
 function normalizePemMaybe(input: string): string {
   const raw = input.trim();
-  const looksLikePem =
-    raw.includes("-----BEGIN ") && raw.includes("-----END ");
+  const looksLikePem = raw.includes("-----BEGIN ") && raw.includes("-----END ");
 
   if (looksLikePem) {
     return raw.replace(/\\n/g, "\n");
@@ -156,9 +155,7 @@ export default async function handler(
     }
 
     const playbackSource =
-      mode === "instrumental"
-        ? playbackEntry.instrumental
-        : playbackEntry.original;
+      mode === "full" ? playbackEntry.original : playbackEntry.instrumental;
 
     if (!playbackSource) {
       res.status(404).json({
@@ -209,18 +206,18 @@ export default async function handler(
       playbackUrl,
       expiresAt,
       clipStartSeconds:
-        mode === "instrumental"
-          ? null
-          : (catalogueRecord.previewStartSeconds ?? 0),
-      clipLengthSeconds:
-        mode === "instrumental" ? null : 30,
+        mode === "clip" ? (catalogueRecord.previewStartSeconds ?? 0) : null,
+      clipLengthSeconds: mode === "clip" ? 30 : null,
     });
   } catch (error) {
-    console.error("[catalogue preview] Failed to generate signed playback URL", {
-      recordingId,
-      mode,
-      error,
-    });
+    console.error(
+      "[catalogue preview] Failed to generate signed playback URL",
+      {
+        recordingId,
+        mode,
+        error,
+      },
+    );
 
     res.status(500).json({
       ok: false,

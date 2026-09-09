@@ -22,38 +22,27 @@ export default function CataloguePreviewButton(props: Props) {
   const isClipActive = isRecordingActive(recordingId, "clip");
   const isInstrumentalActive = isRecordingActive(recordingId, "instrumental");
 
-  const isFullLoading =
-    isFullActive && state.status === "loading";
-  const isClipLoading =
-    isClipActive && state.status === "loading";
+  const isFullLoading = isFullActive && state.status === "loading";
+  const isClipLoading = isClipActive && state.status === "loading";
   const isInstrumentalLoading =
     isInstrumentalActive && state.status === "loading";
 
-  const isFullPlaying =
-    isFullActive && state.status === "playing";
-  const isClipPlaying =
-    isClipActive && state.status === "playing";
+  const isFullPlaying = isFullActive && state.status === "playing";
+  const isClipPlaying = isClipActive && state.status === "playing";
   const isInstrumentalPlaying =
     isInstrumentalActive && state.status === "playing";
 
-  const isFullError =
-    isFullActive && state.status === "error";
-  const isClipError =
-    isClipActive && state.status === "error";
-  const isInstrumentalError =
-    isInstrumentalActive && state.status === "error";
+  const isFullError = isFullActive && state.status === "error";
+  const isClipError = isClipActive && state.status === "error";
+  const isInstrumentalError = isInstrumentalActive && state.status === "error";
 
   const fullLabel = isFullPlaying
     ? "Pause"
     : isFullError
       ? "Retry"
-      : "Full";
+      : "Original";
 
-  const clipLabel = isClipPlaying
-    ? "Pause"
-    : isClipError
-      ? "Retry"
-      : "Clip";
+  const clipLabel = isClipPlaying ? "Pause" : isClipError ? "Retry" : "Clip";
 
   const instrumentalLabel = isInstrumentalPlaying
     ? "Pause"
@@ -62,12 +51,16 @@ export default function CataloguePreviewButton(props: Props) {
       : "Inst.";
 
   const fullAriaLabel = isFullLoading
-    ? `Loading full track for ${recordingId}`
-    : `${fullLabel} full track for ${recordingId}`;
+    ? `Loading original for ${recordingId}`
+    : `${
+        isFullPlaying ? "Pause" : isFullError ? "Retry" : "Play"
+      } original for ${recordingId}`;
 
   const clipAriaLabel = isClipLoading
-    ? `Loading 30 second clip for ${recordingId}`
-    : `${clipLabel} 30 second clip for ${recordingId}`;
+    ? `Loading 30 second instrumental clip for ${recordingId}`
+    : `${
+        isClipPlaying ? "Pause" : isClipError ? "Retry" : "Play"
+      } 30 second instrumental clip for ${recordingId}`;
 
   const instrumentalAriaLabel = isInstrumentalLoading
     ? `Loading instrumental for ${recordingId}`
@@ -76,18 +69,64 @@ export default function CataloguePreviewButton(props: Props) {
   return (
     <div
       className={`${styles.previewButtonGroup} ${
-        size === "large"
-          ? styles.previewButtonGroupLarge
-          : ""
+        size === "large" ? styles.previewButtonGroupLarge : ""
       }`}
     >
+      {hasInstrumentalPlayback ? (
+        <>
+          <button
+            type="button"
+            className={`${styles.previewButton} ${
+              isInstrumentalPlaying ? styles.previewButtonActive : ""
+            } ${isInstrumentalLoading ? styles.previewButtonLoading : ""}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              void toggle(recordingId, "instrumental");
+            }}
+            aria-label={instrumentalAriaLabel}
+            aria-busy={isInstrumentalLoading}
+          >
+            <span className={styles.previewButtonIcon}>
+              <span className={styles.previewButtonGlyph}>
+                {isInstrumentalPlaying ? "❚❚" : "◇"}
+              </span>
+            </span>
+
+            <span className={styles.previewButtonLabel}>
+              {instrumentalLabel}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.previewButton} ${
+              styles.previewButtonSecondary
+            } ${isClipPlaying ? styles.previewButtonActive : ""} ${
+              isClipLoading ? styles.previewButtonLoading : ""
+            }`}
+            onClick={(event) => {
+              event.stopPropagation();
+              void toggle(recordingId, "clip");
+            }}
+            aria-label={clipAriaLabel}
+            aria-busy={isClipLoading}
+          >
+            <span className={styles.previewButtonIcon}>
+              <span className={styles.previewButtonGlyph}>
+                {isClipPlaying ? "❚❚" : "✦"}
+              </span>
+            </span>
+
+            <span className={styles.previewButtonLabel}>{clipLabel}</span>
+          </button>
+        </>
+      ) : null}
+
       <button
         type="button"
-        className={`${styles.previewButton} ${
+        className={`${styles.previewButton} ${styles.previewButtonSecondary} ${
           isFullPlaying ? styles.previewButtonActive : ""
-        } ${
-          isFullLoading ? styles.previewButtonLoading : ""
-        }`}
+        } ${isFullLoading ? styles.previewButtonLoading : ""}`}
         onClick={(event) => {
           event.stopPropagation();
           void toggle(recordingId, "full");
@@ -101,66 +140,8 @@ export default function CataloguePreviewButton(props: Props) {
           </span>
         </span>
 
-        <span className={styles.previewButtonLabel}>
-          {fullLabel}
-        </span>
+        <span className={styles.previewButtonLabel}>{fullLabel}</span>
       </button>
-
-      <button
-        type="button"
-        className={`${styles.previewButton} ${
-          styles.previewButtonSecondary
-        } ${
-          isClipPlaying ? styles.previewButtonActive : ""
-        } ${
-          isClipLoading ? styles.previewButtonLoading : ""
-        }`}
-        onClick={(event) => {
-          event.stopPropagation();
-          void toggle(recordingId, "clip");
-        }}
-        aria-label={clipAriaLabel}
-        aria-busy={isClipLoading}
-      >
-        <span className={styles.previewButtonIcon}>
-          <span className={styles.previewButtonGlyph}>
-            {isClipPlaying ? "❚❚" : "✦"}
-          </span>
-        </span>
-
-        <span className={styles.previewButtonLabel}>
-          {clipLabel}
-        </span>
-      </button>
-
-      {hasInstrumentalPlayback ? (
-        <button
-          type="button"
-          className={`${styles.previewButton} ${
-            styles.previewButtonSecondary
-          } ${
-            isInstrumentalPlaying ? styles.previewButtonActive : ""
-          } ${
-            isInstrumentalLoading ? styles.previewButtonLoading : ""
-          }`}
-          onClick={(event) => {
-            event.stopPropagation();
-            void toggle(recordingId, "instrumental");
-          }}
-          aria-label={instrumentalAriaLabel}
-          aria-busy={isInstrumentalLoading}
-        >
-          <span className={styles.previewButtonIcon}>
-            <span className={styles.previewButtonGlyph}>
-              {isInstrumentalPlaying ? "❚❚" : "◇"}
-            </span>
-          </span>
-
-          <span className={styles.previewButtonLabel}>
-            {instrumentalLabel}
-          </span>
-        </button>
-      ) : null}
     </div>
   );
 }

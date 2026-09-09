@@ -30,8 +30,7 @@ export default function CataloguePlaybackTransport(props: Props) {
 
   const isActive = state.activeRecordingId === recordingId;
   const currentTime = isActive ? state.currentTimeSeconds : 0;
-  const isInstrumentalActive =
-    isActive && state.activeMode === "instrumental";
+  const isClipActive = isActive && state.activeMode === "clip";
   const durationSeconds =
     isActive && state.durationSeconds !== null ? state.durationSeconds : null;
 
@@ -147,9 +146,9 @@ export default function CataloguePlaybackTransport(props: Props) {
       : 0;
 
   const clipStartPercent =
+    isClipActive &&
     durationSeconds &&
     durationSeconds > 0 &&
-    !isInstrumentalActive &&
     previewStartSeconds !== null &&
     previewStartSeconds >= 0
       ? Math.min(100, (previewStartSeconds / durationSeconds) * 100)
@@ -175,10 +174,10 @@ export default function CataloguePlaybackTransport(props: Props) {
         ? (state.errorMessage ?? "Playback failed")
         : state.status === "playing"
           ? state.activeMode === "clip"
-            ? "Playing preview clip"
+            ? "Playing instrumental clip"
             : state.activeMode === "instrumental"
               ? "Playing instrumental"
-              : "Playing full track"
+              : "Playing original"
           : state.status === "paused"
             ? "Paused"
             : "Ready"
@@ -245,9 +244,9 @@ export default function CataloguePlaybackTransport(props: Props) {
         />
       </div>
 
-      {previewStartSeconds !== null && !isInstrumentalActive ? (
+      {previewStartSeconds !== null && hasInstrumentalPlayback ? (
         <div className={styles.transportFootnote}>
-          Clip starts at {formatSeconds(previewStartSeconds)}.
+          Instrumental clip starts at {formatSeconds(previewStartSeconds)}.
         </div>
       ) : null}
     </div>

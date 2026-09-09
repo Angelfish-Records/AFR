@@ -53,10 +53,7 @@ const CataloguePlaybackContext =
 
 type ProviderProps = {
   accessToken?: string | null;
-  onPlaybackStart?: (
-    recordingId: string,
-    mode: PlaybackMode,
-  ) => void;
+  onPlaybackStart?: (recordingId: string, mode: PlaybackMode) => void;
   children: React.ReactNode;
 };
 
@@ -87,7 +84,7 @@ function hasUsableMediaSource(audio: HTMLAudioElement): boolean {
 }
 
 function sourceKindForMode(mode: PlaybackMode): PlaybackSourceKind {
-  return mode === "instrumental" ? "instrumental" : "original";
+  return mode === "full" ? "original" : "instrumental";
 }
 
 function sourceCacheKey(
@@ -98,11 +95,7 @@ function sourceCacheKey(
 }
 
 export function CataloguePlaybackProvider(props: ProviderProps) {
-  const {
-    accessToken = null,
-    onPlaybackStart,
-    children,
-  } = props;
+  const { accessToken = null, onPlaybackStart, children } = props;
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const sourceCacheRef = React.useRef<Map<string, PlaybackSource>>(new Map());
@@ -164,20 +157,34 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
   const fetchSource = React.useCallback(
     async (
       recordingId: string,
-      sourceKind: PlaybackSourceKind,
+      mode: PlaybackMode,
     ): Promise<PlaybackSource> => {
+      const sourceKind = sourceKindForMode(mode);
       const cacheKey = sourceCacheKey(recordingId, sourceKind);
       const cached = sourceCacheRef.current.get(cacheKey);
       const now = Math.floor(Date.now() / 1000);
+      const cachedHasClipTiming =
+        cached?.clipStartSeconds !== null &&
+        cached?.clipStartSeconds !== undefined &&
+        cached.clipLengthSeconds !== null &&
+        cached.clipLengthSeconds !== undefined;
 
-      if (cached && cached.expiresAt > now + 20) {
+      if (
+        cached &&
+        cached.expiresAt > now + 20 &&
+        (mode !== "clip" || cachedHasClipTiming)
+      ) {
         return cached;
       }
 
       const params = new URLSearchParams();
       params.set(
         "mode",
-        sourceKind === "instrumental" ? "instrumental" : "full",
+        mode === "clip"
+          ? "clip"
+          : sourceKind === "instrumental"
+            ? "instrumental"
+            : "full",
       );
 
       if (accessToken) {
@@ -263,7 +270,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
       }));
 
       try {
-        const source = await fetchSource(recordingId, sourceKind);
+        const source = await fetchSource(recordingId, mode);
 
         const attachedSource = attachedSourceRef.current;
         const hasSameAttachedSource =
@@ -291,8 +298,7 @@ export function CataloguePlaybackProvider(props: ProviderProps) {
           }
 
           clipStartSeconds = source.clipStartSeconds;
-          clipEndSeconds =
-            source.clipStartSeconds + source.clipLengthSeconds;
+          clipEndSeconds = source.clipStartSeconds + source.clipLengthSeconds;
           audio.currentTime = clipStartSeconds;
         } else if (!isPausedSameTarget) {
           audio.currentTime = 0;

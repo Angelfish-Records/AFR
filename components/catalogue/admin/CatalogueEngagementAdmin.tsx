@@ -24,8 +24,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
     {
       label: "Sessions",
       value: summary.totals.sessions,
-      detail:
-        formatNumber(summary.totals.attributedSessions) + " attributed",
+      detail: formatNumber(summary.totals.attributedSessions) + " attributed",
     },
     {
       label: "Catalogue opens",
@@ -38,7 +37,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
       detail: null,
     },
     {
-      label: "Full plays",
+      label: "Original plays",
       value: summary.totals.fullPlays,
       detail: null,
     },
@@ -55,8 +54,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
     {
       label: "Shortlist adds",
       value: summary.totals.shortlistAdds,
-      detail:
-        formatNumber(summary.totals.shortlistRemoves) + " removed",
+      detail: formatNumber(summary.totals.shortlistRemoves) + " removed",
     },
     {
       label: "Licence form opens",
@@ -66,8 +64,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
     {
       label: "Enquiries",
       value: summary.totals.enquiries,
-      detail:
-        formatNumber(summary.totals.attributedEnquiries) + " attributed",
+      detail: formatNumber(summary.totals.attributedEnquiries) + " attributed",
     },
   ];
 
@@ -123,7 +120,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
                 <tr>
                   <th scope="col">Recording</th>
                   <th scope="col">Opens</th>
-                  <th scope="col">Full</th>
+                  <th scope="col">Original</th>
                   <th scope="col">Clips</th>
                   <th scope="col">Inst.</th>
                   <th scope="col">Shortlists</th>
@@ -135,9 +132,7 @@ export default function CatalogueEngagementAdmin(props: Props) {
                   <tr key={record.recordingId}>
                     <td>
                       <div className={styles.recordingIdentity}>
-                        <strong>
-                          {record.title ?? record.recordingId}
-                        </strong>
+                        <strong>{record.title ?? record.recordingId}</strong>
                         <span>{record.recordingId}</span>
                       </div>
                     </td>
@@ -190,14 +185,10 @@ export default function CatalogueEngagementAdmin(props: Props) {
                     share.label ??
                     "Attributed catalogue link";
 
-                  const detail = [
-                    share.recipientEmail,
-                    share.label,
-                  ]
+                  const detail = [share.recipientEmail, share.label]
                     .filter(
                       (value): value is string =>
-                        typeof value === "string" &&
-                        value.trim().length > 0,
+                        typeof value === "string" && value.trim().length > 0,
                     )
                     .join(" · ");
 
